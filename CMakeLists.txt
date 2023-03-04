@@ -10,3 +10,6 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(location_sample)
 
 zephyr_library_sources(src/main.c)
+
+target_sources(app PRIVATE src/location.c)
+target_sources(app PRIVATE src/location.h)
