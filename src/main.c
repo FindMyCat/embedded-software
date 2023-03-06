@@ -12,6 +12,7 @@
 #include <date_time.h>
 
 #include "location.h"
+#include "./mqtt/mqtt.h"
 
 static K_SEM_DEFINE(lte_connected, 0, 1);
 
@@ -36,6 +37,7 @@ static void lte_event_handler(const struct lte_lc_evt *const evt)
 		break;
 	}
 }
+
 
 int main(void)
 {
@@ -77,7 +79,17 @@ int main(void)
 		return -1;
 	}
 
-	location_gnss_periodic_get(10);
+	// location_gnss_low_accuracy_get();
+
+	printk("Setting EDRX mode");
+	
+	/** enhanced Discontinuous Reception */
+	err = lte_lc_edrx_req(true);
+	if (err) {
+		printk("lte_lc_edrx_req, error: %d\n", err);
+	}
+
+	mqtt_main();
 
 	return 0;
 }
