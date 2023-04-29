@@ -1,14 +1,17 @@
 #include "location.h"
 #include <zephyr/kernel.h>
 #include <modem/location.h>
+#include <zephyr/logging/log.h>
 
 K_SEM_DEFINE(location_event, 0, 1);
+
+LOG_MODULE_REGISTER(gnss, 4);
 
 void location_event_handler(const struct location_event_data *event_data)
 {
 	switch (event_data->id) {
 	case LOCATION_EVT_LOCATION:
-		printk("Got location:\n");
+		LOG_INF("Got location:\n");
 		printk("  method: %s\n", location_method_str(event_data->method));
 		printk("  latitude: %.06f\n", event_data->location.latitude);
 		printk("  longitude: %.06f\n", event_data->location.longitude);
@@ -29,23 +32,23 @@ void location_event_handler(const struct location_event_data *event_data)
 		break;
 
 	case LOCATION_EVT_TIMEOUT:
-		printk("Getting location timed out\n\n");
+		LOG_ERR("Getting location timed out\n\n");
 		break;
 
 	case LOCATION_EVT_ERROR:
-		printk("Getting location failed\n\n");
+		LOG_ERR("Getting location failed\n\n");
 		break;
 
 	case LOCATION_EVT_GNSS_ASSISTANCE_REQUEST:
-		printk("Getting location assistance requested (A-GPS). Not doing anything.\n\n");
+		LOG_INF("Getting location assistance requested (A-GPS). Not doing anything.\n\n");
 		break;
 
 	case LOCATION_EVT_GNSS_PREDICTION_REQUEST:
-		printk("Getting location assistance requested (P-GPS). Not doing anything.\n\n");
+		LOG_INF("Getting location assistance requested (P-GPS). Not doing anything.\n\n");
 		break;
 
 	default:
-		printk("Getting location: Unknown event\n\n");
+		LOG_INF("Getting location: Unknown event\n\n");
 		break;
 	}
 
@@ -75,11 +78,11 @@ void location_with_fallback_get(void)
 	/* Default cellular configuration may be overridden here. */
 	config.methods[1].cellular.timeout = 40 * MSEC_PER_SEC;
 
-	printk("Requesting location with short GNSS timeout to trigger fallback to cellular...\n");
+	LOG_INF("Requesting location with short GNSS timeout to trigger fallback to cellular...\n");
 
 	err = location_request(&config);
 	if (err) {
-		printk("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d\n", err);
 		return;
 	}
 
@@ -95,11 +98,11 @@ void location_default_get(void)
 {
 	int err;
 
-	printk("Requesting location with the default configuration...\n");
+	LOG_INF("Requesting location with the default configuration...\n");
 
 	err = location_request(NULL);
 	if (err) {
-		printk("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d\n", err);
 		return;
 	}
 
@@ -118,11 +121,11 @@ void location_gnss_low_accuracy_get(void)
 	location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
 	config.methods[0].gnss.accuracy = LOCATION_ACCURACY_LOW;
 
-	printk("Requesting low accuracy GNSS location...\n");
+	LOG_INF("Requesting low accuracy GNSS location...\n");
 
 	err = location_request(&config);
 	if (err) {
-		printk("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d\n", err);
 		return;
 	}
 
@@ -141,11 +144,11 @@ void location_gnss_high_accuracy_get(void)
 	location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
 	config.methods[0].gnss.accuracy = LOCATION_ACCURACY_HIGH;
 
-	printk("Requesting high accuracy GNSS location...\n");
+	LOG_INF("Requesting high accuracy GNSS location...\n");
 
 	err = location_request(&config);
 	if (err) {
-		printk("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d\n", err);
 		return;
 	}
 
@@ -164,11 +167,11 @@ void location_gnss_periodic_get(int period)
 	location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
 	config.interval = period;
 
-	printf("Requesting %d s periodic GNSS location with cellular fallback...\n", period);
+	printk("Requesting %d s periodic GNSS location with cellular fallback...\n", period);
 
 	err = location_request(&config);
 	if (err) {
-		printk("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d\n", err);
 		return;
 	}
 }

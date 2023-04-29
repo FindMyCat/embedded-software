@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"nrf-connect.topdir": "${nrf-connect.sdk:2.2.0}",
+		"nrf-connect.toolchain.path": "${nrf-connect.toolchain:2.2.0}",
+		"nrf-connect.applications": [
+			"."
+		],
+		"files.associations": {
+			"location.h": "c",
+			"cstdlib": "c",
+			"locale": "c",
+			"future": "c",
+			"*.pem": "c"
+		}
+	}
+}
