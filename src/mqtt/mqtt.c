@@ -499,14 +499,6 @@ SHELL_CMD_REGISTER(mqtt, &mqtt_sub, "MQTT operations", NULL);
 static int modem_configure(void)
 {
 #if defined(CONFIG_LTE_LINK_CONTROL)
-	/* Turn off LTE power saving features for a more responsive demo. Also,
-	 * request power saving features before network registration. Some
-	 * networks rejects timer updates after the device has registered to the
-	 * LTE network.
-	 */
-	LOG_INF("Disabling PSM and eDRX");
-	lte_lc_psm_req(false);
-	lte_lc_edrx_req(false);
 
 	if (IS_ENABLED(CONFIG_LTE_AUTO_INIT_AND_CONNECT)) {
 		/* Do nothing, modem is already turned on

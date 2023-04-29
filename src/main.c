@@ -56,7 +56,21 @@ int main(void)
 	lte_lc_register_handler(lte_event_handler);
 
 	/* Enable PSM. */
-	lte_lc_psm_req(true);
+	/* Turn on LTE power saving features. Also,
+	 * request power saving features before network registration. Some
+	 * networks rejects timer updates after the device has registered to the
+	 * LTE network.
+	 */
+	// lte_lc_psm_req(true);
+	/** enhanced Discontinuous Reception */
+
+	printk("Setting EDRX mode");
+	err = lte_lc_edrx_req(true);
+	
+	if (err) {
+		printk("lte_lc_edrx_req, error: %d\n", err);
+	}
+
 	lte_lc_connect();
 
 	k_sem_take(&lte_connected, K_FOREVER);
@@ -79,15 +93,7 @@ int main(void)
 		return -1;
 	}
 
-	// location_gnss_low_accuracy_get();
-
-	printk("Setting EDRX mode");
-	
-	/** enhanced Discontinuous Reception */
-	err = lte_lc_edrx_req(true);
-	if (err) {
-		printk("lte_lc_edrx_req, error: %d\n", err);
-	}
+	// location_gnss_low_accuracy_get();	
 
 	mqtt_main();
 
