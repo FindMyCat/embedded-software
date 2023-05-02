@@ -4,6 +4,6 @@
                               /* Including a header file twice causes all kinds */
                               /* of interesting problems.*/
 
-void sms_init();
+void sms_listener_init(void* smsCallback);
 #endif
 
