@@ -17,6 +17,7 @@
 #include "LocationEngine/LocationEngine.h"
 #include "./mqtt/mqtt.h"
 #include "SmsListener/SmsListener.h"
+#include "Dispatcher/Dispatcher.h"
 
 LOG_MODULE_REGISTER(main, 4);
 
@@ -86,9 +87,7 @@ static void smsCallback(struct sms_data *const data, void *context)
 	}
 }
 
-
-int main(void)
-{
+static void initializeLte() {
 	int err;
 
 	if (IS_ENABLED(CONFIG_DATE_TIME)) {
@@ -122,8 +121,10 @@ int main(void)
 	lte_lc_connect();
 
 	k_sem_take(&lte_connected, K_FOREVER);
+}
 
-	/* A-GPS/P-GPS needs to know the current time. */
+static int initializeLocation() {
+		/* A-GPS/P-GPS needs to know the current time. */
 	if (IS_ENABLED(CONFIG_DATE_TIME)) {
 		LOG_INF("Waiting for current time\n");
 
@@ -135,16 +136,30 @@ int main(void)
 		}
 	}
 
-	err = location_init(location_event_handler);
+	int err = location_init(location_event_handler);
 	if (err) {
 		LOG_INF("Initializing the Location library failed, error: %d\n", err);
 		return -1;
 	}
+}
+
+int main(void)
+{
+
+	initializeLte();
+	
+	initializeLocation();
 
 	// location_gnss_high_accuracy_get();	
 
 	// mqtt_main();
-	sms_listener_init(smsCallback);
+	// sms_listener_init(smsCallback);
+
+	printk(getDispatcherState() == DISPATCHER_STATE_IDLE ? "DISPATCHER_STATE_IDLE\n" : "DISPATCHER_STATE_RESPONDING\n");
+
+	changeDispatcherState(DISPATCHER_STATE_RESPONDING);
+
+	printk(getDispatcherState() == DISPATCHER_STATE_IDLE ? "DISPATCHER_STATE_IDLE\n" : "DISPATCHER_STATE_RESPONDING\n");
 
 	return 0;
 }
