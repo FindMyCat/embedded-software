@@ -7,13 +7,16 @@
 cmake_minimum_required(VERSION 3.20)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(location_sample)
+project(find_my_cat)
 
 zephyr_library_sources(src/main.c)
 
 # Link all external dependencies
-target_sources(app PRIVATE src/location.c)
-target_sources(app PRIVATE src/location.h)
+target_sources(app PRIVATE src/LocationEngine/LocationEngine.c)
+target_sources(app PRIVATE src/LocationEngine/LocationEngine.h)
+
+target_sources(app PRIVATE src/SmsListener/SmsListener.c)
+target_sources(app PRIVATE src/SmsListener/SmsListener.h)
 
 target_sources(app PRIVATE src/mqtt/mqtt.c)
 target_sources(app PRIVATE src/mqtt/mqtt.h)

@@ -14,8 +14,9 @@
 #include <zephyr/logging/log.h>
 
 // Application specific imports
-#include "location.h"
+#include "LocationEngine/LocationEngine.h"
 #include "./mqtt/mqtt.h"
+#include "SmsListener/SmsListener.h"
 
 LOG_MODULE_REGISTER(main, 4);
 
@@ -101,6 +102,7 @@ int main(void)
 	location_gnss_high_accuracy_get();	
 
 	// mqtt_main();
+	sms_init();
 
 	return 0;
 }

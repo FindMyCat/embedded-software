@@ -79,6 +79,12 @@ config MQTT_BROKER_PASSWORD
 	help
 	    Set to "password", change this to your password.
 
+
+config SMS_SEND_PHONE_NUMBER
+	string "Phone number, including country code, where the SMS message is sent"
+	default ""
+
+
 endmenu
 
 menu "Zephyr Kernel"
