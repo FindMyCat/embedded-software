@@ -2,21 +2,26 @@
 #include <zephyr/kernel.h>
 #include <string.h>
 #include <modem/sms.h>
+#include <zephyr/logging/log.h>
 
 
-// LOG_MODULE_REGISTER(main, 4);
+LOG_MODULE_REGISTER(sms_listener, 4);
+
+/**
+ * @brief Function to initialize SMS listener and register callback.
+*/
 void sms_listener_init(void* smsCallback) {
     int handle = 0;
 
-	printk("\nSMS sample starting\n");
+	LOG_INF("\nSMS sample starting\n");
 
 	handle = sms_register_listener(smsCallback, NULL);
 	if (handle) {
-		printk("sms_register_listener returned err: %d\n", handle);
+		LOG_ERR("sms_register_listener returned err: %d\n", handle);
 		return;
 	}
 
-	printk("SMS sample is ready for receiving messages\n");
+	LOG_INF("SMS sample is ready for receiving messages\n");
 
 
 	/* In our application, we should unregister SMS in some conditions with:

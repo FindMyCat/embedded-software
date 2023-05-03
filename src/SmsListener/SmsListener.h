@@ -5,5 +5,5 @@
                               /* of interesting problems.*/
 
 void sms_listener_init(void* smsCallback);
-#endif
 
+#endif

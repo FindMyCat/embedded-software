@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2021 Nordic Semiconductor ASA
- *
- * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
- */
-
 // Libraries
 #include <string.h>
 #include <zephyr/kernel.h>
@@ -45,6 +39,9 @@ static void lte_event_handler(const struct lte_lc_evt *const evt)
 	}
 }
 
+/**
+ * @brief Callback function for when an SMS is received.
+*/
 static void smsCallback(struct sms_data *const data, void *context)
 {
 	LOG_INF("smsCallback started");
@@ -67,19 +64,20 @@ static void smsCallback(struct sms_data *const data, void *context)
 			header->time.second);
 
 		printk("\tText:   '%s'\n", data->payload);
-		printk("\tLength: %d\n", data->payload_len);
 
-		if (header->app_port.present) {
-			printk("\tApplication port addressing scheme: dest_port=%d, src_port=%d\n",
-				header->app_port.dest_port,
-				header->app_port.src_port);
+
+		// Two commands are supported over SMS. 
+		// We should keep these command strings small as possible for least data transfer.
+		if (strcmp(data->payload, "activate") == 0) {
+			changeDispatcherState(DISPATCHER_STATE_RESPONDING);
+			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_RESPONDING\n");
+		} else if (strcmp(data->payload, "deactivate") == 0) {
+			changeDispatcherState(DISPATCHER_STATE_IDLE);
+			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_IDLE\n");
+		} else {
+			LOG_ERR("Unknown command: %s\n", data->payload);
 		}
-		if (header->concatenated.present) {
-			printk("\tConcatenated short message: ref_number=%d, msg %d/%d\n",
-				header->concatenated.ref_number,
-				header->concatenated.seq_number,
-				header->concatenated.total_msgs);
-		}
+
 	} else if (data->type == SMS_TYPE_STATUS_REPORT) {
 		printk("SMS status report received\n");
 	} else {
@@ -87,6 +85,9 @@ static void smsCallback(struct sms_data *const data, void *context)
 	}
 }
 
+/**
+ * @brief Initialize LTE and wait for connection.
+*/
 static void initializeLte() {
 	int err;
 
@@ -111,8 +112,9 @@ static void initializeLte() {
 	// lte_lc_psm_req(true);
 	/** enhanced Discontinuous Reception */
 
-	LOG_INF("Setting EDRX mode");
-	err = lte_lc_edrx_req(true);
+	// LOG_INF("Setting EDRX mode");
+	// Todo: Turn on EDRX mode after development complete.
+	err = lte_lc_edrx_req(false);
 	
 	if (err) {
 		LOG_INF("lte_lc_edrx_req, error: %d\n", err);
@@ -123,6 +125,11 @@ static void initializeLte() {
 	k_sem_take(&lte_connected, K_FOREVER);
 }
 
+/**
+ * @brief Initialize location services.
+ * 
+ * DOES NOT call method to request location, only initializes the library.
+*/
 static int initializeLocation() {
 		/* A-GPS/P-GPS needs to know the current time. */
 	if (IS_ENABLED(CONFIG_DATE_TIME)) {
@@ -143,6 +150,9 @@ static int initializeLocation() {
 	}
 }
 
+/**
+ * @brief Application entry point.
+*/
 int main(void)
 {
 
@@ -150,16 +160,10 @@ int main(void)
 	
 	initializeLocation();
 
-	// location_gnss_high_accuracy_get();	
+	location_gnss_high_accuracy_get();	
 
 	// mqtt_main();
-	// sms_listener_init(smsCallback);
-
-	printk(getDispatcherState() == DISPATCHER_STATE_IDLE ? "DISPATCHER_STATE_IDLE\n" : "DISPATCHER_STATE_RESPONDING\n");
-
-	changeDispatcherState(DISPATCHER_STATE_RESPONDING);
-
-	printk(getDispatcherState() == DISPATCHER_STATE_IDLE ? "DISPATCHER_STATE_IDLE\n" : "DISPATCHER_STATE_RESPONDING\n");
+	sms_listener_init(smsCallback);
 
 	return 0;
 }
