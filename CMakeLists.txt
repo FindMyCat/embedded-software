@@ -12,6 +12,7 @@ project(find_my_cat)
 zephyr_library_sources(src/main.c)
 
 # Link all external dependencies
+
 target_sources(app PRIVATE src/LocationEngine/LocationEngine.c)
 target_sources(app PRIVATE src/LocationEngine/LocationEngine.h)
 
@@ -21,5 +22,12 @@ target_sources(app PRIVATE src/SmsListener/SmsListener.h)
 target_sources(app PRIVATE src/Dispatcher/Dispatcher.c)
 target_sources(app PRIVATE src/Dispatcher/Dispatcher.h)
 
+
+target_sources(app PRIVATE src/Responder/Responder.c)
+target_sources(app PRIVATE src/Responder/Responder.h)
+
 target_sources(app PRIVATE src/mqtt/mqtt.c)
 target_sources(app PRIVATE src/mqtt/mqtt.h)
+
+target_sources(app PRIVATE src/mqtt/mqttsn.c)
+target_sources(app PRIVATE src/mqtt/mqttsn.h)

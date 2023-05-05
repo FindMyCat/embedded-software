@@ -1,5 +1,7 @@
 #include "Dispatcher.h"
+#include <zephyr/logging/log.h>
 
+LOG_MODULE_REGISTER(dispatcher, 4);
 static int currentDispatcherState = DISPATCHER_STATE_IDLE;
 
 /**

@@ -9,6 +9,10 @@
   "files.associations": {
     "location.h": "c",
     "dispatcher.h": "c",
-    "locationengine.h": "c"
+    "locationengine.h": "c",
+    "errno.h": "c",
+    "lte_lc.h": "c",
+    "mqtt-sn.h": "c",
+    "smslistener.h": "c"
   },
 }

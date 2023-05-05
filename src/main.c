@@ -12,6 +12,7 @@
 #include "./mqtt/mqtt.h"
 #include "SmsListener/SmsListener.h"
 #include "Dispatcher/Dispatcher.h"
+#include "Responder/Responder.h"
 
 LOG_MODULE_REGISTER(main, 4);
 
@@ -158,12 +159,15 @@ int main(void)
 
 	initializeLte();
 	
-	initializeLocation();
+	// initializeLocation();
 
-	location_gnss_high_accuracy_get();	
+	// location_gnss_high_accuracy_get();	
 
 	// mqtt_main();
-	sms_listener_init(smsCallback);
+	// sms_listener_init(smsCallback);
+
+
+	respond();
 
 	return 0;
 }
