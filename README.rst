@@ -2,8 +2,4 @@
 
 Hardware: nrf9160-DK
 
-Software Architecture: 
-
-
-
 .. FindMyCat - V2 :
