@@ -164,7 +164,7 @@ int main(void)
 	// location_gnss_high_accuracy_get();	
 
 	// mqtt_main();
-	// sms_listener_init(smsCallback);
+	sms_listener_init(smsCallback);
 
 
 	respond();
