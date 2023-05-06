@@ -11,8 +11,11 @@ void dispatcherCallback() {
     LOG_INF("dispatcher callback");
     if (currentDispatcherState == DISPATCHER_STATE_IDLE) {
         LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_IDLE");
+        stop_responding();
+    } else if (currentDispatcherState == DISPATCHER_STATE_RESPONDING){
+        LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_RESPONDING");
+        respond();
     }
-    LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_RESPONDING");
 }
 
 /**

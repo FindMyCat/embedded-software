@@ -166,8 +166,8 @@ int main(void)
 	// mqtt_main();
 	sms_listener_init(smsCallback);
 
-
-	respond();
+	// respond();
+	
 
 	return 0;
 }

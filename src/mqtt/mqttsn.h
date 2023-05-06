@@ -4,6 +4,7 @@
                             /* of interesting problems.*/
 
 int mqttsn_initialize();
+int mqttsn_disconnect();
 int mqttsn_check_input();
 int mqttsn_publish();
 
