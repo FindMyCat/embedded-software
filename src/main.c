@@ -159,7 +159,7 @@ int main(void)
 
 	initializeLte();
 	
-	// initializeLocation();
+	initializeLocation();
 
 	// location_gnss_high_accuracy_get();	
 

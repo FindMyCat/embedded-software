@@ -1,7 +1,10 @@
 #include "Responder.h"
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+
+
 #include "../mqtt/mqttsn.h"
+#include "../LocationEngine/LocationEngine.h"
 
 LOG_MODULE_REGISTER(responder, 4);
 
@@ -11,9 +14,9 @@ void periodic_work_handler(struct k_timer *dummy)
 {
     // do the periodic work here
     LOG_INF("Periodic work executed!\n");
-    mqttsn_check_input();
-    mqttsn_publish();
-    mqttsn_check_input();
+
+    LOG_INF("Getting location from location engine");
+    location_gnss_high_accuracy_get();
 }
 
 void respond(void)

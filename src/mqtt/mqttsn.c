@@ -101,26 +101,23 @@ int mqttsn_check_input() {
 /**
  * @brief Function to publish a message to the MQTT-SN gateway.
  */
-int mqttsn_publish() {
+int mqttsn_publish(char *location_str) {
 	if (!mqtt_sn_connected) {
 		return -1;
 	}
 	static APP_DMEM struct mqtt_sn_data topic_p = MQTT_SN_DATA_STRING_LITERAL("/location");
 
-	char out[20];
-	struct mqtt_sn_data pubdata = {.data = out};
+
+	// Create a temporary mqtt_sn_data object to hold the message data
+	struct mqtt_sn_data pubdata = {
+		.data = (const uint8_t *)location_str, // cast location_str to const uint8_t pointer
+		.size = strlen(location_str)
+	};
+
 	
-	LOG_INF("Publishing timestamp");
+	LOG_INF("Publishing location: %s", location_str);
 
-	int err = snprintk(out, sizeof(out), "%" PRIi64, k_uptime_get());
-	if (err < 0) {
-		LOG_ERR("failed: snprintf");
-		return err;
-	}
-
-	pubdata.size = MIN(sizeof(out), err);
-
-	err = mqtt_sn_publish(&client, MQTT_SN_QOS_0, &topic_p, false, &pubdata);
+	int err = mqtt_sn_publish(&client, MQTT_SN_QOS_0, &topic_p, false, &pubdata);
 	if (err < 0) {
 		LOG_ERR("failed: publish: %d", err);
 		return err;

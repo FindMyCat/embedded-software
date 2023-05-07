@@ -3,6 +3,8 @@
 #include <modem/location.h>
 #include <zephyr/logging/log.h>
 
+#include "../mqtt/mqttsn.h"
+
 K_SEM_DEFINE(location_event, 0, 1);
 
 LOG_MODULE_REGISTER(gnss, 4);
@@ -16,6 +18,14 @@ void location_event_handler(const struct location_event_data *event_data)
 		printk("  latitude: %.06f\n", event_data->location.latitude);
 		printk("  longitude: %.06f\n", event_data->location.longitude);
 		printk("  accuracy: %.01f m\n", event_data->location.accuracy);
+		char location_str[100]; // create a character array to store the formatted string
+		snprintk(location_str, sizeof(location_str), "%.06f, %.06f", event_data->location.latitude, event_data->location.longitude);
+		printk("%s\n", location_str); // print the formatted string
+		
+		// Todo: Any better way to architect this? Separate the location engine from the MQTT service?
+		mqttsn_check_input();
+   		mqttsn_publish(location_str);
+    	mqttsn_check_input();
 		if (event_data->location.datetime.valid) {
 			printk("  date: %04d-%02d-%02d\n",
 				event_data->location.datetime.year,
