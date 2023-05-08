@@ -6,6 +6,6 @@
 int mqttsn_initialize();
 int mqttsn_disconnect();
 int mqttsn_check_input();
-int mqttsn_publish(char *location_str); // Todo: rename it 
+int mqttsn_publish(char *data_str); 
 
 #endif

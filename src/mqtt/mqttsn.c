@@ -101,7 +101,7 @@ int mqttsn_check_input() {
 /**
  * @brief Function to publish a message to the MQTT-SN gateway.
  */
-int mqttsn_publish(char *location_str) {
+int mqttsn_publish(char *data_str) {
 	if (!mqtt_sn_connected) {
 		return -1;
 	}
@@ -110,12 +110,12 @@ int mqttsn_publish(char *location_str) {
 
 	// Create a temporary mqtt_sn_data object to hold the message data
 	struct mqtt_sn_data pubdata = {
-		.data = (const uint8_t *)location_str, // cast location_str to const uint8_t pointer
-		.size = strlen(location_str)
+		.data = (const uint8_t *)data_str, // cast data_str to const uint8_t pointer
+		.size = strlen(data_str)
 	};
 
 	
-	LOG_INF("Publishing location: %s", location_str);
+	LOG_INF("Publishing location: %s", data_str);
 
 	int err = mqtt_sn_publish(&client, MQTT_SN_QOS_0, &topic_p, false, &pubdata);
 	if (err < 0) {
