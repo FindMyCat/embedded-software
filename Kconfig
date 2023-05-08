@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
 #
 
-menu "Location sample"
+menu "Find My Cat main configuration"
 config MQTT_PUB_TOPIC
 	string "MQTT publish topic"
 	default "my/publish/topic"
@@ -51,7 +51,11 @@ config MQTT_RECONNECT_DELAY_S
 
 config LTE_CONNECT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry LTE connection"
-	default 120
+	default 20
+
+config LTE_CONNECT_MAX_RETRIES
+	int "Max retry attempts for LTE connection"
+	default 4
 
 config MQTT_TLS_SEC_TAG
 	int "TLS credentials security tag"
@@ -94,6 +98,14 @@ config NET_SAMPLE_MQTT_SN_GATEWAY_PORT
 config NET_SAMPLE_MQTT_SN_BUFFER_SIZE
 	int "Size of the TX and RX buffers"
 	default 255
+
+config LOCATION_SERVICES_INIT_MAX_RETRIES
+	int "Max retry attempts for location services initialization"
+	default 4
+
+config LOCATION_SERVICES_INIT_RETRY_DELAY_S
+	int "Seconds to delay before attempting to retry location services initialization"
+	default 20
 
 endmenu
 

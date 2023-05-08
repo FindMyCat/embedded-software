@@ -89,7 +89,7 @@ static void smsCallback(struct sms_data *const data, void *context)
 /**
  * @brief Initialize LTE and wait for connection.
 */
-static void initializeLte() {
+static int initializeLte() {
 	int err;
 
 	if (IS_ENABLED(CONFIG_DATE_TIME)) {
@@ -121,9 +121,11 @@ static void initializeLte() {
 		LOG_INF("lte_lc_edrx_req, error: %d\n", err);
 	}
 
-	lte_lc_connect();
+	err = lte_lc_connect();
 
 	k_sem_take(&lte_connected, K_FOREVER);
+
+	return err;
 }
 
 /**
@@ -149,25 +151,57 @@ static int initializeLocation() {
 		LOG_INF("Initializing the Location library failed, error: %d\n", err);
 		return -1;
 	}
+	
+	LOG_INF("Location library initialized\n");
+	return err;
 }
 
 /**
  * @brief Application entry point.
 */
-int main(void)
-{
+int main(void) {
 
-	initializeLte();
-	
-	initializeLocation();
+	int err;	
+	int retry_count = 0;
 
-	// location_gnss_high_accuracy_get();	
+	// Connect to LTE network with retries if necessary.
+    while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
+        err = initializeLte();
 
-	// mqtt_main();
+        if (err) {
+            LOG_INF("Failed to connect to LTE with error: %d\n", err);
+            retry_count++;
+            k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
+        } else {
+			break;
+		}
+    }
+
+	if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
+	    LOG_ERR("Max retry limit reached for connecting to LTE, program exiting.");
+		return -1;
+	}
+
+	retry_count = 0;
+	// Initialize location services with retries if necessary.
+    while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
+        err = initializeLocation();
+
+        if (err) {
+            LOG_INF("Failed to initialize location services with error: %d\n", err);
+            retry_count++;
+            k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
+        } else {
+			break;
+		}
+    }
+
+	if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
+	    LOG_ERR("Max retry limit reached for initializing location services, program exiting.");
+		return -1;
+	}
+
 	sms_listener_init(smsCallback);
-
-	// respond();
-	
 
 	return 0;
 }
