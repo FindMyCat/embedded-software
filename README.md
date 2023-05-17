@@ -1,4 +1,4 @@
-# FindMyCat - v2
+# FindMyCat - Outdoor Location Engine
 
 Hardware: nrf9160-DK
 
