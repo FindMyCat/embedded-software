@@ -1,4 +1,5 @@
 #include "Dispatcher.h"
+#include "../Responder/Responder.h"
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(dispatcher, 4);
