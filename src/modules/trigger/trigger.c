@@ -51,6 +51,7 @@ static void trigger_task(void)
 
 	while (true) {
 		message_send();
+		LOG_INF("Triggered");
 		k_sleep(K_SECONDS(CONFIG_MQTT_SAMPLE_TRIGGER_TIMEOUT_SECONDS));
 	}
 }

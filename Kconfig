@@ -12,6 +12,7 @@ config MQTT_SAMPLE_PAYLOAD_CHANNEL_STRING_MAX_SIZE
 	help
 	  Maximum size of the string included messages that are sent over the payload channel.
 
+rsource "src/modules/ble_scanner/Kconfig.ble_scanner"
 rsource "src/modules/trigger/Kconfig.trigger"
 rsource "src/modules/sampler/Kconfig.sampler"
 rsource "src/modules/network/Kconfig.network"

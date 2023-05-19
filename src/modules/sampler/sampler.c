@@ -10,7 +10,7 @@
 
 #include "message_channel.h"
 
-#define FORMAT_STRING "Hello MQTT! Current uptime is: %d"
+#define FORMAT_STRING "{\"msg\": \"33.361160,-111.972670,0,15.31\"}"
 
 /* Register log module */
 LOG_MODULE_REGISTER(sampler, CONFIG_MQTT_SAMPLE_SAMPLER_LOG_LEVEL);

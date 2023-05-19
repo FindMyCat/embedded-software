@@ -13,6 +13,7 @@ project(mqtt)
 add_subdirectory(src/common)
 
 # Include mandatory module source folders
+add_subdirectory(src/modules/ble_scanner)
 add_subdirectory(src/modules/trigger)
 add_subdirectory(src/modules/sampler)
 add_subdirectory(src/modules/network)
