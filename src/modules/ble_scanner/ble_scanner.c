@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2023 Nordic Semiconductor ASA
- *
- * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
- */
-
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/zbus/zbus.h>
@@ -22,6 +16,7 @@
 /* Register log module */
 LOG_MODULE_REGISTER(ble_scanner, CONFIG_MQTT_SAMPLE_BLE_SCANNER_LOG_LEVEL);
 
+/* Method to send message to Zbus channel */
 static void message_send(void)
 {
 	int not_used = -1;
@@ -34,24 +29,17 @@ static void message_send(void)
 	}
 }
 
-static void scanner_task(void)
-{
-
-	while (true) {
-		message_send();
-		LOG_INF("Triggered");
-		k_sleep(K_SECONDS(CONFIG_MQTT_SAMPLE_TRIGGER_TIMEOUT_SECONDS));
-	}
-}
-
+/* Advertizing data */
 static const struct bt_data ad[] = {
 	BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1)
 };
 
+/* Scanning data */
 static const struct bt_data sd[] = {
 	BT_DATA_BYTES(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME)
 };
 
+/* Scan filter match callback */
 static void scan_filter_match(struct bt_scan_device_info *device_info,
 			      struct bt_scan_filter_match *filter_match,
 			      bool connectable)
@@ -64,22 +52,26 @@ static void scan_filter_match(struct bt_scan_device_info *device_info,
 		addr, connectable);
 }
 
+/* Scan connecting error callback */
 static void scan_connecting_error(struct bt_scan_device_info *device_info)
 {
 	LOG_WRN("Connecting failed");
 }
 
+/* Scan connecting callback */
 static void scan_connecting(struct bt_scan_device_info *device_info,
 			    struct bt_conn *conn)
 {
 	// default_conn = bt_conn_ref(conn);
 }
 
+/* Scan parameters initialization macro */
 BT_SCAN_CB_INIT(scan_cb, scan_filter_match, NULL,
 		scan_connecting_error, scan_connecting);
 
 #define DEVICE_NAME_FIRST "FindMyDumbCat (30274891)"
 
+/* Scan initialization */
 static int scan_init(void)
 {
 	int err;
@@ -107,7 +99,7 @@ static int scan_init(void)
 	return err;
 }
 
-
+/* BLE scanning task (thread) */
 static void ble_scanner_task() {
     int err;
 
