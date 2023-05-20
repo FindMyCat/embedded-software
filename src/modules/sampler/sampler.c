@@ -10,6 +10,7 @@
 
 #include "message_channel.h"
 
+// TODO: https://github.com/ChitlangeSahas/HomeStation/issues/2
 #define FORMAT_STRING "{\"msg\": \"33.361160,-111.972670,0,15.31\"}"
 
 /* Register log module */
