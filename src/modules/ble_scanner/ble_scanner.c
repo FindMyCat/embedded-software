@@ -16,6 +16,13 @@
 /* Register log module */
 LOG_MODULE_REGISTER(ble_scanner, CONFIG_MQTT_SAMPLE_BLE_SCANNER_LOG_LEVEL);
 
+int THIRTY_SECONDS = 30000;
+/* Last seen timestamp for the tag relative to system uptime */
+// TODO: do we need to use epoch time instead?
+// https://github.com/ChitlangeSahas/HomeStation/issues/1
+static int64_t tagLastSeenTimeStamp = 0;
+static int64_t serverLastUpdatedTimeStamp = 0;
+
 /* Method to send message to Zbus channel */
 static void message_send(void)
 {
@@ -48,8 +55,9 @@ static void scan_filter_match(struct bt_scan_device_info *device_info,
 
 	bt_addr_le_to_str(device_info->recv_info->addr, addr, sizeof(addr));
 
-	LOG_INF("Filters matched. Address: %s connectable: %d",
-		addr, connectable);
+	LOG_INF("Tracker nearby: address -> %s ", addr);
+
+	tagLastSeenTimeStamp = k_uptime_get();
 }
 
 /* Scan connecting error callback */
@@ -148,8 +156,22 @@ static void ble_scanner_task() {
 	printk("Advertising started\n");
 
 	while (true) {
-		// message_send();
-		LOG_INF("Triggered");
+
+		bool tagSeenRecently = k_uptime_get() - tagLastSeenTimeStamp < THIRTY_SECONDS;
+
+		if (tagSeenRecently)
+		{
+			if(tagLastSeenTimeStamp - serverLastUpdatedTimeStamp > THIRTY_SECONDS) {
+				LOG_INF("Server not updated in 30 seconds, sending message");
+				message_send();
+				serverLastUpdatedTimeStamp = tagLastSeenTimeStamp;
+			}
+			
+		} else {
+			LOG_WRN("Tag not seen in 30 seconds");
+		}
+
+	
 		k_sleep(K_SECONDS(CONFIG_MQTT_SAMPLE_TRIGGER_TIMEOUT_SECONDS));
 	}
 }
