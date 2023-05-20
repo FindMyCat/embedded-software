@@ -446,6 +446,7 @@
         <folder Name="Src">
           <folder Name="BLE">
             <file file_name="../../../../../Src/Comm/Src/BLE/ble.c" />
+            <file file_name="../../../../../Src/Comm/Src/BLE/nrf9160_power_mode_manager.c" />
             <folder Name="niq">
               <file file_name="../../../../../Src/Comm/Src/BLE/niq/ble_niq.c" />
             </folder>

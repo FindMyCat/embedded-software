@@ -75,6 +75,9 @@
 #include "nrf_sdh.h"
 #endif
 
+
+#include "nrf9160_power_mode_manager.h"
+
 #ifndef ACCESSORY_RANGING_ROLE
 #define ACCESSORY_RANGING_ROLE (1) /**< Responder 0, Initiator 1 */
 #endif
@@ -155,6 +158,7 @@ int main(void) {
     }
     DefaultTaskInit();
    
+    power_mode_manager_thread_init();
     // Driver version is available after probing of the DW chip
     const char ver[]    = FULL_VERSION;
     const char *drv_ver = dwt_version_string();
