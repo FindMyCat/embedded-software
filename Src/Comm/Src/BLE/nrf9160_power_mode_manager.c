@@ -12,7 +12,7 @@
 #define POWER_COMMAND_EDRX      0
 
 APP_TIMER_DEF(timer); 
-int SIXTY_SECONDS = 60;
+int TWO_MINUTES = 120;
 
 // Holder variables
 static long home_station_last_seen_timestamp_s = 0;
@@ -56,6 +56,10 @@ long get_home_station_last_seen_timestamp() {
     return home_station_last_seen_timestamp_s;
 }
 
+void home_station_seen() {
+    home_station_last_seen_timestamp_s = system_uptime;
+}
+
 /* nrf9160 power manager thread */
 static void nrf9160_power_manager_thread(void *arg) {
     UNUSED_PARAMETER(arg);
@@ -69,7 +73,10 @@ static void nrf9160_power_manager_thread(void *arg) {
         vTaskDelay(1000);
 
         // check if we have seen the home station recently
-        if (system_uptime - home_station_last_seen_timestamp_s > SIXTY_SECONDS) {
+        // Scan duration is every 30 seconds, 
+        // so if we haven't seen the home station in 2 minutes, 
+        // then we should switch to EDRX mode
+        if (system_uptime - home_station_last_seen_timestamp_s > TWO_MINUTES) {
             command_nrf9160_to_edrx();
         }
         else {

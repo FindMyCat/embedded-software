@@ -121,6 +121,7 @@
 #include "fira_device_config.h"
 #include "app_ble.h"
 #include "boards.h"
+#include "nrf9160_power_mode_manager.h"
 
 #define CENTRAL_SCANNING_LED            BSP_BOARD_LED_0
 
@@ -764,6 +765,7 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
             //                               APP_BLE_CONN_CFG_TAG);
             NRF_LOG_INFO("Scanner Found: %s", p_adv->data.p_data);
             // APP_ERROR_CHECK(err_code);
+            home_station_seen();
         } break;
 
         case NRF_BLE_SCAN_EVT_NOT_FOUND:

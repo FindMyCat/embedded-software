@@ -22,8 +22,7 @@ the device will default to EDRX mode and not PSM mode.
 */
 
 
-void set_home_station_last_seen_timestamp(long timestamp);
-long get_home_station_last_seen_timestamp();
+void home_station_seen();
 void power_mode_manager_thread_init();
 
 #endif // NRF9160_POWER_MODE_MANAGER_H
