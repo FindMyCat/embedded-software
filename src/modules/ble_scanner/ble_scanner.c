@@ -49,8 +49,7 @@ static const struct bt_data sd[] = {
 
 static bool data_cb(struct bt_data *data, void *user_data)
 {
-	char batt_pct[4] ;
-	uint8_t len;
+	char batt_pct[4];
 
 	switch (data->type) {
 	case BT_DATA_MANUFACTURER_DATA:
