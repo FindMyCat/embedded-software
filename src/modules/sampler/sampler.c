@@ -13,7 +13,7 @@
 // TODO: https://github.com/ChitlangeSahas/HomeStation/issues/2
 #define FORMAT_STRING "{\"msg\": \"33.361160,-111.972670,0,15.31,%s\"}"
 
-static char batt_lvl[4];
+static char batt_lvl[4] = "0";
 
 /* Register log module */
 LOG_MODULE_REGISTER(sampler, CONFIG_MQTT_SAMPLE_SAMPLER_LOG_LEVEL);
@@ -30,7 +30,6 @@ void set_batt_lvl(char* batt_lvl_string)
 static void sample(void)
 {
 	struct payload payload = { 0 };
-	uint32_t uptime = k_uptime_get_32();
 	int err, len;
 
 	/* The payload is user defined and can be sampled from any source.
