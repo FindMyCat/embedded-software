@@ -47,6 +47,7 @@ static const struct bt_data sd[] = {
 	BT_DATA_BYTES(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME)
 };
 
+/* Parse Manufacturer specific data for battery percentage information */
 static bool data_cb(struct bt_data *data, void *user_data)
 {
 	char batt_pct[4];
