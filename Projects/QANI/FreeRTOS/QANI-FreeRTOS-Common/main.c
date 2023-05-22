@@ -146,9 +146,9 @@ int main(void) {
     AppConfigInit(); /**< load the RAM Configuration parameters from NVM block */
 
     // Start BLE 
-    char advertising_name[32];
+    char advertising_name[4];
 
-    snprintf(advertising_name, sizeof(advertising_name), "%s (%08X)", (char*)BoardName, (unsigned int)NRF_FICR->DEVICEADDR[0]);
+    snprintf(advertising_name, sizeof(advertising_name), "%s", (char*)BoardName);
     ble_init(advertising_name);
 
     EventManagerInit();

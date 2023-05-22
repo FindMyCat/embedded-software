@@ -122,6 +122,7 @@
 #include "app_ble.h"
 #include "boards.h"
 #include "nrf9160_power_mode_manager.h"
+#include "app_timer.h"
 
 #define CENTRAL_SCANNING_LED            BSP_BOARD_LED_0
 
@@ -165,6 +166,91 @@ static ble_uuid_t m_adv_uuids[] =                                   /**< Univers
 {
     {BLE_UUID_QNIS_SERVICE, BLE_UUID_TYPE_VENDOR_BEGIN}
 };
+
+APP_TIMER_DEF(m_adv_data_update_timer);
+#define ADV_DATA_UPDATE_INTERVAL        5000
+#define APP_COMPANY_IDENTIFIER          0xFFFF  
+static ble_advdata_t                    new_advdata;
+static ble_advdata_t                    new_srdata;
+
+static void adv_data_update_timer_handler(void * p_context)
+{
+    ret_code_t                  err_code;
+    ble_advdata_manuf_data_t    manuf_data;
+
+    new_advdata.name_type                = BLE_ADVDATA_NO_NAME;
+    new_advdata.include_appearance       = false;
+    new_advdata.flags                    = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
+    new_advdata.uuids_complete.uuid_cnt  = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
+    new_advdata.uuids_complete.p_uuids   = m_adv_uuids;
+  
+    new_srdata.name_type         = BLE_ADVDATA_FULL_NAME;
+
+    // Todo: Get actual battery level
+    // https://github.com/ChitlangeSahas/IndoorLocationEngine/issues/2
+    int minBtLvl = 10;
+    int maxBtLvl = 100;
+
+    // Generate a random number between min and max
+    int randomBattLvl = (rand() % (maxBtLvl - minBtLvl + 1)) + minBtLvl;
+
+    // Convert the random number to a string
+    uint8_t batt_lvl_reported[4];
+    sprintf((char*)batt_lvl_reported, "%d", randomBattLvl);
+
+    // Prepare the scan response manufacturer specific data packet
+    ble_advdata_manuf_data_t  manuf_data_response;
+    manuf_data_response.company_identifier  = 0xFFFF;
+    manuf_data_response.data.p_data         = batt_lvl_reported;
+    manuf_data_response.data.size           = sizeof(batt_lvl_reported);
+    new_srdata.p_manuf_specific_data = &manuf_data_response;
+
+
+    NRF_LOG_INFO("Updating advertising data!");
+    
+    err_code = ble_advertising_advdata_update(&m_advertising, &new_advdata, &new_srdata);
+    APP_ERROR_CHECK(err_code);  
+    
+
+    NRF_LOG_INFO("Advertising data updated!");
+
+}
+
+
+/**@brief Function for the Timer initialization.
+ *
+ * @details Initializes the timer module. This creates and starts application timers.
+ */
+static void timers_init(void)
+{
+    ret_code_t err_code;
+
+    err_code = app_timer_init();
+    APP_ERROR_CHECK(err_code);
+    
+    // TODO: replace with actual battery level
+    // https://github.com/ChitlangeSahas/IndoorLocationEngine/issues/2
+    // Seed the random number generator
+    srand(time(NULL));
+
+    err_code = app_timer_create(&m_adv_data_update_timer, 
+                                  APP_TIMER_MODE_REPEATED, 
+                                  adv_data_update_timer_handler);
+    APP_ERROR_CHECK(err_code);
+    
+}
+
+
+/**@brief Function for starting timers.
+ */
+static void application_timers_start(void)
+{
+       ret_code_t err_code;
+       err_code = app_timer_start(m_adv_data_update_timer, 
+                                    ADV_DATA_UPDATE_INTERVAL, 
+                                    NULL);
+       APP_ERROR_CHECK(err_code);
+}
 
 
 
@@ -716,6 +802,13 @@ static void advertising_init(void)
     init.advdata.uuids_complete.p_uuids   = m_adv_uuids;
   
     init.srdata.name_type                = BLE_ADVDATA_FULL_NAME;
+    // Prepare the scan response manufacturer specific data packet
+    ble_advdata_manuf_data_t  manuf_data_response;
+    uint8_t                     data_response[] = "69";
+    manuf_data_response.company_identifier  = 0xFFFF;
+    manuf_data_response.data.p_data         = data_response;
+    manuf_data_response.data.size           = sizeof(data_response);
+    init.srdata.p_manuf_specific_data = &manuf_data_response;
 
     init.config.ble_adv_fast_enabled  = false;
     init.config.ble_adv_fast_interval = APP_ADV_INTERVAL_FAST;
@@ -823,6 +916,7 @@ void ble_init(char * gap_name)
     // Configure and initialize the BLE stack.
     ble_stack_init();
     scan_init();
+    timers_init();
     // Initialize modules.
     gap_params_init(gap_name);
     gatt_init();
@@ -839,6 +933,7 @@ void ble_init(char * gap_name)
     //     // Scanning and advertising is done upon PM_EVT_PEERS_DELETE_SUCCEEDED event.
     //     delete_bonds();
     // }
+    application_timers_start();
 
     nrf_sdh_freertos_init(adv_scan_start, NULL);
     // nrf_sdh_freertos_init(advertising_start, NULL);
