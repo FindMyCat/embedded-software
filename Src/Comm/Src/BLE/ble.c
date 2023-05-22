@@ -116,13 +116,16 @@
 #include "nrf_nvic.h"
 
 //#include "nrf_ble_scan.h"
-#include "../../../../SDK_BSP/Nordic/NORDIC_SDK_17_1_0/components/ble/nrf_ble_scan/nrf_ble_scan.h";
+#include "../../../../SDK_BSP/Nordic/NORDIC_SDK_17_1_0/components/ble/nrf_ble_scan/nrf_ble_scan.h"
 
 #include "fira_device_config.h"
 #include "app_ble.h"
 #include "boards.h"
 #include "nrf9160_power_mode_manager.h"
 #include "app_timer.h"
+
+#include "nrf_drv_saadc.h"
+
 
 #define CENTRAL_SCANNING_LED            BSP_BOARD_LED_0
 
@@ -160,6 +163,8 @@ NRF_BLE_QWR_DEF(m_qwr);                                             /**< Context
 BLE_ADVERTISING_DEF(m_advertising);                                 /**< Advertising module instance. */
 NRF_BLE_SCAN_DEF(m_scan); 
 
+static nrf_saadc_value_t adc_buf[2];
+
 static uint16_t m_conn_handle         = BLE_CONN_HANDLE_INVALID;    /**< Handle of the current connection. */
 
 static ble_uuid_t m_adv_uuids[] =                                   /**< Universally unique service identifiers. */
@@ -168,17 +173,82 @@ static ble_uuid_t m_adv_uuids[] =                                   /**< Univers
 };
 
 APP_TIMER_DEF(m_adv_data_update_timer);
+
 #define ADV_DATA_UPDATE_INTERVAL        5000
 #define APP_COMPANY_IDENTIFIER          0xFFFF  
 static ble_advdata_t                    new_advdata;
 static ble_advdata_t                    new_srdata;
+uint8_t percentage_batt_lvl;
 
+#define ADC_REF_VOLTAGE_IN_MILLIVOLTS   600                                     /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
+#define ADC_PRE_SCALING_COMPENSATION    6                                       /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
+#define DIODE_FWD_VOLT_DROP_MILLIVOLTS  270                                     /**< Typical forward voltage drop of the diode . */
+#define ADC_RES_10BIT                   1024                                    /**< Maximum digital value for 10-bit ADC conversion. */
+
+/**@brief Macro to convert the result of ADC conversion in millivolts.
+ *
+ * @param[in]  ADC_VALUE   ADC result.
+ *
+ * @retval     Result converted to millivolts.
+ */
+#define ADC_RESULT_IN_MILLI_VOLTS(ADC_VALUE) \
+        ((((ADC_VALUE) *ADC_REF_VOLTAGE_IN_MILLIVOLTS) / ADC_RES_10BIT) * ADC_PRE_SCALING_COMPENSATION)
+
+
+
+/**@brief Function for handling the ADC interrupt.
+ *
+ * @details  This function will fetch the conversion result from the ADC, convert the value into
+ *           percentage and send it to peer.
+ */
+void saadc_event_handler(nrf_drv_saadc_evt_t const * p_event)
+{
+        if (p_event->type == NRF_DRV_SAADC_EVT_DONE)
+        {
+                nrf_saadc_value_t adc_result;
+                uint16_t batt_lvl_in_milli_volts;
+                uint32_t err_code;
+
+                adc_result = p_event->data.done.p_buffer[0];
+
+                err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, 1);
+                APP_ERROR_CHECK(err_code);
+
+                batt_lvl_in_milli_volts = ADC_RESULT_IN_MILLI_VOLTS(adc_result) +
+                                          DIODE_FWD_VOLT_DROP_MILLIVOLTS;
+                percentage_batt_lvl = battery_level_in_percent(batt_lvl_in_milli_volts);
+
+                NRF_LOG_INFO("Battery in %03d%%", percentage_batt_lvl);
+
+                nrf_drv_saadc_uninit();
+        }
+
+}
+
+
+/**@brief Function for configuring ADC to do battery level conversion.
+ */
+static void adc_configure(void)
+{
+        ret_code_t err_code = nrf_drv_saadc_init(NULL, saadc_event_handler);
+        APP_ERROR_CHECK(err_code);
+
+        nrf_saadc_channel_config_t config =
+                NRF_DRV_SAADC_DEFAULT_CHANNEL_CONFIG_SE(NRF_SAADC_INPUT_VDD);
+        err_code = nrf_drv_saadc_channel_init(0, &config);
+        APP_ERROR_CHECK(err_code);
+
+        err_code = nrf_drv_saadc_buffer_convert(&adc_buf[0], 1);
+        APP_ERROR_CHECK(err_code);
+
+        err_code = nrf_drv_saadc_buffer_convert(&adc_buf[1], 1);
+        APP_ERROR_CHECK(err_code);
+}
 
 /* Function for initializing the periodic update of Advertising packets. */
 static void adv_data_update_timer_handler(void * p_context)
 {
     ret_code_t                  err_code;
-    ble_advdata_manuf_data_t    manuf_data;
 
     new_advdata.name_type                = BLE_ADVDATA_NO_NAME;
     new_advdata.include_appearance       = false;
@@ -188,17 +258,9 @@ static void adv_data_update_timer_handler(void * p_context)
   
     new_srdata.name_type         = BLE_ADVDATA_FULL_NAME;
 
-    // Todo: Get actual battery level
-    // https://github.com/ChitlangeSahas/IndoorLocationEngine/issues/2
-    int minBtLvl = 10;
-    int maxBtLvl = 100;
-
-    // Generate a random number between min and max
-    int randomBattLvl = (rand() % (maxBtLvl - minBtLvl + 1)) + minBtLvl;
-
     // Convert the random number to a string
     uint8_t batt_lvl_reported[4];
-    sprintf((char*)batt_lvl_reported, "%d", randomBattLvl);
+    sprintf((char*)batt_lvl_reported, "%d", percentage_batt_lvl);
 
     // Prepare the scan response manufacturer specific data packet
     ble_advdata_manuf_data_t  manuf_data_response;
@@ -216,6 +278,13 @@ static void adv_data_update_timer_handler(void * p_context)
 
     NRF_LOG_INFO("Advertising data updated!");
 
+
+    adc_configure();
+    NRF_LOG_INFO("Updating battery readings");
+
+    err_code = nrf_drv_saadc_sample();
+    APP_ERROR_CHECK(err_code);
+
 }
 
 
@@ -229,17 +298,11 @@ static void timers_init(void)
 
     err_code = app_timer_init();
     APP_ERROR_CHECK(err_code);
-    
-    // TODO: replace with actual battery level
-    // https://github.com/ChitlangeSahas/IndoorLocationEngine/issues/2
-    // Seed the random number generator
-    srand(time(NULL));
 
     err_code = app_timer_create(&m_adv_data_update_timer, 
                                   APP_TIMER_MODE_REPEATED, 
                                   adv_data_update_timer_handler);
     APP_ERROR_CHECK(err_code);
-    
 }
 
 
@@ -827,14 +890,6 @@ static void advertising_init(void)
     ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 }
 
-
-/**@brief Function for starting advertising. */
-static void advertising_start(void *parm)
-{
-    ret_code_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_SLOW);
-    APP_ERROR_CHECK(err_code);
-}
-
 /**@brief Names that the central application scans for, and that are advertised by the peripherals.
  *  If these are set to empty strings, the UUIDs defined below are used.
  */
@@ -843,29 +898,20 @@ static char const m_target_periph_name[] = "FindMyCatHomeStation";
 
 static void scan_evt_handler(scan_evt_t const * p_scan_evt)
 {
-    ret_code_t err_code;
     ble_gap_evt_adv_report_t const * p_adv = 
                    p_scan_evt->params.filter_match.p_adv_report;
-    ble_gap_scan_params_t    const * p_scan_param = 
-                   p_scan_evt->p_scan_params;
 
     switch(p_scan_evt->scan_evt_id)
     {
         case NRF_BLE_SCAN_EVT_FILTER_MATCH:
         {
-            // Initiate connection.
-            // err_code = sd_ble_gap_connect(&p_adv->peer_addr,
-            //                               p_scan_param,
-            //                               &m_scan.conn_params,
-            //                               APP_BLE_CONN_CFG_TAG);
             NRF_LOG_INFO("Scanner Found: %s", p_adv->data.p_data);
-            // APP_ERROR_CHECK(err_code);
             home_station_seen();
         } break;
 
         case NRF_BLE_SCAN_EVT_NOT_FOUND:
         {
-            // NRF_LOG_INFO("Scan filter not match. %s", p_adv->data.p_data, p_adv->data.len);
+
         } break;
 
         default:

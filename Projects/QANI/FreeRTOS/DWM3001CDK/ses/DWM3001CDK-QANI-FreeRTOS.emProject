@@ -46,6 +46,9 @@
       <file file_name="../../../../../SDK_BSP/Nordic/NORDIC_SDK_17_1_0/modules/nrfx/mdk/ses_startup_nrf52833.s" />
       <file file_name="$(StudioDir)/source/thumb_crt0.s" />
     </folder>
+    <folder Name="nRF_Drivers">
+      <file file_name="../../../../../SDK_BSP/Nordic/NORDIC_SDK_17_1_0/modules/nrfx/drivers/src/nrfx_saadc.c" />
+    </folder>
     <folder Name="Projects">
       <folder Name="QANI">
         <folder Name="FreeRTOS">
