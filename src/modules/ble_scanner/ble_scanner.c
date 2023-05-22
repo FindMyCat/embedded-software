@@ -12,6 +12,7 @@
 
 
 #include "message_channel.h"
+#include "../sampler/sampler.h"
 
 /* Register log module */
 LOG_MODULE_REGISTER(ble_scanner, CONFIG_MQTT_SAMPLE_BLE_SCANNER_LOG_LEVEL);
@@ -46,6 +47,30 @@ static const struct bt_data sd[] = {
 	BT_DATA_BYTES(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME)
 };
 
+static bool data_cb(struct bt_data *data, void *user_data)
+{
+	char batt_pct[4] ;
+	uint8_t len;
+
+	switch (data->type) {
+	case BT_DATA_MANUFACTURER_DATA:
+
+	int batt_pct_string_index = 0;
+	// the first two bytes of the manufacturer data are the company identifier 
+	for (size_t i = 2; i < data->data_len; i++)
+	{
+		batt_pct[batt_pct_string_index] = data->data[i];
+		batt_pct_string_index++;
+	}
+	batt_pct[batt_pct_string_index] = '\0';
+	LOG_INF("battery percentage: %s", batt_pct);
+	set_batt_lvl(batt_pct);
+		return false;
+	default:
+		return true;
+	}
+}
+
 /* Scan filter match callback */
 static void scan_filter_match(struct bt_scan_device_info *device_info,
 			      struct bt_scan_filter_match *filter_match,
@@ -56,6 +81,8 @@ static void scan_filter_match(struct bt_scan_device_info *device_info,
 	bt_addr_le_to_str(device_info->recv_info->addr, addr, sizeof(addr));
 
 	LOG_INF("Tracker nearby: address -> %s ", addr);
+
+	bt_data_parse(device_info->adv_data, data_cb, NULL);
 
 	tagLastSeenTimeStamp = k_uptime_get();
 }
@@ -77,7 +104,7 @@ static void scan_connecting(struct bt_scan_device_info *device_info,
 BT_SCAN_CB_INIT(scan_cb, scan_filter_match, NULL,
 		scan_connecting_error, scan_connecting);
 
-#define DEVICE_NAME_FIRST "FindMyDumbCat (30274891)"
+#define DEVICE_NAME_FIRST "FMC"
 
 /* Scan initialization */
 static int scan_init(void)

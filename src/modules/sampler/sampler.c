@@ -7,17 +7,25 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/zbus/zbus.h>
-
+#include "sampler.h"
 #include "message_channel.h"
 
 // TODO: https://github.com/ChitlangeSahas/HomeStation/issues/2
-#define FORMAT_STRING "{\"msg\": \"33.361160,-111.972670,0,15.31\"}"
+#define FORMAT_STRING "{\"msg\": \"33.361160,-111.972670,0,15.31,%s\"}"
+
+static char batt_lvl[4];
 
 /* Register log module */
 LOG_MODULE_REGISTER(sampler, CONFIG_MQTT_SAMPLE_SAMPLER_LOG_LEVEL);
 
 /* Register subscriber */
 ZBUS_SUBSCRIBER_DEFINE(sampler, CONFIG_MQTT_SAMPLE_SAMPLER_MESSAGE_QUEUE_SIZE);
+
+
+void set_batt_lvl(char* batt_lvl_string)
+{
+	strcpy(batt_lvl, batt_lvl_string);
+}
 
 static void sample(void)
 {
@@ -29,7 +37,7 @@ static void sample(void)
 	 * Default case is to populate a string and send it on the payload channel.
 	 */
 
-	len = snprintk(payload.string, sizeof(payload.string), FORMAT_STRING, uptime);
+	len = snprintk(payload.string, sizeof(payload.string), FORMAT_STRING, batt_lvl);
 	if ((len < 0) || (len >= sizeof(payload))) {
 		LOG_ERR("Failed to construct message, error: %d", len);
 		SEND_FATAL_ERROR();
