@@ -173,6 +173,8 @@ APP_TIMER_DEF(m_adv_data_update_timer);
 static ble_advdata_t                    new_advdata;
 static ble_advdata_t                    new_srdata;
 
+
+/* Function for initializing the periodic update of Advertising packets. */
 static void adv_data_update_timer_handler(void * p_context)
 {
     ret_code_t                  err_code;
