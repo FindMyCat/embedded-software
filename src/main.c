@@ -7,6 +7,8 @@
 #include <date_time.h>
 #include <zephyr/logging/log.h>
 
+#include <zephyr/drivers/gpio.h>
+
 // Application specific imports
 #include "LocationEngine/LocationEngine.h"
 #include "./mqtt/mqtt.h"
@@ -15,6 +17,11 @@
 #include "Responder/Responder.h"
 
 LOG_MODULE_REGISTER(main, 4);
+
+/* Indoor location engine sends 1 for PSM mode and 0 for eDRX mode */
+#define POWER_MODE_COMMAND_PIN		DT_ALIAS(gpiocus10)
+
+static const struct gpio_dt_spec power_mode_command_recv_pin = GPIO_DT_SPEC_GET_OR(POWER_MODE_COMMAND_PIN, gpios, {0});
 
 static K_SEM_DEFINE(lte_connected, 0, 1);
 
@@ -110,12 +117,12 @@ static int initializeLte() {
 	 * networks rejects timer updates after the device has registered to the
 	 * LTE network.
 	 */
-	// lte_lc_psm_req(true);
+	lte_lc_psm_req(true);
 	/** enhanced Discontinuous Reception */
 
 	// LOG_INF("Setting EDRX mode");
 	// Todo: Turn on EDRX mode after development complete.
-	err = lte_lc_edrx_req(false);
+	err = lte_lc_edrx_req(true);
 	
 	if (err) {
 		LOG_INF("lte_lc_edrx_req, error: %d\n", err);
@@ -156,13 +163,68 @@ static int initializeLocation() {
 	return err;
 }
 
+#define BUTTON_DEBOUNCE_TIME 50
+uint32_t last_button_press_time;
+/**
+ * @brief Callback function for when the power mode command is received through gpio interrupt.
+*/
+static void power_mode_command_recieved() {
+	k_sleep(K_MSEC(100));
+	int power_mode_command = gpio_pin_get_dt(&power_mode_command_recv_pin);
+ 	uint32_t newPressTime = k_uptime_get_32();
+	
+	if (k_uptime_get_32() - last_button_press_time < BUTTON_DEBOUNCE_TIME) {
+		return;
+	}
+
+	if (power_mode_command == 0) {
+		LOG_INF("Power mode set to eDRX");
+		// lte_lc_psm_req(false);
+		lte_lc_edrx_req(true);
+		
+	} else if (power_mode_command == 1) {
+		LOG_INF("Power mode set to PSM");
+		// lte_lc_psm_req(true);
+		lte_lc_edrx_req(false);
+	}
+	
+	last_button_press_time = newPressTime;
+
+}
+
+static struct gpio_callback pwr_mode_cb_data;
+
 /**
  * @brief Application entry point.
 */
 int main(void) {
 
+retry:
+	if (!device_is_ready(power_mode_command_recv_pin.port)) {
+		LOG_ERR("Error: button device %s is not ready\n", power_mode_command_recv_pin.port->name);
+		goto retry;
+	}
+
 	int err;	
 	int retry_count = 0;
+
+	err = gpio_pin_configure_dt(&power_mode_command_recv_pin, GPIO_INPUT | GPIO_PULL_DOWN);
+	if (err != 0) {
+		LOG_ERR("Error %d: failed to configure %s pin %d\n", 
+			err, power_mode_command_recv_pin.port->name, power_mode_command_recv_pin.pin);
+		goto retry;
+	}
+
+	err = gpio_pin_interrupt_configure_dt(&power_mode_command_recv_pin, GPIO_INT_EDGE_BOTH);
+	if (err != 0) {
+		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
+			err, power_mode_command_recv_pin.port->name, power_mode_command_recv_pin.pin);
+		return;
+	}
+
+
+	gpio_init_callback(&pwr_mode_cb_data, power_mode_command_recieved, BIT(power_mode_command_recv_pin.pin));
+	gpio_add_callback(power_mode_command_recv_pin.port, &pwr_mode_cb_data);
 
 	// Connect to LTE network with retries if necessary.
     while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {

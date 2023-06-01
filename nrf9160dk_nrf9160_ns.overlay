@@ -1,0 +1,17 @@
+/ {
+    gpiocustom {
+        compatible = "gpio-keys";
+        gpiocus10: gpiocus_10 {
+            gpios = <&gpio0 10 GPIO_ACTIVE_HIGH>;
+            label = "Custom gpio 10";
+        };
+        gpiocus11: gpiocus_11 {
+            gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
+            label = "Custom gpio 11";
+        };
+    };
+    aliases {
+        gpiocus10 = &gpiocus10;
+        gpiocus11 = &gpiocus11;
+    };
+};
