@@ -117,12 +117,12 @@ static int initializeLte() {
 	 * networks rejects timer updates after the device has registered to the
 	 * LTE network.
 	 */
-	lte_lc_psm_req(true);
+	lte_lc_psm_req(false);
 	/** enhanced Discontinuous Reception */
 
 	// LOG_INF("Setting EDRX mode");
 	// Todo: Turn on EDRX mode after development complete.
-	err = lte_lc_edrx_req(true);
+	err = lte_lc_edrx_req(false);
 	
 	if (err) {
 		LOG_INF("lte_lc_edrx_req, error: %d\n", err);
@@ -184,7 +184,7 @@ static void power_mode_command_recieved() {
 		
 	} else if (power_mode_command == 1) {
 		LOG_INF("Power mode set to PSM");
-		// lte_lc_psm_req(true);
+		lte_lc_psm_req(true);
 		lte_lc_edrx_req(false);
 	}
 	
@@ -199,6 +199,9 @@ static struct gpio_callback pwr_mode_cb_data;
 */
 int main(void) {
 
+
+	LOG_INF("init");
+	// return 0; // TODO: remove this
 retry:
 	if (!device_is_ready(power_mode_command_recv_pin.port)) {
 		LOG_ERR("Error: button device %s is not ready\n", power_mode_command_recv_pin.port->name);
