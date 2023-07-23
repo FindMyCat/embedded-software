@@ -243,6 +243,11 @@ void handle_new_data(const uint8_t * data, int data_len)
             NRF_LOG_INFO("Device Info changed.");
             break;
         }
+        case UserId_playSound: {
+            // Play sound message received
+            ble_play_sound();
+            break;
+        }
         default:
             // unsupported message ID
             NRF_LOG_INFO("Unsupported message ID.");

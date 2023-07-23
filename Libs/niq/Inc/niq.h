@@ -126,7 +126,8 @@ enum SampleAppMessageId {
    UserId_getDeviceStruct = 0x20,
    UserId_setDeviceStruct = 0x21,
 
-   UserId_iOSNotify = 0x2F
+   UserId_iOSNotify = 0x2F,
+   UserId_playSound = 0x30,
 };
 
 

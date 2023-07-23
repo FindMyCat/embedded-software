@@ -71,6 +71,7 @@ void ble_evt_disconnected_handler(void);
 
 //void advertising_start(void *);
 
+void ble_play_sound(void);
 
 //================ reuse NI defs =================
 void get_nus_data(ble_nus_t * pnus);

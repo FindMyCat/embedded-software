@@ -958,6 +958,11 @@ static void scan_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+/**@brief Function for playing sound. */
+void ble_play_sound() {
+
+    NRF_LOG_INFO("Playing sound...");
+}
 
 void ble_init(char * gap_name)
 {
