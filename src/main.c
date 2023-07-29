@@ -11,7 +11,6 @@
 
 // Application specific imports
 #include "LocationEngine/LocationEngine.h"
-#include "./mqtt/mqtt.h"
 #include "SmsListener/SmsListener.h"
 #include "Dispatcher/Dispatcher.h"
 #include "Responder/Responder.h"

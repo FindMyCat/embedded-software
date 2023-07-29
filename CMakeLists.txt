@@ -26,8 +26,5 @@ target_sources(app PRIVATE src/Dispatcher/Dispatcher.h)
 target_sources(app PRIVATE src/Responder/Responder.c)
 target_sources(app PRIVATE src/Responder/Responder.h)
 
-target_sources(app PRIVATE src/mqtt/mqtt.c)
-target_sources(app PRIVATE src/mqtt/mqtt.h)
-
 target_sources(app PRIVATE src/mqtt/mqttsn.c)
 target_sources(app PRIVATE src/mqtt/mqttsn.h)
