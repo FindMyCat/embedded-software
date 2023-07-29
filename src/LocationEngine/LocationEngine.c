@@ -20,11 +20,12 @@ void location_event_handler(const struct location_event_data *event_data)
 		printk("  accuracy: %.01f m\n", event_data->location.accuracy);
 		printk("  satellites tracked: %d \n", event_data->location.details.gnss.satellites_tracked);
 		char location_str[100]; // create a character array to store the formatted string
-		snprintk(location_str, sizeof(location_str), "{\"msg\": \"%.06f,%.06f,%d,%.02f\"}", 
+		snprintk(location_str, sizeof(location_str), "{\"msg\": \"%.06f,%.06f,%d,%.02f,%d\"}", 
 			event_data->location.latitude, 
 			event_data->location.longitude, 
 			event_data->location.details.gnss.satellites_tracked, 
-			event_data->location.accuracy);
+			event_data->location.accuracy, 
+			25); // Todo: replace with actual battery reading
 
 		printk("%s\n", location_str); // print the formatted string
 		

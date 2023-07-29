@@ -107,6 +107,10 @@ config LOCATION_SERVICES_INIT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry location services initialization"
 	default 20
 
+config DEVICE_ID
+	string "Device ID"
+	default "nrf9160"
+
 endmenu
 
 menu "Zephyr Kernel"

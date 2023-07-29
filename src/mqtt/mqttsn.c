@@ -12,7 +12,7 @@
 
 static APP_BMEM struct mqtt_sn_client client;
 static APP_BMEM struct mqtt_sn_transport_udp tp;
-static APP_BMEM struct mqtt_sn_data client_id = MQTT_SN_DATA_STRING_LITERAL("ZEPHYR");
+static APP_BMEM struct mqtt_sn_data client_id = MQTT_SN_DATA_STRING_LITERAL(CONFIG_DEVICE_ID);
 
 static uint8_t tx_buf[CONFIG_NET_SAMPLE_MQTT_SN_BUFFER_SIZE];
 static uint8_t rx_buf[CONFIG_NET_SAMPLE_MQTT_SN_BUFFER_SIZE];
