@@ -12,9 +12,8 @@ static struct k_timer periodic_timer;
 
 void periodic_work_handler(struct k_timer *dummy)
 {
-    // fetch location every 40 seconds
-    mqttsn_check_input();
     LOG_INF("Checking mqtt-sn input");
+    mqttsn_check_input();
 }
 
 void respond(void)
