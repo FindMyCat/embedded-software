@@ -13,15 +13,13 @@ LOG_MODULE_REGISTER(sms_listener, 4);
 void sms_listener_init(void* smsCallback) {
     int handle = 0;
 
-	LOG_INF("\nSMS sample starting\n");
-
 	handle = sms_register_listener(smsCallback, NULL);
 	if (handle) {
 		LOG_ERR("sms_register_listener returned err: %d\n", handle);
 		return;
 	}
 
-	LOG_INF("SMS sample is ready for receiving messages\n");
+	LOG_INF("Device is ready to listen for commands over SMS.");
 
 
 	/* In our application, we should unregister SMS in some conditions with:

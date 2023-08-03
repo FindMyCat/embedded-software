@@ -12,6 +12,8 @@
     "errno.h": "c",
     "lte_lc.h": "c",
     "mqtt-sn.h": "c",
-    "smslistener.h": "c"
+    "smslistener.h": "c",
+    "log.h": "c",
+    "sms.h": "c"
   },
 }

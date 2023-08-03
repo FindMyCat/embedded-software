@@ -14,6 +14,7 @@
 #include "SmsListener/SmsListener.h"
 #include "Dispatcher/Dispatcher.h"
 #include "Responder/Responder.h"
+#include "UDPListener/UDPListener.h"
 
 LOG_MODULE_REGISTER(main, 4);
 
@@ -37,7 +38,7 @@ static void lte_event_handler(const struct lte_lc_evt *const evt)
 	case LTE_LC_EVT_NW_REG_STATUS:
 		if ((evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME) ||
 		     (evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_ROAMING)) {
-			LOG_INF("Connected to LTE\n");
+			LOG_INF("Connected to LTE");
 			k_sem_give(&lte_connected);
 		}
 		break;
@@ -105,7 +106,7 @@ static int initializeLte() {
 		date_time_register_handler(date_time_evt_handler);
 	}
 
-	LOG_INF("Connecting to LTE...\n");
+	LOG_INF("Connecting to LTE...");
 
 	lte_lc_init();
 	lte_lc_register_handler(lte_event_handler);
@@ -119,9 +120,9 @@ static int initializeLte() {
 	lte_lc_psm_req(false);
 	/** enhanced Discontinuous Reception */
 
-	// LOG_INF("Setting EDRX mode");
+	LOG_INF("Setting EDRX mode");
 	// Todo: Turn on EDRX mode after development complete.
-	err = lte_lc_edrx_req(false);
+	err = lte_lc_edrx_req(true);
 	
 	if (err) {
 		LOG_INF("lte_lc_edrx_req, error: %d\n", err);
@@ -142,23 +143,22 @@ static int initializeLte() {
 static int initializeLocation() {
 		/* A-GPS/P-GPS needs to know the current time. */
 	if (IS_ENABLED(CONFIG_DATE_TIME)) {
-		LOG_INF("Waiting for current time\n");
+		LOG_INF("Waiting for current time");
 
 		/* Wait for an event from the Date Time library. */
 		k_sem_take(&time_update_finished, K_MINUTES(10));
 
 		if (!date_time_is_valid()) {
-			LOG_INF("Failed to get current time. Continuing anyway.\n");
+			LOG_INF("Failed to get current time. Continuing anyway.");
 		}
 	}
 
 	int err = location_init(location_event_handler);
 	if (err) {
-		LOG_INF("Initializing the Location library failed, error: %d\n", err);
+		LOG_INF("Initializing the Location library failed, error: %d", err);
 		return -1;
 	}
 	
-	LOG_INF("Location library initialized\n");
 	return err;
 }
 
@@ -199,11 +199,13 @@ static struct gpio_callback pwr_mode_cb_data;
 int main(void) {
 
 
-	LOG_INF("init");
-	// return 0; // TODO: remove this
+	LOG_INF("*******************************");
+	LOG_INF("Welcome to FindMyCat v2.0");
+	LOG_INF("*******************************");
+	
 retry:
 	if (!device_is_ready(power_mode_command_recv_pin.port)) {
-		LOG_ERR("Error: button device %s is not ready\n", power_mode_command_recv_pin.port->name);
+		LOG_ERR("Error: Device %s is not ready\n", power_mode_command_recv_pin.port->name);
 		goto retry;
 	}
 
@@ -221,7 +223,7 @@ retry:
 	if (err != 0) {
 		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
 			err, power_mode_command_recv_pin.port->name, power_mode_command_recv_pin.pin);
-		return;
+		return -1;
 	}
 
 
@@ -265,7 +267,9 @@ retry:
 		return -1;
 	}
 
-	sms_listener_init(smsCallback);
+	// sms_listener_init(smsCallback);
+
+	udp_listener_init();
 
 	return 0;
 }

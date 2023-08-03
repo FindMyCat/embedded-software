@@ -12,9 +12,8 @@ static struct k_timer periodic_timer;
 
 void periodic_work_handler(struct k_timer *dummy)
 {
-    // do the periodic work here
-    LOG_INF("Periodic work executed!\n");
-
+    // fetch location every 40 seconds
+    mqttsn_check_input();
     LOG_INF("Getting location from location engine");
     location_gnss_high_accuracy_get();
 }
