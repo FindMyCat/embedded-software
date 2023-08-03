@@ -41,7 +41,7 @@ void udp_listener_init() {
         // Print the received data
         printk("Received data: %.*s\n", (int)recv_len, rx_data);
 
-		// Two commands are supported over SMS. 
+		// Two commands are supported over UDP. 
 		// We should keep these command strings small as possible for least data transfer.
 		if (strncmp(rx_data, "activate", recv_len) == 0) {
 			changeDispatcherState(DISPATCHER_STATE_RESPONDING);
