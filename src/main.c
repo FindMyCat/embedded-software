@@ -48,52 +48,6 @@ static void lte_event_handler(const struct lte_lc_evt *const evt)
 }
 
 /**
- * @brief Callback function for when an SMS is received.
-*/
-static void smsCallback(struct sms_data *const data, void *context)
-{
-	LOG_INF("smsCallback started");
-	if (data == NULL) {
-		printk("%s with NULL data\n", __func__);
-		return;
-	}
-
-	if (data->type == SMS_TYPE_DELIVER) {
-		/* When SMS message is received, print information */
-		struct sms_deliver_header *header = &data->header.deliver;
-
-		printk("\nSMS received:\n");
-		printk("\tTime:   %02d-%02d-%02d %02d:%02d:%02d\n",
-			header->time.year,
-			header->time.month,
-			header->time.day,
-			header->time.hour,
-			header->time.minute,
-			header->time.second);
-
-		printk("\tText:   '%s'\n", data->payload);
-
-
-		// Two commands are supported over SMS. 
-		// We should keep these command strings small as possible for least data transfer.
-		if (strcmp(data->payload, "activate") == 0) {
-			changeDispatcherState(DISPATCHER_STATE_RESPONDING);
-			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_RESPONDING\n");
-		} else if (strcmp(data->payload, "deactivate") == 0) {
-			changeDispatcherState(DISPATCHER_STATE_IDLE);
-			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_IDLE\n");
-		} else {
-			LOG_ERR("Unknown command: %s\n", data->payload);
-		}
-
-	} else if (data->type == SMS_TYPE_STATUS_REPORT) {
-		printk("SMS status report received\n");
-	} else {
-		printk("SMS protocol message with unknown type received\n");
-	}
-}
-
-/**
  * @brief Initialize LTE and wait for connection.
 */
 static int initializeLte() {
@@ -120,7 +74,7 @@ static int initializeLte() {
 	lte_lc_psm_req(false);
 	/** enhanced Discontinuous Reception */
 
-	LOG_INF("Setting EDRX mode");
+	LOG_INF("Requesting EDRX mode");
 	// Todo: Turn on EDRX mode after development complete.
 	err = lte_lc_edrx_req(true);
 	

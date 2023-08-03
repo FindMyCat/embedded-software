@@ -14,15 +14,14 @@ void periodic_work_handler(struct k_timer *dummy)
 {
     // fetch location every 40 seconds
     mqttsn_check_input();
-    LOG_INF("Getting location from location engine");
-    location_gnss_high_accuracy_get();
+    LOG_INF("Checking mqtt-sn input");
 }
 
 void respond(void)
 {
-    mqttsn_initialize();
     k_timer_init(&periodic_timer, periodic_work_handler, NULL);
-    k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(40));
+    k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));
+    location_gnss_periodic_get(CONFIG_LOCATION_REFRESH_PERIOD_SECONDS);
 }
 
 void stop_responding()
@@ -30,4 +29,5 @@ void stop_responding()
     LOG_INF("Responder stopping. Performing cleanup.");
     k_timer_stop(&periodic_timer);
     mqttsn_disconnect();
+    location_request_cancel();
 }

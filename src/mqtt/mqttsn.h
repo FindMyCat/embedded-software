@@ -8,4 +8,5 @@ int mqttsn_disconnect();
 int mqttsn_check_input();
 int mqttsn_publish(char *data_str); 
 
+bool get_mqttsn_connection_status();
 #endif

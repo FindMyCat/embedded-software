@@ -9,10 +9,16 @@ K_SEM_DEFINE(location_event, 0, 1);
 
 LOG_MODULE_REGISTER(gnss, 4);
 
+static bool location_engine_has_fix = false;
+
 void location_event_handler(const struct location_event_data *event_data)
 {
 	switch (event_data->id) {
 	case LOCATION_EVT_LOCATION:
+		location_engine_has_fix = true;
+
+		int err = 0;
+	
 		LOG_INF("Got location:\n");
 		printk("  method: %s\n", location_method_str(event_data->method));
 		printk("  latitude: %.06f\n", event_data->location.latitude);
@@ -27,12 +33,21 @@ void location_event_handler(const struct location_event_data *event_data)
 			event_data->location.accuracy, 
 			25); // Todo: replace with actual battery reading
 
-		printk("%s\n", location_str); // print the formatted string
-		
-		// Todo: Any better way to architect this? Separate the location engine from the MQTT service?
 		mqttsn_check_input();
-   		mqttsn_publish(location_str);
-    	mqttsn_check_input();
+		if(get_mqttsn_connection_status() == false) {
+			LOG_INF("MQTT-SN not connected. Initialing connection.\n");
+			err = mqttsn_initialize();
+			k_sleep(K_SECONDS(3));
+		}
+		if(err) {
+			LOG_ERR("MQTT-SN initialization failed. Error: %d\n", err);
+		}		
+		else {
+			mqttsn_check_input();
+			mqttsn_publish(location_str);
+			mqttsn_check_input();
+		}
+
 		if (event_data->location.datetime.valid) {
 			printk("  date: %04d-%02d-%02d\n",
 				event_data->location.datetime.year,
@@ -44,8 +59,6 @@ void location_event_handler(const struct location_event_data *event_data)
 				event_data->location.datetime.second,
 				event_data->location.datetime.ms);
 		}
-		printk("  Google maps URL: https://maps.google.com/?q=%.06f,%.06f\n\n",
-			event_data->location.latitude, event_data->location.longitude);
 		break;
 
 	case LOCATION_EVT_TIMEOUT:

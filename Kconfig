@@ -111,6 +111,14 @@ config DEVICE_ID
 	string "Device ID"
 	default "nrf9160"
 
+config MQTT_SN_REFRESH_PERIOD_SECONDS
+	int "MQTT-SN refresh period in seconds"
+	default 60
+
+config LOCATION_REFRESH_PERIOD_SECONDS
+	int "Location refresh period in seconds"
+	default 60	
+
 endmenu
 
 menu "Zephyr Kernel"

@@ -17,7 +17,7 @@ static APP_BMEM struct mqtt_sn_data client_id = MQTT_SN_DATA_STRING_LITERAL(CONF
 static uint8_t tx_buf[CONFIG_NET_SAMPLE_MQTT_SN_BUFFER_SIZE];
 static uint8_t rx_buf[CONFIG_NET_SAMPLE_MQTT_SN_BUFFER_SIZE];
 
-static bool mqtt_sn_connected;
+static bool mqtt_sn_connected = false;
 
 LOG_MODULE_REGISTER(mqttsn, 4);
 
@@ -66,10 +66,9 @@ int mqttsn_initialize() {
 
 	// // __ASSERT(err == 0, "zsock_inet_pton() failed %d", err);
 
-	LOG_INF("Waiting for connection...");
 	LOG_HEXDUMP_DBG(&gateway, sizeof(gateway), "gateway");
 
-	LOG_INF("Connecting client");
+	LOG_INF("Connecting to MQTT-SN server");
 
 	err = mqtt_sn_transport_udp_init(&tp, (struct sockaddr *)&gateway, sizeof((gateway)));
 	__ASSERT(err == 0, "mqtt_sn_transport_udp_init() failed %d", err);
@@ -135,4 +134,11 @@ int mqttsn_disconnect() {
 	}
 	
 	return -1;
+}
+
+/**
+ * @brief Function to get the MQTT-SN connection status.
+ */
+bool get_mqttsn_connection_status() {
+	return mqtt_sn_connected;
 }

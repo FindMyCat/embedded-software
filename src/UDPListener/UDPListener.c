@@ -15,12 +15,12 @@ void udp_listener_init() {
     char rx_data[MAX_DATA_SIZE];
     ssize_t recv_len;
 
-    printk("UDP Data Receiver (IPv4)\n");
+    LOG_INF("UDP Data Receiver is listening for remote commands(IPv4)");
 
     // Create a UDP socket
     udp_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (udp_socket < 0) {
-        printk("Error: Unable to create socket\n");
+        LOG_ERR("Unable to create UDP socket");
         return;
     }
 
@@ -30,7 +30,7 @@ void udp_listener_init() {
     my_addr.sin_port = htons(UDP_PORT);
     bind(udp_socket, (struct sockaddr *)&my_addr, sizeof(my_addr));
 
-    while (1) {
+    while (true) {
         // Receive data on the UDP socket
         recv_len = recv(udp_socket, rx_data, sizeof(rx_data), 0);
         if (recv_len < 0) {
