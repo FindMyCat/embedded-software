@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2023 Nordic Semiconductor ASA
- *
- * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
- */
-
 #include <modem/modem_key_mgmt.h>
 
 static const unsigned char ca_certificate[] = {

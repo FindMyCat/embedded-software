@@ -1,9 +1,3 @@
-#
-# Copyright (c) 2023 Nordic Semiconductor ASA
-#
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
-#
-
 target_sources(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/transport.c)
 
 # Add Client ID helper library
@@ -14,7 +8,7 @@ add_subdirectory(client_id)
 # the nRF9160 modem.
 add_subdirectory_ifdef(CONFIG_MODEM_KEY_MGMT credentials_provision)
 
-# Make the folder that contains the CA certificate for "test.mosquitto.org" global so that it can
+# Make the folder that contains the CA certificates global so that it can
 # be located by the MQTT helper library / local credential provision library.
 #
 # The MQTT helper library provisions the certificate
