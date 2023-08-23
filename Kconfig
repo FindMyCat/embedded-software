@@ -31,14 +31,6 @@ config MQTT_PAYLOAD_BUFFER_SIZE
 	int "MQTT payload buffer size"
 	default 128
 
-config BUTTON_EVENT_PUBLISH_MSG
-	string "The message to publish on a button event"
-	default "Hello from nRF91 MQTT Simple Sample"
-
-config BUTTON_EVENT_BTN_NUM
-	int "The button number"
-	default 1
-
 config MQTT_RECONNECT_DELAY_S
 	int "Seconds to delay before attempting to reconnect to the broker"
 	default 60
@@ -77,12 +69,6 @@ config MQTT_BROKER_PASSWORD
 	help
 	    Set to "password", change this to your password.
 
-
-config SMS_SEND_PHONE_NUMBER
-	string "Phone number, including country code, where the SMS message is sent"
-	default ""
-
-
 config MQTT_SN_GATEWAY_IP
 	string "IP of the MQTT-SN gateway"
 
@@ -119,6 +105,6 @@ menu "Zephyr Kernel"
 source "Kconfig.zephyr"
 endmenu
 
-module = MQTT_SIMPLE
-module-str = MQTT Simple
+module = FINDMYCAT_OUTDOOR_LOCATION_ENGINE
+module-str = FindMyCat outdoor location engine
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
