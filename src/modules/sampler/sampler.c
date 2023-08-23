@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2023 Nordic Semiconductor ASA
- *
- * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
- */
-
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/zbus/zbus.h>
@@ -16,10 +10,10 @@
 static char batt_lvl[4] = "0";
 
 /* Register log module */
-LOG_MODULE_REGISTER(sampler, CONFIG_MQTT_SAMPLE_SAMPLER_LOG_LEVEL);
+LOG_MODULE_REGISTER(sampler, CONFIG_MQTT_SAMPLER_LOG_LEVEL);
 
 /* Register subscriber */
-ZBUS_SUBSCRIBER_DEFINE(sampler, CONFIG_MQTT_SAMPLE_SAMPLER_MESSAGE_QUEUE_SIZE);
+ZBUS_SUBSCRIBER_DEFINE(sampler, CONFIG_MQTT_SAMPLER_MESSAGE_QUEUE_SIZE);
 
 
 void set_batt_lvl(char* batt_lvl_string)
@@ -62,5 +56,5 @@ static void sampler_task(void)
 }
 
 K_THREAD_DEFINE(sampler_task_id,
-		CONFIG_MQTT_SAMPLE_SAMPLER_THREAD_STACK_SIZE,
+		CONFIG_MQTT_SAMPLER_THREAD_STACK_SIZE,
 		sampler_task, NULL, NULL, NULL, 3, 0, 0);
