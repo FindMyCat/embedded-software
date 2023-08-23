@@ -6,7 +6,7 @@
 #include <zephyr/types.h>
 
 /** @brief Get Client ID name. Either retrieved from the HW ID library or
- *         CONFIG_MQTT_SAMPLE_TRANSPORT_CLIENT_ID if set.
+ *         CONFIG_MQTT_TRANSPORT_CLIENT_ID if set.
  *         For Native Posix builds a random uint32 bit value is returned.
  *
  *  @param buffer Pointer to buffer that the Client ID will be written to.

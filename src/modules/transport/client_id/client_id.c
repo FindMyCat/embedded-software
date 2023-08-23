@@ -12,8 +12,8 @@ int client_id_get(char *const buffer, size_t buffer_size)
 {
 	int ret;
 
-	if (sizeof(CONFIG_MQTT_SAMPLE_TRANSPORT_CLIENT_ID) - 1 > 0) {
-		ret = snprintk(buffer, buffer_size, "%s", CONFIG_MQTT_SAMPLE_TRANSPORT_CLIENT_ID);
+	if (sizeof(CONFIG_MQTT_TRANSPORT_CLIENT_ID) - 1 > 0) {
+		ret = snprintk(buffer, buffer_size, "%s", CONFIG_MQTT_TRANSPORT_CLIENT_ID);
 		if ((ret < 0) || (ret >= buffer_size)) {
 			return -EMSGSIZE;
 		}

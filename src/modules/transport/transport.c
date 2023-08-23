@@ -17,10 +17,10 @@
 #include "message_channel.h"
 
 /* Register log module */
-LOG_MODULE_REGISTER(transport, CONFIG_MQTT_SAMPLE_TRANSPORT_LOG_LEVEL);
+LOG_MODULE_REGISTER(transport, CONFIG_MQTT_TRANSPORT_LOG_LEVEL);
 
 /* Register subscriber */
-ZBUS_SUBSCRIBER_DEFINE(transport, CONFIG_MQTT_SAMPLE_TRANSPORT_MESSAGE_QUEUE_SIZE);
+ZBUS_SUBSCRIBER_DEFINE(transport, CONFIG_MQTT_TRANSPORT_MESSAGE_QUEUE_SIZE);
 
 /* ID for subscribe topic - Used to verify that a subscription succeeded in on_mqtt_suback(). */
 #define SUBSCRIBE_TOPIC_ID 2469
@@ -33,7 +33,7 @@ static void connect_work_fn(struct k_work *work);
 static K_WORK_DELAYABLE_DEFINE(connect_work, connect_work_fn);
 
 /* Define stack_area of application workqueue */
-K_THREAD_STACK_DEFINE(stack_area, CONFIG_MQTT_SAMPLE_TRANSPORT_WORKQUEUE_STACK_SIZE);
+K_THREAD_STACK_DEFINE(stack_area, CONFIG_MQTT_TRANSPORT_WORKQUEUE_STACK_SIZE);
 
 /* Declare application workqueue. This workqueue is used to call mqtt_helper_connect(), and
  * schedule reconnectionn attempts upon network loss or disconnection from MQTT.
@@ -44,7 +44,7 @@ static struct k_work_q transport_queue;
 enum module_state { MQTT_CONNECTED, MQTT_DISCONNECTED };
 
 /* MQTT client ID buffer */
-static char client_id[CONFIG_MQTT_SAMPLE_TRANSPORT_CLIENT_ID_BUFFER_SIZE];
+static char client_id[CONFIG_MQTT_TRANSPORT_CLIENT_ID_BUFFER_SIZE];
 
 /* User defined state object.
  * Used to transfer data between state changes.
@@ -92,7 +92,7 @@ static void on_mqtt_publish(struct mqtt_helper_buf topic, struct mqtt_helper_buf
 static void on_mqtt_suback(uint16_t message_id, int result)
 {
 	if ((message_id == SUBSCRIBE_TOPIC_ID) && (result == 0)) {
-		LOG_INF("Subscribed to topic %s", CONFIG_MQTT_SAMPLE_TRANSPORT_SUBSCRIBE_TOPIC);
+		LOG_INF("Subscribed to topic %s", CONFIG_MQTT_TRANSPORT_SUBSCRIBE_TOPIC);
 	} else if (result) {
 		LOG_ERR("Topic subscription failed, error: %d", result);
 	} else {
@@ -109,8 +109,8 @@ static void publish(struct payload *payload)
 		.message.payload.len = strlen(payload->string),
 		.message.topic.qos = MQTT_QOS_1_AT_LEAST_ONCE,
 		.message_id = k_uptime_get_32(),
-		.message.topic.topic.utf8 = CONFIG_MQTT_SAMPLE_TRANSPORT_PUBLISH_TOPIC,
-		.message.topic.topic.size = strlen(CONFIG_MQTT_SAMPLE_TRANSPORT_PUBLISH_TOPIC),
+		.message.topic.topic.utf8 = CONFIG_MQTT_TRANSPORT_PUBLISH_TOPIC,
+		.message.topic.topic.size = strlen(CONFIG_MQTT_TRANSPORT_PUBLISH_TOPIC),
 	};
 
 	err = mqtt_helper_publish(&param);
@@ -130,8 +130,8 @@ static void subscribe(void)
 	int err;
 	struct mqtt_topic topics[] = {
 		{
-			.topic.utf8 = CONFIG_MQTT_SAMPLE_TRANSPORT_SUBSCRIBE_TOPIC,
-			.topic.size = strlen(CONFIG_MQTT_SAMPLE_TRANSPORT_SUBSCRIBE_TOPIC),
+			.topic.utf8 = CONFIG_MQTT_TRANSPORT_SUBSCRIBE_TOPIC,
+			.topic.size = strlen(CONFIG_MQTT_TRANSPORT_SUBSCRIBE_TOPIC),
 		},
 	};
 	struct mqtt_subscription_list list = {
@@ -156,8 +156,8 @@ static void connect_work_fn(struct k_work *work)
 
 	int err;
 	struct mqtt_helper_conn_params conn_params = {
-		.hostname.ptr = CONFIG_MQTT_SAMPLE_TRANSPORT_BROKER_HOSTNAME,
-		.hostname.size = strlen(CONFIG_MQTT_SAMPLE_TRANSPORT_BROKER_HOSTNAME),
+		.hostname.ptr = CONFIG_MQTT_TRANSPORT_BROKER_HOSTNAME,
+		.hostname.size = strlen(CONFIG_MQTT_TRANSPORT_BROKER_HOSTNAME),
 		.device_id.ptr = client_id,
 		.device_id.size = strlen(client_id),
 	};
@@ -168,7 +168,7 @@ static void connect_work_fn(struct k_work *work)
 	}
 
 	k_work_reschedule_for_queue(&transport_queue, &connect_work,
-			  K_SECONDS(CONFIG_MQTT_SAMPLE_TRANSPORT_RECONNECTION_TIMEOUT_SECONDS));
+			  K_SECONDS(CONFIG_MQTT_TRANSPORT_RECONNECTION_TIMEOUT_SECONDS));
 }
 
 /* Zephyr State Machine framework handlers */
@@ -212,7 +212,7 @@ static void disconnected_run(void *o)
 static void connected_entry(void *o)
 {
 	LOG_INF("Connected to MQTT broker");
-	LOG_INF("Hostname: %s", CONFIG_MQTT_SAMPLE_TRANSPORT_BROKER_HOSTNAME);
+	LOG_INF("Hostname: %s", CONFIG_MQTT_TRANSPORT_BROKER_HOSTNAME);
 	LOG_INF("Client ID: %s", client_id);
 	LOG_INF("Port: %d", CONFIG_MQTT_HELPER_PORT);
 	LOG_INF("TLS: %s", IS_ENABLED(CONFIG_MQTT_LIB_TLS) ? "Yes" : "No");
@@ -356,5 +356,5 @@ static void transport_task(void)
 }
 
 K_THREAD_DEFINE(transport_task_id,
-		CONFIG_MQTT_SAMPLE_TRANSPORT_THREAD_STACK_SIZE,
+		CONFIG_MQTT_TRANSPORT_THREAD_STACK_SIZE,
 		transport_task, NULL, NULL, NULL, 3, 0, 0);
