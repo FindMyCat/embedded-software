@@ -1,39 +1,4 @@
 menu "Find My Cat main configuration"
-config MQTT_PUB_TOPIC
-	string "MQTT publish topic"
-	default "my/publish/topic"
-
-config MQTT_SUB_TOPIC
-	string "MQTT subscribe topic"
-	default "my/subscribe/topic"
-
-config MQTT_CLIENT_ID
-	string "MQTT Client ID"
-	help
-	  Use a custom Client ID string. If not set, the client ID will be
-	  generated based on IMEI number (for nRF9160 based targets) or
-	  randomly (for other platforms).
-	default ""
-
-config MQTT_BROKER_HOSTNAME
-	string "MQTT broker hostname"
-	default "test.mosquitto.org"
-
-config MQTT_BROKER_PORT
-	int "MQTT broker port"
-	default 1883
-
-config MQTT_MESSAGE_BUFFER_SIZE
-	int "MQTT message buffer size"
-	default 128
-
-config MQTT_PAYLOAD_BUFFER_SIZE
-	int "MQTT payload buffer size"
-	default 128
-
-config MQTT_RECONNECT_DELAY_S
-	int "Seconds to delay before attempting to reconnect to the broker"
-	default 60
 
 config LTE_CONNECT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry LTE connection"
@@ -42,32 +7,6 @@ config LTE_CONNECT_RETRY_DELAY_S
 config LTE_CONNECT_MAX_RETRIES
 	int "Max retry attempts for LTE connection"
 	default 4
-
-config MQTT_TLS_SEC_TAG
-	int "TLS credentials security tag"
-	default 24
-
-config MQTT_TLS_SESSION_CACHING
-	bool "Enable TLS session caching"
-
-config MQTT_TLS_PEER_VERIFY
-	int "Set peer verification level"
-	default 2
-	help
-		Set to 0 for VERIFY_NONE, 1 for VERIFY_OPTIONAL, and 2 for
-		VERIFY_REQUIRED.
-
-config MQTT_BROKER_USERNAME
-	string "MQTT Broker username"
-	default "username"
-	help
-	    Set to "username", change this to your username.
-
-config MQTT_BROKER_PASSWORD
-	string "MQTT Broker password"
-	default "password"
-	help
-	    Set to "password", change this to your password.
 
 config MQTT_SN_GATEWAY_IP
 	string "IP of the MQTT-SN gateway"
@@ -78,6 +17,10 @@ config MQTT_SN_GATEWAY_PORT
 config MQTT_SN_BUFFER_SIZE
 	int "Size of the TX and RX buffers"
 	default 255
+
+config MQTT_SN_REFRESH_PERIOD_SECONDS
+	int "MQTT-SN refresh period in seconds"
+	default 60
 
 config LOCATION_SERVICES_INIT_MAX_RETRIES
 	int "Max retry attempts for location services initialization"
@@ -90,10 +33,6 @@ config LOCATION_SERVICES_INIT_RETRY_DELAY_S
 config DEVICE_ID
 	string "Device ID"
 	default "nrf9160"
-
-config MQTT_SN_REFRESH_PERIOD_SECONDS
-	int "MQTT-SN refresh period in seconds"
-	default 60
 
 config LOCATION_REFRESH_PERIOD_SECONDS
 	int "Location refresh period in seconds"
