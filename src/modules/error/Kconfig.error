@@ -6,7 +6,7 @@
 
 menu "Error"
 
-config MQTT_SAMPLE_ERROR_REBOOT_ON_FATAL
+config MQTT_ERROR_REBOOT_ON_FATAL
 	bool "Reboot on fatal error"
 	depends on REBOOT
 	default y
@@ -16,7 +16,7 @@ config MQTT_SAMPLE_ERROR_REBOOT_ON_FATAL
 	  Other parts of the stack will still reboot or not based on
 	  the CONFIG_RESET_ON_FATAL_ERROR option.
 
-module = MQTT_SAMPLE_ERROR
+module = MQTT_ERROR
 module-str = Error
 source "subsys/logging/Kconfig.template.log_config"
 

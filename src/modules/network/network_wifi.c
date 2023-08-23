@@ -15,7 +15,7 @@
 #include "message_channel.h"
 
 /* Register log module */
-LOG_MODULE_REGISTER(network, CONFIG_MQTT_SAMPLE_NETWORK_LOG_LEVEL);
+LOG_MODULE_REGISTER(network, CONFIG_MQTT_NETWORK_LOG_LEVEL);
 
 /* This module does not subscribe to any channels */
 BUILD_ASSERT(IS_ENABLED(CONFIG_WIFI_CREDENTIALS_STATIC), "Static Wi-Fi config must be used");
@@ -121,5 +121,5 @@ static void network_task(void)
 }
 
 K_THREAD_DEFINE(network_task_id,
-		CONFIG_MQTT_SAMPLE_NETWORK_THREAD_STACK_SIZE,
+		CONFIG_MQTT_NETWORK_THREAD_STACK_SIZE,
 		network_task, NULL, NULL, NULL, 3, 0, 0);

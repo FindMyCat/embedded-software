@@ -1,8 +1,3 @@
-/*
- * Copyright (c) 2023 Nordic Semiconductor ASA
- *
- * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
- */
 #include <zephyr/sys/reboot.h>
 #include <zephyr/zbus/zbus.h>
 #include <zephyr/logging/log.h>
@@ -14,7 +9,7 @@
 #include "message_channel.h"
 
 /* Register log module */
-LOG_MODULE_REGISTER(error, CONFIG_MQTT_SAMPLE_ERROR_LOG_LEVEL);
+LOG_MODULE_REGISTER(error, CONFIG_MQTT_ERROR_LOG_LEVEL);
 
 #if CONFIG_NRF_MODEM_LIB_ON_FAULT_APPLICATION_SPECIFIC
 void nrf_modem_fault_handler(struct nrf_modem_fault_info *fault_info)
@@ -27,7 +22,7 @@ void nrf_modem_fault_handler(struct nrf_modem_fault_info *fault_info)
 void error_callback(const struct zbus_channel *chan)
 {
 	if (&FATAL_ERROR_CHAN == chan) {
-		if (IS_ENABLED(CONFIG_MQTT_SAMPLE_ERROR_REBOOT_ON_FATAL)) {
+		if (IS_ENABLED(CONFIG_MQTT_ERROR_REBOOT_ON_FATAL)) {
 			LOG_ERR("FATAL error, rebooting");
 			LOG_PANIC();
 			sys_reboot(0);

@@ -15,7 +15,7 @@
 #include "../sampler/sampler.h"
 
 /* Register log module */
-LOG_MODULE_REGISTER(ble_scanner, CONFIG_MQTT_SAMPLE_BLE_SCANNER_LOG_LEVEL);
+LOG_MODULE_REGISTER(ble_scanner, CONFIG_MQTT_BLE_SCANNER_LOG_LEVEL);
 
 int THIRTY_SECONDS = 30000;
 /* Last seen timestamp for the tag relative to system uptime */
@@ -199,10 +199,10 @@ static void ble_scanner_task() {
 		}
 
 	
-		k_sleep(K_SECONDS(CONFIG_MQTT_SAMPLE_TRIGGER_TIMEOUT_SECONDS));
+		k_sleep(K_SECONDS(CONFIG_MQTT_TRIGGER_TIMEOUT_SECONDS));
 	}
 }
 
 K_THREAD_DEFINE(ble_scanner_task_id,
-		CONFIG_MQTT_SAMPLE_BLE_SCANNER_THREAD_STACK_SIZE,
+		CONFIG_MQTT_BLE_SCANNER_THREAD_STACK_SIZE,
 		ble_scanner_task, NULL, NULL, NULL, 3, 0, 0);

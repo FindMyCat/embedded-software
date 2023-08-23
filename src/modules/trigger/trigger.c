@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2023 Nordic Semiconductor ASA
- *
- * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
- */
-
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/zbus/zbus.h>
@@ -14,7 +8,7 @@
 #include "message_channel.h"
 
 /* Register log module */
-LOG_MODULE_REGISTER(trigger, CONFIG_MQTT_SAMPLE_TRIGGER_LOG_LEVEL);
+LOG_MODULE_REGISTER(trigger, CONFIG_MQTT_TRIGGER_LOG_LEVEL);
 
 static void message_send(void)
 {
@@ -52,11 +46,11 @@ static void trigger_task(void)
 	while (true) {
 		message_send();
 		LOG_INF("Triggered");
-		k_sleep(K_SECONDS(CONFIG_MQTT_SAMPLE_TRIGGER_TIMEOUT_SECONDS));
+		k_sleep(K_SECONDS(CONFIG_MQTT_TRIGGER_TIMEOUT_SECONDS));
 	}
 }
 
 /* Sahas: disable trigger task */
 // K_THREAD_DEFINE(trigger_task_id,
-// 		CONFIG_MQTT_SAMPLE_TRIGGER_THREAD_STACK_SIZE,
+// 		CONFIG_MQTT_TRIGGER_THREAD_STACK_SIZE,
 // 		trigger_task, NULL, NULL, NULL, 3, 0, 0);

@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2023 Nordic Semiconductor ASA
- *
- * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
- */
-
 #ifndef _MESSAGE_CHANNEL_H_
 #define _MESSAGE_CHANNEL_H_
 
