@@ -1,12 +1,6 @@
-#
-# Copyright (c) 2023 Nordic Semiconductor ASA
-#
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
-#
-
 menu "MQTT config"
 
-config MQTT_SAMPLE_PAYLOAD_CHANNEL_STRING_MAX_SIZE
+config MQTT_PAYLOAD_CHANNEL_STRING_MAX_SIZE
 	int "Payload maximum string size"
 	default 100
 	help

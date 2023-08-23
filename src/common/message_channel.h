@@ -21,7 +21,7 @@ extern "C" {
 	}
 
 struct payload {
-	char string[CONFIG_MQTT_SAMPLE_PAYLOAD_CHANNEL_STRING_MAX_SIZE];
+	char string[CONFIG_MQTT_PAYLOAD_CHANNEL_STRING_MAX_SIZE];
 };
 
 enum network_status {

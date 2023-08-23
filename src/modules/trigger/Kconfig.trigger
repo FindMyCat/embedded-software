@@ -1,9 +1,3 @@
-#
-# Copyright (c) 2023 Nordic Semiconductor
-#
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
-#
-
 menu "Trigger"
 
 config MQTT_TRIGGER_THREAD_STACK_SIZE
