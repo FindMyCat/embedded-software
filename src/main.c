@@ -11,7 +11,6 @@
 
 // Application specific imports
 #include "LocationEngine/LocationEngine.h"
-#include "SmsListener/SmsListener.h"
 #include "Dispatcher/Dispatcher.h"
 #include "Responder/Responder.h"
 #include "UDPListener/UDPListener.h"
@@ -220,8 +219,6 @@ retry:
 	    LOG_ERR("Max retry limit reached for initializing location services, program exiting.");
 		return -1;
 	}
-
-	// sms_listener_init(smsCallback);
 
 	udp_listener_init();
 

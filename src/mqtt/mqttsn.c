@@ -14,8 +14,8 @@ static APP_BMEM struct mqtt_sn_client client;
 static APP_BMEM struct mqtt_sn_transport_udp tp;
 static APP_BMEM struct mqtt_sn_data client_id = MQTT_SN_DATA_STRING_LITERAL(CONFIG_DEVICE_ID);
 
-static uint8_t tx_buf[CONFIG_NET_SAMPLE_MQTT_SN_BUFFER_SIZE];
-static uint8_t rx_buf[CONFIG_NET_SAMPLE_MQTT_SN_BUFFER_SIZE];
+static uint8_t tx_buf[CONFIG_MQTT_SN_BUFFER_SIZE];
+static uint8_t rx_buf[CONFIG_MQTT_SN_BUFFER_SIZE];
 
 static bool mqtt_sn_connected = false;
 
@@ -59,10 +59,10 @@ int mqttsn_initialize() {
 	int err;
 	struct sockaddr_in gateway = {0};
 
-	LOG_DBG("Parsing MQTT host IP " CONFIG_NET_SAMPLE_MQTT_SN_GATEWAY_IP);
+	LOG_DBG("Parsing MQTT host IP " CONFIG_MQTT_SN_GATEWAY_IP);
 	gateway.sin_family = AF_INET;
-	gateway.sin_port = htons(CONFIG_NET_SAMPLE_MQTT_SN_GATEWAY_PORT);
-	err = zsock_inet_pton(AF_INET, CONFIG_NET_SAMPLE_MQTT_SN_GATEWAY_IP, &gateway.sin_addr);
+	gateway.sin_port = htons(CONFIG_MQTT_SN_GATEWAY_PORT);
+	err = zsock_inet_pton(AF_INET, CONFIG_MQTT_SN_GATEWAY_IP, &gateway.sin_addr);
 
 	// // __ASSERT(err == 0, "zsock_inet_pton() failed %d", err);
 

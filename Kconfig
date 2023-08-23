@@ -1,9 +1,3 @@
-#
-# Copyright (c) 2021 Nordic Semiconductor ASA
-#
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
-#
-
 menu "Find My Cat main configuration"
 config MQTT_PUB_TOPIC
 	string "MQTT publish topic"
@@ -89,13 +83,13 @@ config SMS_SEND_PHONE_NUMBER
 	default ""
 
 
-config NET_SAMPLE_MQTT_SN_GATEWAY_IP
+config MQTT_SN_GATEWAY_IP
 	string "IP of the MQTT-SN gateway"
 
-config NET_SAMPLE_MQTT_SN_GATEWAY_PORT
+config MQTT_SN_GATEWAY_PORT
 	int "Port of the MQTT-SN gateway"
 
-config NET_SAMPLE_MQTT_SN_BUFFER_SIZE
+config MQTT_SN_BUFFER_SIZE
 	int "Size of the TX and RX buffers"
 	default 255
 
