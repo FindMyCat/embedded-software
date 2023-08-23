@@ -12,7 +12,6 @@ rsource "src/modules/sampler/Kconfig.sampler"
 rsource "src/modules/network/Kconfig.network"
 rsource "src/modules/transport/Kconfig.transport"
 rsource "src/modules/error/Kconfig.error"
-rsource "src/modules/led/Kconfig.led"
 
 endmenu
 
