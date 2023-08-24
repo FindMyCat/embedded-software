@@ -49,7 +49,7 @@
  *
  */
 
-const char ProjectName[] = "DWM3001CDK - Qorvo Apple Nearby Interaction - FreeRTOS";
+const char ProjectName[] = "FindMyCat";
 const char BoardName[] = "FMC"; // Find my cat
 const char OsName[] = "FreeRTOS";
-const char ApplicationName[] = "Nearby Interaction";
+const char ApplicationName[] = "IndoorLocationEngine";
