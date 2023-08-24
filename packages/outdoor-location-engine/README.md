@@ -4,7 +4,7 @@ Hardware: nrf9160-DK
 
 Software Architecture:
 
-![arch](/arch.png)
+![arch](./arch.png)
 
 
 
