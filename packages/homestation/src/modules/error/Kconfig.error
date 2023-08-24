@@ -1,0 +1,17 @@
+menu "Error"
+
+config MQTT_ERROR_REBOOT_ON_FATAL
+	bool "Reboot on fatal error"
+	depends on REBOOT
+	default y
+	help
+	  Enabling this option will cause the device to reboot on errors that are considered fatal.
+	  Note that this configuration only applies for sample specific errors.
+	  Other parts of the stack will still reboot or not based on
+	  the CONFIG_RESET_ON_FATAL_ERROR option.
+
+module = MQTT_ERROR
+module-str = Error
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu # Error
