@@ -9,6 +9,8 @@ This is a mono-repository which contains the code for `outdoor-location-engine`,
 
 `homestation`: NRF-52833 + NRF-7002 on homestation PCB.
 
+![Programming Targets](ProgrammingTargets.png)
+
 ### Development
 If you indend to develop the firmware for FindMyCat, it is recommended to use the `NRF-9160DK`, `DWM-3001CDK` and `NRF-7002DK` for the above repositories respectively.
 
