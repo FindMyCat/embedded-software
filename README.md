@@ -2,6 +2,8 @@
 
 This is a mono-repository which contains the code for `outdoor-location-engine`, `indoor-location-engine` and `homestation` which are located under `packages/` sub directory.
 
+Please find the latest documentation on the official engineering documentation page: https://findmycat.io/docs
+
 ### Targets
 `outdoor-location-engine`: NRF-9160 on device PCB
 
@@ -17,4 +19,3 @@ If you indend to develop the firmware for FindMyCat, it is recommended to use th
 ### Architecture Overview
 ![Embedded Architecture Overview](EmbeddedArchitectureLight.png)
 
-Please find the latest documentation on the official engineering documentation page: https://findmycat.io/docs
