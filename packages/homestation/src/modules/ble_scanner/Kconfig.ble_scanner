@@ -1,0 +1,16 @@
+menu "Ble Scanner"
+
+config MQTT_BLE_SCANNER_THREAD_STACK_SIZE
+	int "Thread stack size"
+	default 2048
+
+config MQTT_BLE_SCANNER_TIMEOUT_SECONDS
+	int "Trigger timer timeout"
+	default 60
+
+
+module = MQTT_BLE_SCANNER
+module-str = BLE_SCANNER
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu # Trigger

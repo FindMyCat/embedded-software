@@ -1,0 +1,17 @@
+menu "Sampler"
+
+config MQTT_SAMPLER_THREAD_STACK_SIZE
+	int "Thread stack size"
+	default 1024
+
+config MQTT_SAMPLER_MESSAGE_QUEUE_SIZE
+	int "Message queue size"
+	default 5
+	help
+	  ZBus subscriber message queue size.
+
+module = MQTT_SAMPLER
+module-str = Sampler
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu # Sampler

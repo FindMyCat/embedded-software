@@ -1,0 +1,20 @@
+menu "MQTT config"
+
+config MQTT_PAYLOAD_CHANNEL_STRING_MAX_SIZE
+	int "Payload maximum string size"
+	default 100
+	help
+	  Maximum size of the string included messages that are sent over the payload channel.
+
+rsource "src/modules/ble_scanner/Kconfig.ble_scanner"
+rsource "src/modules/trigger/Kconfig.trigger"
+rsource "src/modules/sampler/Kconfig.sampler"
+rsource "src/modules/network/Kconfig.network"
+rsource "src/modules/transport/Kconfig.transport"
+rsource "src/modules/error/Kconfig.error"
+
+endmenu
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu
