@@ -34,9 +34,13 @@ config DEVICE_ID
 	string "Device ID"
 	default "nrf9160"
 
-config LOCATION_REFRESH_PERIOD_SECONDS
-	int "Location refresh period in seconds"
-	default 60	
+config ACTIVE_MODE_LOCATION_REFRESH_PERIOD_SECONDS
+	int "Location refresh period in seconds for Active Mode"
+	default 1800	
+
+config LOST_MODE_LOCATION_REFRESH_PERIOD_SECONDS
+	int "Location refresh period in seconds for Lost Mode"
+	default 30	
 
 endmenu
 
