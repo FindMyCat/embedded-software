@@ -6,7 +6,6 @@
 #include <zephyr/net/mqtt_sn.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
-#include "../Dispatcher/Dispatcher.h"
 
 #define APP_BMEM
 #define APP_DMEM
