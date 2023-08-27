@@ -146,21 +146,6 @@ static void power_mode_command_recieved() {
 
 static struct gpio_callback pwr_mode_cb_data;
 
-#define THREAD_STACK_SIZE 1024
-#define THREAD_PRIORITY 5
-
-K_THREAD_STACK_DEFINE(thread_stack, THREAD_STACK_SIZE);
-struct k_thread thread_data;
-
-void thread_entry(void *p1, void *p2, void *p3)
-{
-    // Your thread code here
-    while (1) {
-        // Thread functionality
-		k_sleep(K_MSEC(1000));
-		printk("Thread running\n");
-    }
-}
 
 /**
  * @brief Application entry point.
@@ -236,17 +221,7 @@ retry:
 		return -1;
 	}
 
-	k_tid_t my_thread;
-
-    my_thread = k_thread_create(&thread_data, thread_stack,
-                                K_THREAD_STACK_SIZEOF(thread_stack),
-                                thread_entry, NULL, NULL, NULL,
-                                THREAD_PRIORITY, 0, K_NO_WAIT);
-    k_thread_start(my_thread);
-
 	udp_listener_init();
-
-
 
 	return 0;
 }
