@@ -32,15 +32,25 @@ void location_event_handler(const struct location_event_data *event_data)
 			event_data->location.details.gnss.satellites_tracked, 
 			event_data->location.accuracy, 
 			25); // Todo: replace with actual battery reading
-
+		
+		int connecting_retries = 0;
+try_connecting_mqttsn:
 		mqttsn_check_input();
 		if(get_mqttsn_connection_status() == false) {
 			LOG_INF("MQTT-SN not connected. Initialing connection.\n");
 			err = mqttsn_initialize();
+			connecting_retries += 1;
 			k_sleep(K_SECONDS(3));
 		}
 		if(err) {
-			LOG_ERR("MQTT-SN initialization failed. Error: %d\n", err);
+			mqttsn_disconnect();
+			if (connecting_retries <= 3)
+			{
+				LOG_ERR("MQTT-SN initialization failed, Retrying. Error: %d\n", err);
+				goto try_connecting_mqttsn;
+			} else {
+				LOG_ERR("MQTT-SN initialization failed Max Retries exceeded. Error: %d\n", err);
+			}
 		}		
 		else {
 			mqttsn_check_input();
