@@ -20,7 +20,7 @@ void turn_on_active_mode(void)
 {
     k_timer_init(&periodic_timer, periodic_work_handler, NULL);
     k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));
-    location_gnss_periodic_get(CONFIG_LOCATION_REFRESH_PERIOD_SECONDS);
+    location_gnss_periodic_get(CONFIG_ACTIVE_MODE_LOCATION_REFRESH_PERIOD_SECONDS);
 }
 
 void respond_to_ping(void) {
@@ -28,6 +28,12 @@ void respond_to_ping(void) {
     k_timer_init(&periodic_timer, periodic_work_handler, NULL);
     k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));
     location_gnss_high_accuracy_get();
+}
+
+void turn_on_lost_mode() {
+    k_timer_init(&periodic_timer, periodic_work_handler, NULL);
+    k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));
+    location_gnss_periodic_get(CONFIG_LOST_MODE_LOCATION_REFRESH_PERIOD_SECONDS);
 }
 
 void stop_responding()

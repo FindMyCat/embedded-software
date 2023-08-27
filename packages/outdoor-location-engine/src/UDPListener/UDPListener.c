@@ -46,8 +46,10 @@ void udp_listener_init() {
         if (strncmp(rx_data, "ping", recv_len) == 0) {
             changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
             LOG_INF("Dispatcher state changed to DISPATCHER_STATE_PING_MODE\n");
-        }
-		else if (strncmp(rx_data, "active", recv_len) == 0) {
+        } else if(strncmp(rx_data, "lost", recv_len) == 0) {
+            changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
+            LOG_INF("Dispatcher state changed to DISPATCHER_STATE_LOST_MODE\n");
+        } else if (strncmp(rx_data, "active", recv_len) == 0) {
 			changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
 			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_ACTIVE_MODE\n");
 		} else if (strncmp(rx_data, "idle", recv_len) == 0) {

@@ -13,7 +13,10 @@ void dispatcherCallback() {
     if (currentDispatcherState == DISPATCHER_STATE_IDLE) {
         LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_IDLE");
         stop_responding();
-    } else if (currentDispatcherState == DISPATCHER_STATE_ACTIVE_MODE){
+    } else if (currentDispatcherState == DISPATCHER_STATE_LOST_MODE) {
+        LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_LOST_MODE");
+        turn_on_lost_mode();
+    } else if (currentDispatcherState == DISPATCHER_STATE_ACTIVE_MODE) {
         LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_ACTIVE_MODE");
         turn_on_active_mode();
     } else if (currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_PING) {

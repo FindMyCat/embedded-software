@@ -8,6 +8,7 @@ enum dispatcherState {
     DISPATCHER_STATE_IDLE,
     DISPATCHER_STATE_RESPOND_TO_PING,
     DISPATCHER_STATE_ACTIVE_MODE,
+    DISPATCHER_STATE_LOST_MODE,
 };
 
 void changeDispatcherState(int newState);
