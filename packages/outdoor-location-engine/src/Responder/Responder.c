@@ -5,6 +5,7 @@
 
 #include "../mqtt/mqttsn.h"
 #include "../LocationEngine/LocationEngine.h"
+#include "../Dispatcher/Dispatcher.h"
 
 LOG_MODULE_REGISTER(responder, 4);
 
@@ -28,6 +29,8 @@ void respond_to_ping(void) {
     k_timer_init(&periodic_timer, periodic_work_handler, NULL);
     k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));
     location_gnss_high_accuracy_get();
+    k_sleep(K_SECONDS(30));
+    changeDispatcherState(DISPATCHER_STATE_IDLE);
 }
 
 void turn_on_lost_mode() {

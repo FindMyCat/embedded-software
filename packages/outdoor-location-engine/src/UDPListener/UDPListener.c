@@ -44,17 +44,17 @@ void udp_listener_init() {
 		// Two commands are supported over UDP. 
 		// We should keep these command strings small as possible for least data transfer.
         if (strncmp(rx_data, "ping", recv_len) == 0) {
-            changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
             LOG_INF("Dispatcher state changed to DISPATCHER_STATE_PING_MODE\n");
+            changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
         } else if(strncmp(rx_data, "lost", recv_len) == 0) {
-            changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
             LOG_INF("Dispatcher state changed to DISPATCHER_STATE_LOST_MODE\n");
+            changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
         } else if (strncmp(rx_data, "active", recv_len) == 0) {
-			changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
 			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_ACTIVE_MODE\n");
+            changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
 		} else if (strncmp(rx_data, "idle", recv_len) == 0) {
-			changeDispatcherState(DISPATCHER_STATE_IDLE);
 			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_IDLE\n");
+            changeDispatcherState(DISPATCHER_STATE_IDLE);
 		} else {
 			LOG_ERR("Unknown command: %s\n", rx_data);
 		}

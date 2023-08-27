@@ -46,11 +46,6 @@ void evt_cb(struct mqtt_sn_client *client, const struct mqtt_sn_evt *evt)
 		LOG_INF("MQTT-SN event EVT_PUBLISH");
 		LOG_HEXDUMP_INF(evt->param.publish.data.data, evt->param.publish.data.size,
 				"Published data");
-		// After the first publish, if the dispatcher state is DISPATCHER_STATE_RESPOND_TO_PING, we stop responding since 
-		// in ping mode, we only respond once.
-		if(getDispatcherState() == DISPATCHER_STATE_RESPOND_TO_PING) {
-			stop_responding();
-		}
 		break;
 	case MQTT_SN_EVT_PINGRESP: /* Received a PINGRESP */
 		LOG_INF("MQTT-SN event EVT_PINGRESP");
