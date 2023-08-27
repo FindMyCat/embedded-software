@@ -43,10 +43,14 @@ void udp_listener_init() {
 
 		// Two commands are supported over UDP. 
 		// We should keep these command strings small as possible for least data transfer.
-		if (strncmp(rx_data, "activate", recv_len) == 0) {
-			changeDispatcherState(DISPATCHER_STATE_RESPONDING);
-			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_RESPONDING\n");
-		} else if (strncmp(rx_data, "deactivate", recv_len) == 0) {
+        if (strncmp(rx_data, "ping", recv_len) == 0) {
+            changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
+            LOG_INF("Dispatcher state changed to DISPATCHER_STATE_PING_MODE\n");
+        }
+		else if (strncmp(rx_data, "active", recv_len) == 0) {
+			changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
+			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_ACTIVE_MODE\n");
+		} else if (strncmp(rx_data, "idle", recv_len) == 0) {
 			changeDispatcherState(DISPATCHER_STATE_IDLE);
 			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_IDLE\n");
 		} else {

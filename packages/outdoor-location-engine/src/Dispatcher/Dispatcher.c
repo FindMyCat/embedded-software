@@ -13,9 +13,12 @@ void dispatcherCallback() {
     if (currentDispatcherState == DISPATCHER_STATE_IDLE) {
         LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_IDLE");
         stop_responding();
-    } else if (currentDispatcherState == DISPATCHER_STATE_RESPONDING){
-        LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_RESPONDING");
-        respond();
+    } else if (currentDispatcherState == DISPATCHER_STATE_ACTIVE_MODE){
+        LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_ACTIVE_MODE");
+        turn_on_active_mode();
+    } else if (currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_PING) {
+        LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_PING");
+        respond_to_ping();
     }
 }
 
