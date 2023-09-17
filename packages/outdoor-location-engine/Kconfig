@@ -18,6 +18,10 @@ config MQTT_SN_BUFFER_SIZE
 	int "Size of the TX and RX buffers"
 	default 255
 
+config MQTT_SN_PUBLISH_TOPIC
+	string "MQTT Topic to publish to"
+	default "/location"
+
 config MQTT_SN_REFRESH_PERIOD_SECONDS
 	int "MQTT-SN refresh period in seconds"
 	default 60

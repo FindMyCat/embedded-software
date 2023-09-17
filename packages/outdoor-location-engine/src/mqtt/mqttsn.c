@@ -104,7 +104,7 @@ int mqttsn_publish(char *data_str) {
 	if (!mqtt_sn_connected) {
 		return -1;
 	}
-	static APP_DMEM struct mqtt_sn_data topic_p = MQTT_SN_DATA_STRING_LITERAL("/location");
+	static APP_DMEM struct mqtt_sn_data topic_p = MQTT_SN_DATA_STRING_LITERAL(CONFIG_MQTT_SN_PUBLISH_TOPIC);
 
 
 	// Create a temporary mqtt_sn_data object to hold the message data
