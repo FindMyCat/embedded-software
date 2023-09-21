@@ -14,7 +14,7 @@ Please find the latest documentation on the official engineering documentation p
 ![Programming Targets](ProgrammingTargets.png)
 
 ### Development
-If you indend to develop the firmware for FindMyCat, it is recommended to use the `NRF-9160DK`, `DWM-3001CDK` and `NRF-7002DK` for the above repositories respectively.
+If you intend to develop the firmware for FindMyCat, it is recommended to use the `NRF-9160DK`, `DWM-3001CDK` and `NRF-7002DK` for the above repositories respectively.
 
 ### Architecture Overview
 ![Embedded Architecture Overview](EmbeddedArchitectureLight.png)
