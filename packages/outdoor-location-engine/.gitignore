@@ -19,3 +19,4 @@ src/.DS_Store
 .DS_Store
 
 /overlay-nrf9160dk.conf
+/overlay-findmycat-device.conf
