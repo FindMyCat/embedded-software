@@ -4,6 +4,7 @@
 
 # build
 /build*/
+/nrf9160-dk*/
 FindMyCat/FindMyCat.kicad_pcb
 FindMyCat/FindMyCat.kicad_prl
 FindMyCat/FindMyCat.kicad_pro
@@ -16,3 +17,5 @@ FindMyCat/FindMyCat-backups/FindMyCat-2023-05-10_225822.zip
 FindMyCat/FindMyCat-backups/FindMyCat-2023-05-11_191426.zip
 src/.DS_Store
 .DS_Store
+
+/overlay-nrf9160dk.conf
