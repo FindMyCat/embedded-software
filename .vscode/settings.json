@@ -1,9 +1,11 @@
 {
     "files.associations": {
         "responder.h": "c",
-        "dispatcher.h": "c"
+        "dispatcher.h": "c",
+        "errno.h": "c"
     },
     "nrf-connect.applications": [
-        "${workspaceFolder}/packages/outdoor-location-engine"
+        "${workspaceFolder}/packages/outdoor-location-engine",
+        "${workspaceFolder}/packages/homestation"
     ]
 }

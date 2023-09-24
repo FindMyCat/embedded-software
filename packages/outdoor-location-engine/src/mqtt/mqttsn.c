@@ -130,6 +130,7 @@ int mqttsn_publish(char *data_str) {
  */
 int mqttsn_disconnect() {
 	if (mqtt_sn_connected) {
+		mqtt_sn_client_deinit(&client);
 		return mqtt_sn_disconnect(&client);
 	}
 	
