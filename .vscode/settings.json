@@ -2,7 +2,9 @@
     "files.associations": {
         "responder.h": "c",
         "dispatcher.h": "c",
-        "errno.h": "c"
+        "errno.h": "c",
+        "newudplistener.h": "c",
+        "network.h": "c"
     },
     "nrf-connect.applications": [
         "${workspaceFolder}/packages/outdoor-location-engine",

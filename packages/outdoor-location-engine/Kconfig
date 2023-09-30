@@ -8,8 +8,8 @@ config LTE_CONNECT_MAX_RETRIES
 	int "Max retry attempts for LTE connection"
 	default 4
 
-config MQTT_SN_GATEWAY_IP
-	string "IP of the MQTT-SN gateway"
+config FINDMYCAT_CLOUD_HOSTNAME
+	string "Hostname of the FindMyCat Cloud"
 
 config MQTT_SN_GATEWAY_PORT
 	int "Port of the MQTT-SN gateway"

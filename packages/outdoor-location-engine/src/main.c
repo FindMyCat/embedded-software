@@ -13,7 +13,7 @@
 #include "LocationEngine/LocationEngine.h"
 #include "Dispatcher/Dispatcher.h"
 #include "Responder/Responder.h"
-#include "UDPListener/UDPListener.h"
+#include "UDPListener/NewUDPListener.h"
 
 LOG_MODULE_REGISTER(main, 4);
 
@@ -33,6 +33,7 @@ static void date_time_evt_handler(const struct date_time_evt *evt)
 
 static void lte_event_handler(const struct lte_lc_evt *const evt)
 {
+	LOG_INF("************************************* LTE event: %d", evt->type);
 	switch (evt->type) {
 	case LTE_LC_EVT_NW_REG_STATUS:
 		if ((evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME) ||
@@ -221,7 +222,33 @@ retry:
 		return -1;
 	}
 
-	udp_listener_init();
+
+	retry_count = 0;
+	// Initialize UDP listener with retries (using the same retry count as location services)
+    while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
+        err = create_udp_listener();
+
+        if (err) {
+            LOG_INF("Failed to create UDP Listener with error: %d\n", err);
+			destroy_udp_listener();
+            retry_count++;
+            k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
+        } else {
+			LOG_INF("Created UDP Listener.");
+			break;
+		}
+    }
+
+	// Start the UDP listener thread.
+	start_udp_listener_thread();
+
+	
+	while (true)
+	{
+		LOG_INF("Main thread is running.");
+		k_sleep(K_MSEC(4000));
+	}
+	
 
 	return 0;
 }
