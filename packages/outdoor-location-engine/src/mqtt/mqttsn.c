@@ -6,6 +6,7 @@
 #include <zephyr/net/mqtt_sn.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
+#include "../utils/network.h"
 
 #define APP_BMEM
 #define APP_DMEM
@@ -59,10 +60,11 @@ int mqttsn_initialize() {
 	int err;
 	struct sockaddr_in gateway = {0};
 
-	LOG_DBG("Parsing MQTT host IP " CONFIG_MQTT_SN_GATEWAY_IP);
+	char *ip_str = getIpAddressFromHostname("api.findmycat.io");
+	LOG_DBG("Parsing MQTT host IP ", ip_str);
 	gateway.sin_family = AF_INET;
 	gateway.sin_port = htons(CONFIG_MQTT_SN_GATEWAY_PORT);
-	err = zsock_inet_pton(AF_INET, CONFIG_MQTT_SN_GATEWAY_IP, &gateway.sin_addr);
+	err = zsock_inet_pton(AF_INET, ip_str, &gateway.sin_addr);
 
 	// // __ASSERT(err == 0, "zsock_inet_pton() failed %d", err);
 

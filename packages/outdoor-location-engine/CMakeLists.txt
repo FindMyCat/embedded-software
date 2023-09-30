@@ -28,3 +28,6 @@ target_sources(app PRIVATE src/Responder/Responder.h)
 
 target_sources(app PRIVATE src/mqtt/mqttsn.c)
 target_sources(app PRIVATE src/mqtt/mqttsn.h)
+
+target_sources(app PRIVATE src/utils/network.c)
+target_sources(app PRIVATE src/utils/network.h)
