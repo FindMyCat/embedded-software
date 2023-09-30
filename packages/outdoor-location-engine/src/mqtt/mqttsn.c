@@ -131,12 +131,8 @@ int mqttsn_publish(char *data_str) {
  * @brief Function to disconnect from the MQTT-SN gateway.
  */
 int mqttsn_disconnect() {
-	if (mqtt_sn_connected) {
-		mqtt_sn_client_deinit(&client);
-		return mqtt_sn_disconnect(&client);
-	}
-	
-	return -1;
+	mqtt_sn_client_deinit(&client);
+	return mqtt_sn_disconnect(&client);
 }
 
 /**
