@@ -16,6 +16,9 @@ target_sources(app PRIVATE src/SmsListener/SmsListener.h)
 target_sources(app PRIVATE src/UDPListener/UDPListener.c)
 target_sources(app PRIVATE src/UDPListener/UDPListener.h)
 
+target_sources(app PRIVATE src/UDPListener/NewUDPListener.c)
+target_sources(app PRIVATE src/UDPListener/NewUDPListener.h)
+
 target_sources(app PRIVATE src/Dispatcher/Dispatcher.c)
 target_sources(app PRIVATE src/Dispatcher/Dispatcher.h)
 
