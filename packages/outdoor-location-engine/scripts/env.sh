@@ -21,7 +21,11 @@ fi
 export ZEPHYR_BASE="${NCS_BASE}/${NCS_VERSION}/zephyr"
 export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
 export ZEPHYR_SDK_INSTALL_DIR="${NCS_BASE}/toolchains/${NCS_VERSION}/opt/zephyr-sdk"
-export PATH="${NCS_BASE}/toolchains/${NCS_VERSION}/bin:${PATH}"
+
+# Alias west/cmake directly instead of adding the whole toolchain bin to PATH
+# This avoids shadowing system tools like git
+alias west="${NCS_BASE}/toolchains/${NCS_VERSION}/bin/west"
+export CMAKE="${NCS_BASE}/toolchains/${NCS_VERSION}/bin/cmake"
 
 echo "nRF Connect SDK ${NCS_VERSION} environment ready."
 echo "  ZEPHYR_BASE=${ZEPHYR_BASE}"
