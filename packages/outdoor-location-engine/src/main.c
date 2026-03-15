@@ -41,6 +41,22 @@ static void lte_event_handler(const struct lte_lc_evt *const evt)
 			LOG_INF("Connected to LTE");
 			k_sem_give(&lte_connected);
 		}
+		if (evt->nw_reg_status == LTE_LC_NW_REG_SEARCHING) {
+			char resp[256];
+			
+			nrf_modem_at_cmd(resp, sizeof(resp), "AT%%XSIM?");
+			LOG_INF("SIM status: %s", resp);
+			
+			nrf_modem_at_cmd(resp, sizeof(resp), "AT+CIMI");
+			LOG_INF("IMSI: %s", resp);
+			
+			nrf_modem_at_cmd(resp, sizeof(resp), "AT+CRSM=176,28539,0,0,12");
+			LOG_INF("FPLMN: %s", resp);
+			
+			nrf_modem_at_cmd(resp, sizeof(resp), "AT%%XMONITOR");
+			LOG_INF("Monitor: %s", resp);
+		    }
+
 		break;
 	default:
 		break;
