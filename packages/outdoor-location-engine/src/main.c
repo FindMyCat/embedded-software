@@ -107,6 +107,16 @@ static int initializeLte() {
 		LOG_INF("lte_lc_edrx_req, error: %d\n", err);
 	}
 
+	/* Lock to Band 20 (800 MHz) for better indoor penetration in UK.
+	 * Modem defaults to Band 3 (1800 MHz) which has ~10-15 dB worse building penetration.
+	 * Band 20 is available on EE, Vodafone, O2 in the UK.
+	 * To revert: AT%XBANDLOCK=0
+	 * Mask: rightmost char = band 1. "10000000000000000000" = band 20 only.
+	 */
+	char band_resp[64];
+	nrf_modem_at_cmd(band_resp, sizeof(band_resp), "AT%%XBANDLOCK=1,\"10000000000000000000\"");
+	LOG_INF("Band lock to Band 20: %s", band_resp);
+
 	err = lte_lc_connect();
 
 	k_sem_take(&lte_connected, K_FOREVER);
