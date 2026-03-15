@@ -59,14 +59,8 @@ static void lte_event_handler(const struct lte_lc_evt *const evt)
 			nrf_modem_at_cmd(resp, sizeof(resp), "AT+CESQ");
 		   	LOG_INF("Signal: %s", resp);
 
-			nrf_modem_at_cmd(resp, sizeof(resp), "AT+COPS?");
-			LOG_INF("Operator: %s", resp);
-
-			nrf_modem_at_cmd(resp, sizeof(resp), "AT%%XCELLINFO?");
-			LOG_INF("Cell info: %s", resp);
-
-			nrf_modem_at_cmd(resp, sizeof(resp), "AT%%XNCELLMEAS");
-			LOG_INF("Neighbor cells: %s", resp);
+			nrf_modem_at_cmd(resp, sizeof(resp), "AT%%CONEVAL");
+			LOG_INF("Connection eval: %s", resp);
 		    }
 
 		break;
