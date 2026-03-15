@@ -55,6 +55,10 @@ static void lte_event_handler(const struct lte_lc_evt *const evt)
 			
 			nrf_modem_at_cmd(resp, sizeof(resp), "AT%%XMONITOR");
 			LOG_INF("Monitor: %s", resp);
+		    	
+			nrf_modem_at_cmd(resp, sizeof(resp), "AT+CESQ");
+		   	LOG_INF("Signal: %s", resp);
+    
 		    }
 
 		break;
