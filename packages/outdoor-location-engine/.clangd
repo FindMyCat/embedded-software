@@ -1,0 +1,19 @@
+CompileFlags:
+  # Point to the west build output directory
+  CompilationDatabase: build/
+  # Remove flags clangd doesn't understand from the ARM cross-compiler
+  Remove:
+    - -mfp16-format=ieee
+    - -fno-rerun-cse-after-loop
+    - -mno-thumb-interwork
+    - -fno-defer-pop
+    - --param=min-pagesize=0
+    - -mfpu=*
+    - -mabi=aapcs
+    - -mthumb
+    - -fno-reorder-functions
+  Add:
+    - -Wno-unknown-warning-option
+
+Diagnostics:
+  UnusedIncludes: None
