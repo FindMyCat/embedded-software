@@ -61,6 +61,9 @@ static void lte_event_handler(const struct lte_lc_evt *const evt)
 
 			nrf_modem_at_cmd(resp, sizeof(resp), "AT%%CONEVAL");
 			LOG_INF("Connection eval: %s", resp);
+
+			nrf_modem_at_cmd(resp, sizeof(resp), "AT%%XCBAND");
+			LOG_INF("Current band: %s", resp);
 		    }
 
 		break;
