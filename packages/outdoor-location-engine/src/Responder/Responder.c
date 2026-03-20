@@ -26,8 +26,9 @@ void turn_on_active_mode(void)
 
 void respond_to_ping(void) {
     // connect mqttsn, get location, publish, disconnect.
-    k_timer_init(&periodic_timer, periodic_work_handler, NULL);
-    k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));
+    // TEST: pausing mqtt-sn polling to give GNSS full radio time
+    // k_timer_init(&periodic_timer, periodic_work_handler, NULL);
+    // k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));
     location_gnss_high_accuracy_get();
     k_sleep(K_SECONDS(30));
     changeDispatcherState(DISPATCHER_STATE_IDLE);
