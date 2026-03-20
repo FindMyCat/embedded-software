@@ -101,7 +101,7 @@ static int initializeLte() {
 
 	LOG_INF("Requesting EDRX mode");
 	// Todo: Turn on EDRX mode after development complete.
-	err = lte_lc_edrx_req(true);
+	err = lte_lc_edrx_req(false);
 	
 	if (err) {
 		LOG_INF("lte_lc_edrx_req, error: %d\n", err);
