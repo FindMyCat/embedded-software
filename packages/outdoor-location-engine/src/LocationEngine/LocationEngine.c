@@ -160,6 +160,7 @@ void location_gnss_low_accuracy_get(void)
 
 	location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
 	config.methods[0].gnss.accuracy = LOCATION_ACCURACY_LOW;
+	config.methods[0].gnss.priority_mode = true;
 
 	LOG_INF("Requesting low accuracy GNSS location...\n");
 
@@ -183,6 +184,7 @@ void location_gnss_high_accuracy_get(void)
 
 	location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
 	config.methods[0].gnss.accuracy = LOCATION_ACCURACY_HIGH;
+	config.methods[0].gnss.priority_mode = true;
 
 	LOG_INF("Requesting high accuracy GNSS location...\n");
 
@@ -205,6 +207,7 @@ void location_gnss_periodic_get(int period)
 	enum location_method methods[] = {LOCATION_METHOD_GNSS, LOCATION_METHOD_CELLULAR};
 
 	location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
+	config.methods[0].gnss.priority_mode = true;
 	config.interval = period;
 
 	printk("Requesting %d s periodic GNSS location with cellular fallback...\n", period);
