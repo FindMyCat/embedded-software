@@ -60,7 +60,7 @@ int mqttsn_initialize() {
 	int err;
 	struct sockaddr_in gateway = {0};
 
-	char *ip_str = getIpAddressFromHostname("api.findmycat.io");
+	char *ip_str = getIpAddressFromHostname(CONFIG_FINDMYCAT_CLOUD_HOSTNAME);
 	LOG_DBG("Parsing MQTT host IP ", ip_str);
 	gateway.sin_family = AF_INET;
 	gateway.sin_port = htons(CONFIG_MQTT_SN_GATEWAY_PORT);
