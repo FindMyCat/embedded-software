@@ -34,7 +34,7 @@ class MQTTHandler:
         payload_str: str = "{},{},{},{},{}".format(
             self._location["latitude"],
             self._location["longitude"],
-            0,
+            0, # Satellites
             self._location["accuracy"],
             battery if battery else "0",
         )
