@@ -2,6 +2,7 @@
 #include <string.h>
 #include <zephyr/kernel.h>
 #include <nrf_modem_at.h>
+#include <modem/nrf_modem_lib.h>
 #include <modem/lte_lc.h>
 #include <modem/location.h>
 #include <date_time.h>
@@ -164,8 +165,14 @@ retry:
 		goto retry;
 	}
 
-	int err;	
+	int err;
 	int retry_count = 0;
+
+	err = nrf_modem_lib_init();
+	if (err) {
+		LOG_ERR("Error: Failed to initialize modem library, error: %d", err);
+		return -1;
+	}
 
 	err = gpio_pin_configure_dt(&power_mode_command_recv_pin, GPIO_INPUT | GPIO_PULL_DOWN);
 	if (err != 0) {
