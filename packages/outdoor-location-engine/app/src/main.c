@@ -63,7 +63,6 @@ static int initializeLte() {
 
 	LOG_INF("Connecting to LTE...");
 
-	lte_lc_init();
 	lte_lc_register_handler(lte_event_handler);
 
 	/* Enable PSM. */
