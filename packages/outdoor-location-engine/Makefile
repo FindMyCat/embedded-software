@@ -1,4 +1,4 @@
-NCS_VERSION := v2.7.0
+NCS_VERSION := v2.9.2
 BOARD       := nrf9160dk/nrf9160/ns
 
 .PHONY: setup build flash clean
