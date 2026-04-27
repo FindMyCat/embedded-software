@@ -25,9 +25,9 @@ int create_udp_listener() {
     LOG_INF("Creating UDP Data Receiver(IPv4)");
 
     // Create a UDP socket
-    udp_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    udp_socket = zsock_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (udp_socket < 0) {
-        LOG_ERR("Unable to create UDP socket");
+        LOG_ERR("Error: Unable to create UDP socket");
         return -1;
     }
 
@@ -35,13 +35,13 @@ int create_udp_listener() {
     memset(&my_addr, 0, sizeof(my_addr));
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons(UDP_PORT);
-    bind(udp_socket, (struct sockaddr *)&my_addr, sizeof(my_addr));
+    zsock_bind(udp_socket, (struct sockaddr *)&my_addr, sizeof(my_addr));
 
     return 0;
 }
 
 int destroy_udp_listener() {
-    return close(udp_socket);
+    return zsock_close(udp_socket);
 }
 
 void start_listening() {
@@ -49,7 +49,7 @@ void start_listening() {
         LOG_INF("UDP Listener thread is running.");
         // Receive data on the UDP socket
         // Note that the recv call is blocking until data is received.
-        recv_len = recv(udp_socket, rx_data, sizeof(rx_data), 0);
+        recv_len = zsock_recv(udp_socket, rx_data, sizeof(rx_data), 0);
         if (recv_len < 0) {
             printk("Error: Unable to receive data\n");
             break;
