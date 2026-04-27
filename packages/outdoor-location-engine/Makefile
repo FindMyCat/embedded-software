@@ -1,5 +1,5 @@
-NCS_VERSION := v2.5.0
-BOARD       := nrf9160dk_nrf9160_ns
+NCS_VERSION := v2.7.0
+BOARD       := nrf9160dk/nrf9160/ns
 
 .PHONY: setup build flash clean
 
@@ -16,4 +16,4 @@ flash:
 	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west flash --runner $(RUNNER)
 
 clean:
-	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west build -t clean
+	rm -rf build
