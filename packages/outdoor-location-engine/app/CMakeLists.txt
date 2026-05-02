@@ -31,3 +31,6 @@ target_sources(app PRIVATE src/mqtt/mqttsn.h)
 
 target_sources(app PRIVATE src/utils/network.c)
 target_sources(app PRIVATE src/utils/network.h)
+
+target_sources(app PRIVATE src/LoRa/rak3172.c)
+target_sources(app PRIVATE src/LoRa/rak3172.h)
