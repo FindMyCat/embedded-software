@@ -1,0 +1,14 @@
+CompileFlags:
+  CompilationDatabase: build/app
+  Remove:
+    - -fno-reorder-functions
+    - -mfp16-format=*
+    - --param=min-pagesize=*
+    - -fno-printf-return-value
+    - -mabi=aapcs
+
+Diagnostics:
+  Suppress:
+    - pp_file_not_found
+    - -Wimplicit-int
+    - -Wimplicit-function-declaration
