@@ -3,7 +3,7 @@ BOARD        := nrf9160dk/nrf9160/ns
 BOARD_T91X   := thingy91x/nrf9151/ns
 JLINK        := /Applications/SEGGER/JLink_V834
 
-.PHONY: setup build build-dev build-prod build-dev-t91x build-prod-t91x flash flash-t91x flash-t91x-usb clean logs logs-t91x
+.PHONY: setup build build-dev build-prod build-dev-t91x build-prod-t91x flash clean
 
 setup:
 	west init -l manifest

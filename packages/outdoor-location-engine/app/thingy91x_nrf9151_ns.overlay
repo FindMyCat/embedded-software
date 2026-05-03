@@ -1,7 +1,4 @@
-/* Repurpose uart1 (normally nRF5340 comms) for RAK3172 LoRa module.
- * New pinctrl nodes avoid merging with the original uart1_default/sleep
- * (which would leave the old P0.4/P0.5 groups in place).
- * Physical connections: TX=P0.18, RX=P0.19 (EXP connector). */
+/* Physical connections: TX=P0.18, RX=P0.19 (EXP connector). */
 &pinctrl {
     uart1_rak_default: uart1_rak_default {
         group1 {
@@ -27,7 +24,15 @@
 };
 
 / {
+    gpiocustom {
+        compatible = "gpio-keys";
+        gpiocus10: gpiocus_10 {
+            gpios = <&gpio0 21 GPIO_ACTIVE_HIGH>;
+            label = "Custom gpio 10";
+        };
+    };
     aliases {
         lora-uart = &uart1;
+        gpiocus10 = &gpiocus10;
     };
 };
