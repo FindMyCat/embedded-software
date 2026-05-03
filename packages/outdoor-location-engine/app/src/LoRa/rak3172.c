@@ -129,6 +129,10 @@ int rak3172_init(void) {
   rak3172_send_at("AT+LPM=1");
   rak3172_read_response(1000);
 
+  LOG_INF("Setting LPMLVL value");
+  rak3172_send_at("AT+LPMLVL=2");
+  rak3172_read_response(1000);
+
   LOG_INF("RAK3172 ready");
   return 0;
 }
@@ -147,9 +151,9 @@ int rak3172_send_message(const char *msg) {
     snprintf(&hex[i * 2], 3, "%02X", (uint8_t)msg[i]);
   }
 
-  rak3172_send_at("AT+PRECV=0");
-  rak3172_read_response(1000);
-  k_sleep(K_MSEC(50));
+  // rak3172_send_at("AT+PRECV=0");
+  // rak3172_read_response(1000);
+  // k_sleep(K_MSEC(50));
 
   rak3172_send_at(cmd);
 
@@ -209,7 +213,15 @@ int rak3172_send_message(const char *msg) {
   return 0;
 }
 
+void rak3172_sleep(void) {
+  LOG_INF("Putting rak3172 to sleep");
+  rak3172_send_at("AT+SLEEP");
+  rak3172_read_response(4000);
+}
+
 void rak3172_suspend(void) {
+  rak3172_sleep();
+  k_sleep(K_MSEC(100));
   uart_irq_rx_disable(uart_dev);
   int err = pm_device_runtime_put(uart_dev);
   if (err) {
