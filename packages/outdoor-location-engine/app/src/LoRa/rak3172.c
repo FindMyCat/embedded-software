@@ -1,5 +1,4 @@
 #include <string.h>
-#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -11,10 +10,7 @@
 
 LOG_MODULE_REGISTER(rak3172, LOG_LEVEL_DBG);
 
-static const struct device *uart_dev = DEVICE_DT_GET(DT_NODELABEL(uart2));
-static const struct device *gpio0_dev = DEVICE_DT_GET(DT_NODELABEL(gpio0));
-
-#define UART2_TX_PIN 24
+static const struct device *uart_dev = DEVICE_DT_GET(DT_ALIAS(lora_uart));
 
 #define RX_RING_BUF_SIZE 256
 RING_BUF_DECLARE(rx_ring_buf, RX_RING_BUF_SIZE);
@@ -108,7 +104,6 @@ int rak3172_init(void) {
     return -ENODEV;
   }
 
-  // pm_device_runtime_enable(uart_dev);
   uart_irq_callback_set(uart_dev, uart_irq_cb);
   uart_irq_rx_enable(uart_dev);
 
@@ -151,18 +146,13 @@ int rak3172_send_message(const char *msg) {
     snprintf(&hex[i * 2], 3, "%02X", (uint8_t)msg[i]);
   }
 
-  // rak3172_send_at("AT+PRECV=0");
-  // rak3172_read_response(1000);
-  // k_sleep(K_MSEC(50));
-
   rak3172_send_at(cmd);
 
-  /* Hold TX line high during RF burst to prevent noise coupling into RAK RX */
-  gpio_pin_configure(gpio0_dev, UART2_TX_PIN, GPIO_OUTPUT_HIGH);
-
-  /* OK returns immediately (command accepted); +EVT:TXP2P DONE fires when
-   * the air transmission finishes. If LPM is on, the module may reboot
-   * after TX — detect and reconfigure P2P in that case. */
+  /* NOTE: (sahas): This code might be deleted later if its stabelized. 
+   * "OK" should return immediately (command accepted); +EVT:TXP2P DONE fires when
+   * the air transmission finishes. If LPM is on, the module was observed to SOMETIMES reboot
+   * after TX, this was due to the RF coupling into the RX/TX wires, which triggered a reboot.
+   * This piece of code detects and reconfigure P2P in that case. */
   bool rebooted = false;
   int64_t deadline = k_uptime_get() + 10000;
   char buf[128];
@@ -203,8 +193,6 @@ int rak3172_send_message(const char *msg) {
     }
   }
 
-  gpio_pin_configure(gpio0_dev, UART2_TX_PIN, GPIO_DISCONNECTED);
-
   if (rebooted) {
     LOG_WRN("RAK3172 rebooted after TX, reconfiguring P2P");
     rak3172_configure_p2p();
@@ -220,8 +208,6 @@ void rak3172_sleep(void) {
 }
 
 void rak3172_suspend(void) {
-  rak3172_sleep();
-  k_sleep(K_MSEC(100));
   uart_irq_rx_disable(uart_dev);
   int err = pm_device_runtime_put(uart_dev);
   if (err) {

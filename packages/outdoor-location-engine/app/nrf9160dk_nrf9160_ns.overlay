@@ -36,6 +36,7 @@
         };
     };
     aliases {
+        lora-uart = &uart2;
         gpiocus10 = &gpiocus10;
         gpiocus11 = &gpiocus11;
     };

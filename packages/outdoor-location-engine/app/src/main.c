@@ -268,7 +268,7 @@ retry:
 
   // Start the UDP listener thread.
   start_udp_listener_thread();
-
+//
   while (true) {
     LOG_INF("Main thread is running.");
     k_sleep(K_MSEC(4000));
