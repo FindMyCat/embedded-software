@@ -206,9 +206,9 @@ retry:
   rak3172_print_version_info();
 
   while (true) {
-    // rak3172_resume();
+    rak3172_resume();
     rak3172_send_message("hi");
-    // rak3172_suspend();
+    rak3172_suspend();
     k_sleep(K_SECONDS(5));
   }
   // Connect to LTE network with retries if necessary.

@@ -1,0 +1,33 @@
+/* RAK3172 LoRa module on UART1
+ * Wiring: GPIO4 = TX (to RAK3172 RX), GPIO5 = RX (to RAK3172 TX)
+ * GPIO16/17 avoided — used internally for PSRAM on WROVER modules.
+ * Adjust pin numbers here if your wiring differs.
+ */
+
+#include <zephyr/dt-bindings/pinctrl/esp32-pinctrl.h>
+
+&pinctrl {
+	uart1_default: uart1_default {
+		group1 {
+			pinmux = <UART1_TX_GPIO4>;
+			output-high;
+		};
+		group2 {
+			pinmux = <UART1_RX_GPIO5>;
+			bias-pull-up;
+		};
+	};
+};
+
+&uart1 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart1_default>;
+	pinctrl-names = "default";
+};
+
+/ {
+	aliases {
+		rak3172-uart = &uart1;
+	};
+};

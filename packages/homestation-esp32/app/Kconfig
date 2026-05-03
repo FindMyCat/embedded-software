@@ -1,0 +1,11 @@
+menu "Homestation ESP32"
+
+rsource "src/modules/trigger/Kconfig.trigger"
+rsource "src/modules/lora/Kconfig.lora"
+rsource "src/modules/error/Kconfig.error"
+
+endmenu
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu

@@ -1,0 +1,17 @@
+# Editors
+*.swp
+*~
+.DS_Store
+
+# Build
+build/*
+
+# Python venv
+.venv/
+
+# West workspace (populated by make setup, not committed)
+.west/
+zephyr/
+modules/
+tools/
+bootloader/

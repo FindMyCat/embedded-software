@@ -211,17 +211,17 @@ int rak3172_send_message(const char *msg) {
 
 void rak3172_suspend(void) {
   uart_irq_rx_disable(uart_dev);
-  // int err = pm_device_runtime_put(uart_dev);
-  // if (err) {
-  //   LOG_ERR("Error: UART suspend failed (%d)", err);
-  // }
+  int err = pm_device_runtime_put(uart_dev);
+  if (err) {
+    LOG_ERR("Error: UART suspend failed (%d)", err);
+  }
 }
 
 void rak3172_resume(void) {
-  // int err = pm_device_runtime_get(uart_dev);
-  // if (err) {
-  //   LOG_ERR("Error: UART resume failed (%d)", err);
-  // }
+  int err = pm_device_runtime_get(uart_dev);
+  if (err) {
+    LOG_ERR("Error: UART resume failed (%d)", err);
+  }
   uart_irq_rx_enable(uart_dev);
 }
 
