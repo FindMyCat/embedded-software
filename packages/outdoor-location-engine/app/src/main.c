@@ -172,7 +172,7 @@ retry:
     LOG_ERR("Error: Failed to initialize modem library, error: %d", err);
     return -1;
   }
-
+  lte_lc_power_off();
   err = gpio_pin_configure_dt(&power_mode_command_recv_pin,
                               GPIO_INPUT | GPIO_PULL_DOWN);
   if (err != 0) {
@@ -195,13 +195,22 @@ retry:
                      BIT(power_mode_command_recv_pin.pin));
   gpio_add_callback(power_mode_command_recv_pin.port, &pwr_mode_cb_data);
 
-  // /* RAK3172 hello world — send AT and print raw response */
-  // err = rak3172_init();
-  // if (err == 0) {
-  // 	rak3172_send_at("AT");
-  // 	rak3172_read_response(2000);
-  // }
+  /* RAK3172 hello world — send AT and print raw response */
 
+  err = rak3172_init();
+  if (err != 0) {
+    LOG_ERR("Error: RAK3172 init failed");
+    return -1;
+  }
+
+  rak3172_print_version_info();
+
+  while (true) {
+    // rak3172_resume();
+    rak3172_send_message("hi");
+    // rak3172_suspend();
+    k_sleep(K_SECONDS(5));
+  }
   // Connect to LTE network with retries if necessary.
   while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
     err = initializeLte();
