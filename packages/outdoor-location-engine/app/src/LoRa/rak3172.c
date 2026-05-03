@@ -125,8 +125,8 @@ int rak3172_init(void) {
   rak3172_configure_p2p();
   k_sleep(K_MSEC(500));
 
-  LOG_INF("Disabling low power mode");
-  rak3172_send_at("AT+LPM=0");
+  LOG_INF("Enabling low power mode");
+  rak3172_send_at("AT+LPM=1");
   rak3172_read_response(1000);
 
   LOG_INF("RAK3172 ready");
