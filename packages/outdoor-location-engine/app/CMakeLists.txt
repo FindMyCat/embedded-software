@@ -34,3 +34,9 @@ target_sources(app PRIVATE src/utils/network.h)
 
 target_sources(app PRIVATE src/LoRa/rak3172.c)
 target_sources(app PRIVATE src/LoRa/rak3172.h)
+
+target_sources(app PRIVATE src/WiFi/wifi_location.c)
+target_sources(app PRIVATE src/WiFi/wifi_location.h)
+
+target_sources(app PRIVATE src/WiFi/wifi_scan.c)
+target_sources(app PRIVATE src/WiFi/wifi_scan.h)

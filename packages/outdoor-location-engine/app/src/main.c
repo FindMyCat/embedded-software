@@ -14,6 +14,8 @@
 // Application specific imports
 #include "Dispatcher/Dispatcher.h"
 #include "LoRa/rak3172.h"
+#include "WiFi/wifi_location.h"
+#include "WiFi/wifi_scan.h"
 #include "LocationEngine/LocationEngine.h"
 #include "Responder/Responder.h"
 #include "UDPListener/NewUDPListener.h"
@@ -203,14 +205,26 @@ retry:
     return -1;
   }
 
-  rak3172_print_version_info();
+  // rak3172_print_version_info();
 
-  while (true) {
-    rak3172_resume();
-    rak3172_send_message("hi");
-    rak3172_suspend();
-    k_sleep(K_SECONDS(5));
-  }
+  // while (true) {
+  //   rak3172_resume();
+  //   rak3172_send_message("hi");
+  //   rak3172_suspend();
+  //   k_sleep(K_SECONDS(5));
+  // }
+  /* WiFi scan hello world */
+  wifi_scan_init();
+  wifi_scan_start();
+
+  /* WiFi location hello world */
+  // err = wifi_location_init();
+  // if (err) {
+  //   LOG_ERR("Error: WiFi location init failed (%d)", err);
+  // } else {
+  //   wifi_location_get();
+  // }
+
   // Connect to LTE network with retries if necessary.
   while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
     err = initializeLte();

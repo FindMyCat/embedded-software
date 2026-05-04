@@ -24,7 +24,7 @@ build-prod-t91x:
 	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west build -b $(BOARD_T91X) app -- "-DEXTRA_CONF_FILE=overlay-prod.conf;overlay-t91x.conf"
 
 RUNNER      ?= jlink
-JLINK_SPEED ?= 500
+JLINK_SPEED ?= 1000
 
 flash:
 	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west -v flash --runner $(RUNNER) --speed $(JLINK_SPEED)
