@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://docs.nordicsemi.com/bundle/ncs-3.0.2/page/nrf/drivers/uart_nrf_sw_lpuart.html\")",
+      "Bash(grep -v '^[[:space:]]*$')"
+    ]
+  }
+}
