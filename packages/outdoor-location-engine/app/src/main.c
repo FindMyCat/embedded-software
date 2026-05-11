@@ -13,6 +13,7 @@
 
 // Application specific imports
 #include "Dispatcher/Dispatcher.h"
+#include "FuelGauge/fuel_gauge.h"
 #include "LoRa/rak3172.h"
 #include "WiFi/wifi_location.h"
 #include "WiFi/wifi_scan.h"
@@ -196,6 +197,12 @@ retry:
   gpio_init_callback(&pwr_mode_cb_data, power_mode_command_recieved,
                      BIT(power_mode_command_recv_pin.pin));
   gpio_add_callback(power_mode_command_recv_pin.port, &pwr_mode_cb_data);
+
+  /* nPM1300 fuel gauge hello world */
+  err = fuel_gauge_start();
+  if (err != 0) {
+    LOG_ERR("Error: Fuel gauge start failed (%d)", err);
+  }
 
   /* RAK3172 hello world — send AT and print raw response */
 

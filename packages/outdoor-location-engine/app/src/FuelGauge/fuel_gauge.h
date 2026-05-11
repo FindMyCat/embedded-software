@@ -1,0 +1,12 @@
+#ifndef FUEL_GAUGE_H
+#define FUEL_GAUGE_H
+
+/**
+ * Initialise the on-board nPM1300 fuel gauge  and start a
+ * background thread that periodically reads V/I/T and prints SoC.
+ *
+ * @return 0 on success, negative errno otherwise.
+ */
+int fuel_gauge_start(void);
+
+#endif /* FUEL_GAUGE_H */
