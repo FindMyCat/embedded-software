@@ -272,11 +272,13 @@ static void adv_data_update_timer_handler(void * p_context)
     NRF_LOG_INFO("Advertising data updated!");
 
 
+#if 0
     adc_configure();
     NRF_LOG_INFO("Updating battery readings");
 
     err_code = nrf_drv_saadc_sample();
     APP_ERROR_CHECK(err_code);
+#endif
 
 }
 

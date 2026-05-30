@@ -84,7 +84,7 @@ extern "C" {
 #define DW3000_CLK_Pin      ARDUINO_13_PIN  // DWM3000 shield SPIM1 sck connected to DW1000
 #define DW3000_MOSI_Pin     ARDUINO_11_PIN  // DWM3000 shield SPIM1 mosi connected to DW1000
 #define DW3000_MISO_Pin     ARDUINO_12_PIN  // DWM3000 shield SPIM1 miso connected to DW1000
-#define DW3000_SPI_IRQ_PRIORITY APP_IRQ_PRIORITY_LOW // 
+#define DW3000_SPI_IRQ_PRIORITY APP_IRQ_PRIORITY_HIGH
 
 // UART symbolic constants
 #define UART_0_TX_PIN       TX_PIN_NUMBER           // DWM1001 module pin 20, DEV board name RXD
