@@ -7,7 +7,7 @@
 
 
 // Constants
-#define COMMAND_NRF9160_PIN     NRF_GPIO_PIN_MAP(0,4)
+#define COMMAND_NRF9160_PIN     NRF_GPIO_PIN_MAP(0,2)
 #define POWER_COMMAND_PSM       1
 #define POWER_COMMAND_EDRX      0
 
