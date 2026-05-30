@@ -4,7 +4,7 @@
 BUILD_DIR ?= build
 GENERATOR ?= Ninja
 
-.PHONY: all configure build clean rebuild flash flash_softdevice flash_full erase help
+.PHONY: all configure build clean rebuild flash flash_softdevice flash_full erase recover help
 
 all: build
 
@@ -29,11 +29,14 @@ flash: build
 flash_softdevice: configure
 	cmake --build $(BUILD_DIR) --target flash_softdevice
 
-flash_full: build
+flash_full: build recover
 	cmake --build $(BUILD_DIR) --target flash_full
 
 erase: configure
 	cmake --build $(BUILD_DIR) --target erase
+
+recover: configure
+	cmake --build $(BUILD_DIR) --target recover
 
 help:
 	@echo "Targets:"
@@ -42,8 +45,9 @@ help:
 	@echo "  rebuild           - wipe build/ and rebuild from scratch"
 	@echo "  flash             - build + flash app via JLinkExe"
 	@echo "  flash_softdevice  - flash S140 SoftDevice"
-	@echo "  flash_full        - build + erase + flash SoftDevice + app + reset"
+	@echo "  flash_full        - recover + build + flash SoftDevice + app + reset"
 	@echo "  erase             - mass erase target"
+	@echo "  recover           - nrfutil device recover (mass erase + clear AP-protect)"
 	@echo ""
 	@echo "Variables: BUILD_DIR ($(BUILD_DIR)), GENERATOR ($(GENERATOR))"
 	@echo "Forward CMake vars with -D, e.g.: cmake -B $(BUILD_DIR) -DSERIAL=683123456"

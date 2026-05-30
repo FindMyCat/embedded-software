@@ -60,43 +60,30 @@ extern "C" {
 
 
 //!!!!! warning pca10100.h contains errors!!!!
-// --- Original nRF52833DK Arduino-shield mapping (kept for reference) ---
-// #undef ARDUINO_13_PIN
-// #undef ARDUINO_12_PIN
-// #undef ARDUINO_11_PIN
-// #undef ARDUINO_10_PIN
-// #undef ARDUINO_9_PIN
-// #undef ARDUINO_8_PIN
-// #undef ARDUINO_7_PIN
-// #define ARDUINO_13_PIN              NRF_GPIO_PIN_MAP(0, 23)  // Digital pin 13
-// #define ARDUINO_12_PIN              NRF_GPIO_PIN_MAP(0, 22)  // Digital pin 12
-// #define ARDUINO_11_PIN              NRF_GPIO_PIN_MAP(0, 21)  // Digital pin 11
-// #define ARDUINO_10_PIN              NRF_GPIO_PIN_MAP(0, 20)  // Digital pin 10
-// #define ARDUINO_9_PIN               NRF_GPIO_PIN_MAP(0, 19)  // Digital pin 9
-// #define ARDUINO_8_PIN               NRF_GPIO_PIN_MAP(0, 17)  // Digital pin 8
-// #define ARDUINO_7_PIN               NRF_GPIO_PIN_MAP(0, 8) // Digital pin 7
-//
-// #define DW3000_RST_Pin      ARDUINO_7_PIN
-// #define DW3000_IRQ_Pin      ARDUINO_8_PIN
-// #define DW3000_WUP_Pin      ARDUINO_9_PIN
-//
-// // SPI defs
-// #define DW3000_CS_Pin       ARDUINO_10_PIN
-// #define DW3000_CLK_Pin      ARDUINO_13_PIN  // DWM3000 shield SPIM1 sck connected to DW1000
-// #define DW3000_MOSI_Pin     ARDUINO_11_PIN  // DWM3000 shield SPIM1 mosi connected to DW1000
-// #define DW3000_MISO_Pin     ARDUINO_12_PIN  // DWM3000 shield SPIM1 miso connected to DW1000
+#undef ARDUINO_13_PIN
+#undef ARDUINO_12_PIN
+#undef ARDUINO_11_PIN
+#undef ARDUINO_10_PIN
+#undef ARDUINO_9_PIN
+#undef ARDUINO_8_PIN
+#undef ARDUINO_7_PIN
+#define ARDUINO_13_PIN              NRF_GPIO_PIN_MAP(0, 23)  // Digital pin 13
+#define ARDUINO_12_PIN              NRF_GPIO_PIN_MAP(0, 22)  // Digital pin 12
+#define ARDUINO_11_PIN              NRF_GPIO_PIN_MAP(0, 21)  // Digital pin 11
+#define ARDUINO_10_PIN              NRF_GPIO_PIN_MAP(0, 20)  // Digital pin 10
+#define ARDUINO_9_PIN               NRF_GPIO_PIN_MAP(0, 19)  // Digital pin 9
+#define ARDUINO_8_PIN               NRF_GPIO_PIN_MAP(0, 17)  // Digital pin 8
+#define ARDUINO_7_PIN               NRF_GPIO_PIN_MAP(0, 8) // Digital pin 7
 
-// --- ANNA-B402 (nRF52833 open-CPU) board mapping ---
-// DW3000 control lines
-#define DW3000_RST_Pin      NRF_GPIO_PIN_MAP(0, 15)
-#define DW3000_IRQ_Pin      NRF_GPIO_PIN_MAP(0, 17)
-#define DW3000_WUP_Pin      NRF_GPIO_PIN_MAP(0, 20)
+#define DW3000_RST_Pin      ARDUINO_7_PIN
+#define DW3000_IRQ_Pin      ARDUINO_8_PIN
+#define DW3000_WUP_Pin      ARDUINO_9_PIN
 
-// SPI defs (SPIM3 high-speed pins)
-#define DW3000_CS_Pin       NRF_GPIO_PIN_MAP(0, 4)
-#define DW3000_CLK_Pin      NRF_GPIO_PIN_MAP(0, 5)   // SCK
-#define DW3000_MISO_Pin     NRF_GPIO_PIN_MAP(1, 9)
-#define DW3000_MOSI_Pin     NRF_GPIO_PIN_MAP(0, 11)
+// SPI defs
+#define DW3000_CS_Pin       ARDUINO_10_PIN
+#define DW3000_CLK_Pin      ARDUINO_13_PIN  // DWM3000 shield SPIM1 sck connected to DW1000
+#define DW3000_MOSI_Pin     ARDUINO_11_PIN  // DWM3000 shield SPIM1 mosi connected to DW1000
+#define DW3000_MISO_Pin     ARDUINO_12_PIN  // DWM3000 shield SPIM1 miso connected to DW1000
 #define DW3000_SPI_IRQ_PRIORITY APP_IRQ_PRIORITY_LOW // 
 
 // UART symbolic constants

@@ -197,11 +197,6 @@ uint8_t percentage_batt_lvl;
 
 
 
-/**@brief Function for handling the ADC interrupt.
- *
- * @details  This function will fetch the conversion result from the ADC, convert the value into
- *           percentage and send it to peer.
- */
 void saadc_event_handler(nrf_drv_saadc_evt_t const * p_event)
 {
         if (p_event->type == NRF_DRV_SAADC_EVT_DONE)
@@ -226,9 +221,6 @@ void saadc_event_handler(nrf_drv_saadc_evt_t const * p_event)
 
 }
 
-
-/**@brief Function for configuring ADC to do battery level conversion.
- */
 static void adc_configure(void)
 {
         ret_code_t err_code = nrf_drv_saadc_init(NULL, saadc_event_handler);

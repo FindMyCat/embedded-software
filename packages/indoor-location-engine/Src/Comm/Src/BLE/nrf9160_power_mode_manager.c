@@ -7,7 +7,7 @@
 
 
 // Constants
-#define COMMAND_NRF9160_PIN     NRF_GPIO_PIN_MAP(0,2)
+#define COMMAND_NRF9160_PIN     NRF_GPIO_PIN_MAP(0,16)
 #define POWER_COMMAND_PSM       1
 #define POWER_COMMAND_EDRX      0
 
@@ -39,8 +39,12 @@ void command_nrf9160_to_edrx() {
 /* Function to initialize the GPIO pins used to command the nrf9160 to PSM or EDRX */
 void init_gpio_command_pins() {
     NRF_LOG_INFO("Initializing nrf9160 command pin(s)");
+    NRF_LOG_INFO("COMMAND_NRF9160_PIN = %u (P%u.%u)",
+                 COMMAND_NRF9160_PIN,
+                 COMMAND_NRF9160_PIN >> 5,
+                 COMMAND_NRF9160_PIN & 0x1F);
 
-    nrf_gpio_cfg_output(COMMAND_NRF9160_PIN);	
+    nrf_gpio_cfg_output(COMMAND_NRF9160_PIN);
 
     // explicity command the nrf9160 to PSM upon startup
     command_nrf9160_to_psm();

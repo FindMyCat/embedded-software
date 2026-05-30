@@ -209,7 +209,7 @@ list(APPEND SRC_FILES
 )
 
 # ------------------------------------------------------------------
-# Include paths (SoftDevice MUST precede nrf_soc_nosd which we omit)
+# Include paths
 # ------------------------------------------------------------------
 set(INC_FOLDERS
     ${PROJECT_DEFINITION_DIR}
@@ -322,6 +322,7 @@ set(QANI_PREBUILT_LIBS
 # Defines / flags
 # ------------------------------------------------------------------
 set(COMMON_DEFINES
+    DEBUG
     NRF_DEBUG
     BOARD_DWM3001_A1
     BOARD_CUSTOM
@@ -356,7 +357,7 @@ set(CPU_FLAGS "-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-s
 
 # C and ASM share these
 add_compile_options(
-    -O3 -g3
+    -Os -g3
     -mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16
     -ffunction-sections -fdata-sections -fno-strict-aliasing
     -fno-builtin -fshort-enums
@@ -377,7 +378,7 @@ target_include_directories(${ELF_TARGET} PRIVATE ${INC_FOLDERS})
 
 target_link_options(${ELF_TARGET} PRIVATE
     -mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16
-    -O3 -g3
+    -Os -g3
     -L${SDK_MOD}/mdk
     -T${LINKER_SCRIPT}
     -Wl,--gc-sections
@@ -417,32 +418,45 @@ endif()
 
 set(JLINK_BASE ${JLINK} -device ${JLINK_DEV} -if ${JLINK_IF} -speed ${JLINK_SPEED} -autoconnect 1 ${SERIAL_ARG})
 
+file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/flash_app.jlink
+    CONTENT "r\nloadfile ${APP_HEX}\nr\ng\nexit\n")
+file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/flash_sd.jlink
+    CONTENT "r\nerase\nloadfile ${SOFTDEVICE_HEX}\nr\nexit\n")
+file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/flash_full.jlink
+    CONTENT "r\nerase\nloadfile ${SOFTDEVICE_HEX}\nloadfile ${APP_HEX}\nr\ng\nexit\n")
+file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/erase.jlink
+    CONTENT "r\nerase\nexit\n")
+
 add_custom_target(flash
     DEPENDS ${ELF_TARGET}
-    COMMAND ${CMAKE_COMMAND} -E echo "r\\nloadfile ${APP_HEX}\\nr\\ng\\nexit\\n" > flash_app.jlink
     COMMAND ${JLINK_BASE} -CommanderScript flash_app.jlink
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    VERBATIM
 )
 
 add_custom_target(flash_softdevice
-    COMMAND ${CMAKE_COMMAND} -E echo "r\\nerase\\nloadfile ${SOFTDEVICE_HEX}\\nr\\nexit\\n" > flash_sd.jlink
     COMMAND ${JLINK_BASE} -CommanderScript flash_sd.jlink
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    VERBATIM
 )
 
 add_custom_target(flash_full
     DEPENDS ${ELF_TARGET}
-    COMMAND ${CMAKE_COMMAND} -E echo "r\\nerase\\nloadfile ${SOFTDEVICE_HEX}\\nloadfile ${APP_HEX}\\nr\\ng\\nexit\\n" > flash_full.jlink
     COMMAND ${JLINK_BASE} -CommanderScript flash_full.jlink
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    VERBATIM
 )
 
 add_custom_target(erase
-    COMMAND ${CMAKE_COMMAND} -E echo "r\\nerase\\nexit\\n" > erase.jlink
     COMMAND ${JLINK_BASE} -CommanderScript erase.jlink
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    VERBATIM
+)
+
+set(NRFUTIL "nrfutil" CACHE STRING "nrfutil binary")
+if(SERIAL)
+    set(NRFUTIL_SERIAL --serial-number ${SERIAL})
+else()
+    set(NRFUTIL_SERIAL "")
+endif()
+
+add_custom_target(recover
+    COMMAND ${NRFUTIL} device recover --traits jlink ${NRFUTIL_SERIAL}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )

@@ -21,7 +21,7 @@ MEMORY
 {
   FLASH_VECTORS (rx) : ORIGIN = 0x27000,    LENGTH = 0x2000
   FCONFIG       (r)  : ORIGIN = 0x29000,    LENGTH = 0x1000
-  FLASH         (rx) : ORIGIN = 0x2A000,    LENGTH = 0xE1000
+  FLASH         (rx) : ORIGIN = 0x2A000,    LENGTH = 0x56000
   RAM          (rwx) : ORIGIN = 0x20002B38, LENGTH = 0x1D4C8
 }
 

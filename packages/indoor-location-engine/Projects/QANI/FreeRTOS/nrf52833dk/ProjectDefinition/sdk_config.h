@@ -103,8 +103,8 @@
 #define NRF_LOG_ENABLED 1
 #endif
 
-#ifndef NRF_LOG_DEFAULT_LEVEL 
-#define NRF_LOG_DEFAULT_LEVEL 3
+#ifndef NRF_LOG_DEFAULT_LEVEL
+#define NRF_LOG_DEFAULT_LEVEL 4
 #endif
 
 #ifndef NRF_SDH_BLE_LOG_ENABLED 

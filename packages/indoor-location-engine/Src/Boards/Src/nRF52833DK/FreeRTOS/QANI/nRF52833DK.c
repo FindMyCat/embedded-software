@@ -74,15 +74,6 @@ void peripherals_init(void)
 {
     ret_code_t err_code;
 
-    /* Keep APPROTECT disabled so debugger/RTT can connect without mass erase */
-    if (NRF_UICR->APPROTECT != 0xFFFFFFFF) {
-        NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Wen;
-        while (!NRF_NVMC->READY);
-        NRF_UICR->APPROTECT = 0xFFFFFFFF;
-        NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Ren;
-        NVIC_SystemReset();
-    }
-
     /* With this change, Reset After Power Cycle is not required */
     nrf_gpio_cfg_input(UART_0_RX_PIN, NRF_GPIO_PIN_PULLUP);
 

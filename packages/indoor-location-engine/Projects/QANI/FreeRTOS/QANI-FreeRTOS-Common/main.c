@@ -61,7 +61,10 @@
 #include "nrf_crypto_init.h"
 #include "nrf_crypto_rng.h"
 #include "nrf_log_ctrl.h"
+#include "SEGGER_RTT.h"
 #include "nrf_drv_clock.h"
+#include "nrf_gpio.h"
+#include "nrf_delay.h"
 #include "reporter.h"
 #include "rtls_version.h"
 #include "util.h"
@@ -123,7 +126,21 @@ static void clock_init(void) {
 
 /**@brief Function for application main entry.
  */
+
 int main(void) {
+    if ((NRF_UICR->APPROTECT & UICR_APPROTECT_PALL_Msk) != UICR_APPROTECT_PALL_HwDisabled) {
+        NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Wen;
+        while (NRF_NVMC->READY == NVMC_READY_READY_Busy) {}
+        NRF_UICR->APPROTECT = 0xFFFFFF5AUL;
+        __DSB();
+        while (NRF_NVMC->READY == NVMC_READY_READY_Busy) {}
+        NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Ren;
+        while (NRF_NVMC->READY == NVMC_READY_READY_Busy) {}
+        NVIC_SystemReset();
+    }
+    NRF_APPROTECT->DISABLE = APPROTECT_DISABLE_DISABLE_SwDisable;
+
+
     // Initialize modules.
     clock_init();
     reporter_instance.init();
