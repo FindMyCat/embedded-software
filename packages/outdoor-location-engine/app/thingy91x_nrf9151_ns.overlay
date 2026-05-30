@@ -28,7 +28,8 @@
 / {
     gpiocustom {
         compatible = "gpio-keys";
-        gpiocus10: gpiocus_10 {
+        gpiocus10: gpiocus_10 { 
+	/*TODO: (sahas) this needs to be 20, per the schematic */
             gpios = <&gpio0 21 GPIO_ACTIVE_HIGH>;
             label = "Custom gpio 10";
         };

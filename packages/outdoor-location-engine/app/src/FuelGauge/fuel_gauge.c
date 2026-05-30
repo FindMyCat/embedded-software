@@ -1,6 +1,7 @@
 #include "fuel_gauge.h"
 
 #include <zephyr/device.h>
+#include <zephyr/drivers/i2c.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/sensor/npm13xx_charger.h>
 #include <zephyr/kernel.h>
@@ -8,6 +9,9 @@
 #include <zephyr/sys/util.h>
 
 #include <nrf_fuel_gauge.h>
+
+#define BATT_LINK_I2C_NODE DT_NODELABEL(i2c2)
+#define BATT_LINK_SLAVE_ADDR 0x42
 
 LOG_MODULE_REGISTER(fuel_gauge, 4);
 
@@ -22,6 +26,7 @@ LOG_MODULE_REGISTER(fuel_gauge, 4);
 #define FUEL_GAUGE_THREAD_PRIO 7
 
 static const struct device *charger = DEVICE_DT_GET(DT_NODELABEL(npm1300_charger));
+static const struct device *batt_link_i2c = DEVICE_DT_GET(BATT_LINK_I2C_NODE);
 
 static int64_t ref_time;
 
@@ -163,6 +168,22 @@ static int fuel_gauge_sample(void)
     LOG_INF("V: %.3f V, I: %.3f A, T: %.2f C, SoC: %.2f %%, TTE: %.0f, TTF: %.0f",
             (double)voltage, (double)current, (double)temp,
             (double)soc, (double)tte, (double)ttf);
+
+    struct __attribute__((packed)) batt_snapshot {
+        float   voltage;
+        float   current;
+        float   temp;
+        float   soc;
+        float   tte;
+        float   ttf;
+        int32_t chg_status;
+    } snap = { voltage, current, temp, soc, tte, ttf, chg_status };
+
+    int i2c_ret = i2c_write(batt_link_i2c, (const uint8_t *)&snap, sizeof(snap),
+                            BATT_LINK_SLAVE_ADDR);
+    if (i2c_ret < 0) {
+        LOG_ERR("Error: i2c_write to 0x%02x failed (%d)", BATT_LINK_SLAVE_ADDR, i2c_ret);
+    }
 
     return 0;
 }
