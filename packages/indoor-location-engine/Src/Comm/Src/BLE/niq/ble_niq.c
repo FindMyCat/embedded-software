@@ -66,6 +66,7 @@
 #include "ble_advertising.h"
 #include "ble_qnis.h"
 #include "ble_anis.h"
+#include "app_ble.h"
 #include "ble_conn_params.h"
 #include "ble_conn_state.h"
 #include "nrf_sdh.h"

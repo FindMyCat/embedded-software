@@ -1,0 +1,16 @@
+CompileFlags:
+  Compiler: clang
+  Add:
+    - --target=arm-none-eabi
+    - -mthumb
+    - -D__GNUC__
+  Remove:
+    - -mcpu=*
+    - -mfpu=*
+    - -mfloat-abi=*
+    - --specs=*
+
+Diagnostics:
+  UnusedIncludes: None
+  Suppress:
+    - unused-includes

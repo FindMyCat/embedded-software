@@ -110,6 +110,7 @@
 #include "nrf_sdh_soc.h"
 #include "nrf_sdh_ble.h"
 #include "nrf_sdh_freertos.h"
+#include "nrf_fstorage.h"
 #include "nrf_ble_gatt.h"
 #include "nrf_ble_qwr.h"
 #include "nrf_log.h"
@@ -333,8 +334,9 @@ static void scan_start(void)
 
 /**@brief Function for initializing the advertising and the scanning.
  */
-static void adv_scan_start(void)
+static void adv_scan_start(void * p_context)
 {
+    (void)p_context;
     ret_code_t err_code;
 
     //check if there are no flash operations in progress
