@@ -106,11 +106,6 @@ list(APPEND SRC_FILES
     ${SDK_LIB}/crypto/backend/nrf_hw/nrf_hw_backend_init.c
     ${SDK_LIB}/crypto/backend/nrf_hw/nrf_hw_backend_rng.c
 
-    ${SDK_LIB}/usbd/app_usbd.c
-    ${SDK_LIB}/usbd/app_usbd_core.c
-    ${SDK_LIB}/usbd/app_usbd_serial_num.c
-    ${SDK_LIB}/usbd/app_usbd_string_desc.c
-    ${SDK_LIB}/usbd/class/cdc/acm/app_usbd_cdc_acm.c
 
     ${SDK_SD}/common/nrf_sdh.c
     ${SDK_SD}/common/nrf_sdh_ble.c
@@ -135,9 +130,6 @@ list(APPEND SRC_FILES
     ${SDK_BLE}/nrf_ble_qwr/nrf_ble_qwr.c
     ${SDK_BLE}/nrf_ble_scan/nrf_ble_scan.c
     ${SDK_BLE}/ble_link_ctx_manager/ble_link_ctx_manager.c
-    ${SDK_SVC}/ble_bas/ble_bas.c
-    ${SDK_SVC}/ble_dis/ble_dis.c
-    ${SDK_SVC}/ble_hrs/ble_hrs.c
 
     ${SDK_INT}/legacy/nrf_drv_spi.c
     ${SDK_INT}/legacy/nrf_drv_clock.c
@@ -148,7 +140,7 @@ list(APPEND SRC_FILES
 
 foreach(f nrfx_saadc nrfx_rng nrfx_gpiote nrfx_rtc nrfx_spi nrfx_spim
           nrfx_timer nrfx_uart nrfx_uarte nrfx_power nrfx_wdt nrfx_clock
-          nrfx_usbd nrfx_systick)
+          nrfx_systick)
     list(APPEND SRC_FILES ${SDK_MOD}/drivers/src/${f}.c)
 endforeach()
 list(APPEND SRC_FILES
@@ -357,10 +349,9 @@ set(CPU_FLAGS "-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-s
 
 # C and ASM share these
 add_compile_options(
-    -Os -g3
+    -O3 -g3
     -mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16
-    -ffunction-sections -fdata-sections -fno-strict-aliasing
-    -fno-builtin -fshort-enums
+    -ffunction-sections -fdata-sections
     -Wall -Wno-implicit-function-declaration
 )
 add_compile_options($<$<COMPILE_LANGUAGE:C>:-std=c11>)
@@ -378,7 +369,7 @@ target_include_directories(${ELF_TARGET} PRIVATE ${INC_FOLDERS})
 
 target_link_options(${ELF_TARGET} PRIVATE
     -mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16
-    -Os -g3
+    -O3 -g3
     -L${SDK_MOD}/mdk
     -T${LINKER_SCRIPT}
     -Wl,--gc-sections
