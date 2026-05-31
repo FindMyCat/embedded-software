@@ -924,7 +924,7 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
 
 static ble_gap_scan_params_t m_scan_param =                 /**< Scan parameters requested for scanning and connection. */
 {
-    .active        = 0x01,
+    .active        = 0x00,
     .interval      = NRF_BLE_SCAN_SCAN_INTERVAL,
     .window        = NRF_BLE_SCAN_SCAN_WINDOW,
     .filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL,
@@ -964,6 +964,10 @@ static void scan_init(void)
 void ble_play_sound() {
     NRF_LOG_INFO("Playing sound...");
     buzzer_play(BUZZER_TUNE_AIRTAG);
+}
+
+bool ble_is_connected(void) {
+    return m_conn_handle != BLE_CONN_HANDLE_INVALID;
 }
 
 void ble_init(char * gap_name)

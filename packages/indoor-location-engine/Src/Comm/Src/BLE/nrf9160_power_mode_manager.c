@@ -4,6 +4,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "app_timer.h"
+#include "app_ble.h"
 
 
 // Constants
@@ -80,7 +81,10 @@ static void nrf9160_power_manager_thread(void *arg) {
         // Scan duration is every 30 seconds, 
         // so if we haven't seen the home station in 2 minutes, 
         // then we should switch to EDRX mode
-        if (system_uptime - home_station_last_seen_timestamp_s > TWO_MINUTES) {
+        if (ble_is_connected()) {
+            command_nrf9160_to_psm();
+        }
+        else if (system_uptime - home_station_last_seen_timestamp_s > TWO_MINUTES) {
             command_nrf9160_to_edrx();
         }
         else {

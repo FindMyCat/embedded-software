@@ -73,6 +73,8 @@ void ble_evt_disconnected_handler(void);
 
 void ble_play_sound(void);
 
+bool ble_is_connected(void);
+
 //================ reuse NI defs =================
 void get_nus_data(ble_nus_t * pnus);
 void get_conn_handle(uint16_t * pconn_handle);
