@@ -93,6 +93,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "nordic_common.h"
+#include "fmc_adv_magic.h"
 #include "app_error.h"
 #include "nrf.h"
 #include "ble.h"
@@ -249,19 +250,27 @@ static void adv_data_update_timer_handler(void * p_context)
     new_advdata.flags                    = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     new_advdata.uuids_complete.uuid_cnt  = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
     new_advdata.uuids_complete.p_uuids   = m_adv_uuids;
-  
+
+    static uint8_t fmc_adv_payload[4] = { FMC_ADV_MAGIC_BYTES, 0x00 };
+    fmc_adv_payload[3] = (uint8_t)percentage_batt_lvl;
+    static ble_advdata_manuf_data_t fmc_manuf_upd;
+    fmc_manuf_upd.company_identifier      = FMC_ADV_COMPANY_ID;
+    fmc_manuf_upd.data.p_data             = fmc_adv_payload;
+    fmc_manuf_upd.data.size               = sizeof(fmc_adv_payload);
+    new_advdata.p_manuf_specific_data     = &fmc_manuf_upd;
+
     new_srdata.name_type         = BLE_ADVDATA_FULL_NAME;
 
     // Convert the random number to a string
-    uint8_t batt_lvl_reported[4];
-    sprintf((char*)batt_lvl_reported, "%d", percentage_batt_lvl);
+    // uint8_t batt_lvl_reported[4];
+    // sprintf((char*)batt_lvl_reported, "%d", percentage_batt_lvl);
 
     // Prepare the scan response manufacturer specific data packet
-    ble_advdata_manuf_data_t  manuf_data_response;
-    manuf_data_response.company_identifier  = 0xFFFF;
-    manuf_data_response.data.p_data         = batt_lvl_reported;
-    manuf_data_response.data.size           = sizeof(batt_lvl_reported);
-    new_srdata.p_manuf_specific_data = &manuf_data_response;
+    // ble_advdata_manuf_data_t  manuf_data_response;
+    // manuf_data_response.company_identifier  = 0xFFFF;
+    // manuf_data_response.data.p_data         = batt_lvl_reported;
+    // manuf_data_response.data.size           = sizeof(batt_lvl_reported);
+    // new_srdata.p_manuf_specific_data = &manuf_data_response;
 
 
     NRF_LOG_INFO("Updating advertising data!");
@@ -865,15 +874,22 @@ static void advertising_init(void)
     init.advdata.flags                    = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     init.advdata.uuids_complete.uuid_cnt  = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
     init.advdata.uuids_complete.p_uuids   = m_adv_uuids;
+
+    static uint8_t fmc_magic[]            = { FMC_ADV_MAGIC_BYTES };
+    static ble_advdata_manuf_data_t fmc_manuf;
+    fmc_manuf.company_identifier          = FMC_ADV_COMPANY_ID;
+    fmc_manuf.data.p_data                 = fmc_magic;
+    fmc_manuf.data.size                   = sizeof(fmc_magic);
+    init.advdata.p_manuf_specific_data    = &fmc_manuf;
   
     init.srdata.name_type                = BLE_ADVDATA_FULL_NAME;
     // Prepare the scan response manufacturer specific data packet
-    ble_advdata_manuf_data_t  manuf_data_response;
-    uint8_t                     data_response[] = "69";
-    manuf_data_response.company_identifier  = 0xFFFF;
-    manuf_data_response.data.p_data         = data_response;
-    manuf_data_response.data.size           = sizeof(data_response);
-    init.srdata.p_manuf_specific_data = &manuf_data_response;
+    // ble_advdata_manuf_data_t  manuf_data_response;
+    // uint8_t                     data_response[] = "69";
+    // manuf_data_response.company_identifier  = 0xFFFF;
+    // manuf_data_response.data.p_data         = data_response;
+    // manuf_data_response.data.size           = sizeof(data_response);
+    // init.srdata.p_manuf_specific_data = &manuf_data_response;
 
     init.config.ble_adv_fast_enabled  = false;
     init.config.ble_adv_fast_interval = APP_ADV_INTERVAL_FAST;
