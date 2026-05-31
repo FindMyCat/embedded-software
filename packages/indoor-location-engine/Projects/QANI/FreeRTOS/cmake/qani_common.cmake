@@ -26,6 +26,7 @@ set(SDK_INT  "${SDK_ROOT}/integration/nrfx")
 set(SDK_MBED "${SDK_EXT}/mbedtls")
 set(QANI_APP "${SRC_ROOT}/Apps/Src")
 set(QANI_BLE "${SRC_ROOT}/Comm/Src/BLE")
+set(QANI_BUZ "${SRC_ROOT}/Comm/Src/Buzzer")
 set(QANI_HAL "${SRC_ROOT}/HAL/Src/nrfx")
 set(QANI_BRD "${SRC_ROOT}/Boards/Src")
 
@@ -140,7 +141,7 @@ list(APPEND SRC_FILES
 
 foreach(f nrfx_saadc nrfx_rng nrfx_gpiote nrfx_rtc nrfx_spi nrfx_spim
           nrfx_timer nrfx_uart nrfx_uarte nrfx_power nrfx_wdt nrfx_clock
-          nrfx_systick)
+          nrfx_systick nrfx_pwm)
     list(APPEND SRC_FILES ${SDK_MOD}/drivers/src/${f}.c)
 endforeach()
 list(APPEND SRC_FILES
@@ -188,6 +189,7 @@ list(APPEND SRC_FILES
     ${QANI_BLE}/niq/ble_niq.c
     ${QANI_BLE}/qnis/ble_qnis.c
     ${QANI_BLE}/anis/ble_anis.c
+    ${QANI_BUZ}/buzzer.c
 
     ${SRC_ROOT}/Helpers/crc16.c
     ${SRC_ROOT}/Helpers/cJSON.c
@@ -230,6 +232,7 @@ set(INC_FOLDERS
     ${QANI_BLE}/niq
     ${QANI_BLE}/qnis
     ${QANI_BLE}/anis
+    ${QANI_BUZ}
     ${SRC_ROOT}/UWB
     ${SRC_ROOT}/UWB/FreeRTOS
     ${SRC_ROOT}/UWBUtils
@@ -349,7 +352,7 @@ set(CPU_FLAGS "-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-s
 
 # C and ASM share these
 add_compile_options(
-    -O3 -g3
+    -Os -g3
     -mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16
     -ffunction-sections -fdata-sections
     -Wall -Wno-implicit-function-declaration
@@ -369,7 +372,7 @@ target_include_directories(${ELF_TARGET} PRIVATE ${INC_FOLDERS})
 
 target_link_options(${ELF_TARGET} PRIVATE
     -mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16
-    -O3 -g3
+    -Os -g3
     -L${SDK_MOD}/mdk
     -T${LINKER_SCRIPT}
     -Wl,--gc-sections

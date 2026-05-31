@@ -80,6 +80,7 @@
 
 
 #include "nrf9160_power_mode_manager.h"
+#include "buzzer.h"
 
 #ifndef ACCESSORY_RANGING_ROLE
 #define ACCESSORY_RANGING_ROLE (1) /**< Responder 0, Initiator 1 */
@@ -150,6 +151,9 @@ int main(void) {
 #if NRF_LOG_ENABLED
     init_logger_thread();
 #endif
+
+    buzzer_init();
+    buzzer_play(BUZZER_TUNE_BOOT);
 
     // Accessory Nearby Interaction Initialization
     niq_init(ResumeUwbTasks, StopUwbTask, (const void *)nrf_crypto_init,

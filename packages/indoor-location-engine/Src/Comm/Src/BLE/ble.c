@@ -102,6 +102,7 @@
 #include "ble_advertising.h"
 #include "ble_qnis.h"
 #include "ble_anis.h"
+#include "buzzer.h"
 #include "ble_conn_params.h"
 #include "ble_conn_state.h"
 #include "peer_manager.h"
@@ -959,10 +960,9 @@ static void scan_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-/**@brief Function for playing sound. */
 void ble_play_sound() {
-
     NRF_LOG_INFO("Playing sound...");
+    buzzer_play(BUZZER_TUNE_AIRTAG);
 }
 
 void ble_init(char * gap_name)
