@@ -643,6 +643,7 @@ static void on_ble_peripheral_evt(ble_evt_t const * p_ble_evt)
             APP_ERROR_CHECK(err_code);
             err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, 8);
             APP_ERROR_CHECK(err_code);
+            nrf_ble_scan_stop();
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
