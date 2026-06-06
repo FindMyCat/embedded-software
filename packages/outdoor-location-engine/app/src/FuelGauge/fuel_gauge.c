@@ -9,9 +9,9 @@
 #include <zephyr/sys/util.h>
 
 #include <nrf_fuel_gauge.h>
+#include <string.h>
 
-#define BATT_LINK_I2C_NODE DT_NODELABEL(i2c2)
-#define BATT_LINK_SLAVE_ADDR 0x42
+#include "../comm/nrf52_link.h"
 
 LOG_MODULE_REGISTER(fuel_gauge, 4);
 
@@ -26,7 +26,7 @@ LOG_MODULE_REGISTER(fuel_gauge, 4);
 #define FUEL_GAUGE_THREAD_PRIO 7
 
 static const struct device *charger = DEVICE_DT_GET(DT_NODELABEL(npm1300_charger));
-static const struct device *batt_link_i2c = DEVICE_DT_GET(BATT_LINK_I2C_NODE);
+static const struct device *nrf52_i2c = DEVICE_DT_GET(NRF52_I2C_NODE);
 
 static int64_t ref_time;
 
@@ -179,10 +179,13 @@ static int fuel_gauge_sample(void)
         int32_t chg_status;
     } snap = { voltage, current, temp, soc, tte, ttf, chg_status };
 
-    int i2c_ret = i2c_write(batt_link_i2c, (const uint8_t *)&snap, sizeof(snap),
-                            BATT_LINK_SLAVE_ADDR);
+    uint8_t frame[1 + sizeof(snap)];
+    frame[0] = NRF52_REG_BATT;
+    memcpy(&frame[1], &snap, sizeof(snap));
+
+    int i2c_ret = i2c_write(nrf52_i2c, frame, sizeof(frame), NRF52_I2C_ADDR);
     if (i2c_ret < 0) {
-        LOG_ERR("Error: i2c_write to 0x%02x failed (%d)", BATT_LINK_SLAVE_ADDR, i2c_ret);
+        LOG_ERR("Error: i2c_write to 0x%02x failed (%d)", NRF52_I2C_ADDR, i2c_ret);
     }
 
     return 0;
@@ -230,5 +233,37 @@ int fuel_gauge_start(void)
 
     started = true;
     LOG_INF("nPM1300 fuel gauge started");
+    return 0;
+}
+
+int fuel_gauge_send_test_frame(void)
+{
+    if (!device_is_ready(nrf52_i2c)) {
+        LOG_ERR("Error: I2C bus not ready");
+        return -ENODEV;
+    }
+
+    struct __attribute__((packed)) batt_snapshot {
+        float   voltage;
+        float   current;
+        float   temp;
+        float   soc;
+        float   tte;
+        float   ttf;
+        int32_t chg_status;
+    } snap = { 3.70f, 0.10f, 25.0f, 88.5f, 3600.0f, 0.0f, 1 };
+
+    uint8_t frame[1 + sizeof(snap)];
+    frame[0] = NRF52_REG_BATT;
+    memcpy(&frame[1], &snap, sizeof(snap));
+
+    int ret = i2c_write(nrf52_i2c, frame, sizeof(frame), NRF52_I2C_ADDR);
+    if (ret < 0) {
+        LOG_ERR("Error: i2c_write to 0x%02x failed (%d)", NRF52_I2C_ADDR, ret);
+        return ret;
+    }
+
+    LOG_INF("Sent dummy batt frame to 0x%02x (%u bytes)", NRF52_I2C_ADDR,
+            (unsigned)sizeof(snap));
     return 0;
 }

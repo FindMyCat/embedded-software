@@ -204,6 +204,13 @@ retry:
     LOG_ERR("Error: Fuel gauge start failed (%d)", err);
   }
 
+  /* I2C link bench test: stream dummy battery frames to the nRF52 at 0x42
+   * (no nPM1300 needed). Remove once the link is verified. */
+  while (true) {
+    fuel_gauge_send_test_frame();
+    k_sleep(K_SECONDS(2));
+  }
+
   /* RAK3172 hello world — send AT and print raw response */
 
   err = rak3172_init();
