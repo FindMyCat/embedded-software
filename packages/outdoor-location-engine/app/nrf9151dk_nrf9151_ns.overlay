@@ -176,10 +176,15 @@
             gpios = <&gpio0 22 GPIO_ACTIVE_HIGH>;
             label = "nRF52 config ready";
         };
+        lora_reset: lora_reset {
+            gpios = <&gpio0 25 GPIO_ACTIVE_LOW>;
+            label = "RAK3172 reset";
+        };
     };
     aliases {
         lora-uart = &uart1;
         gpiocus10 = &gpiocus10;
         nrf52-config-ready = &config_ready;
+        lora-reset = &lora_reset;
     };
 };

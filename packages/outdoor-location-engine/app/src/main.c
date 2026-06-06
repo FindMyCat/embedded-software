@@ -258,27 +258,26 @@ retry:
 
   /* I2C link bench test: stream dummy battery frames to the nRF52 at 0x42
    * (no nPM1300 needed). Remove once the link is verified. */
-  while (true) {
-    fuel_gauge_send_test_frame();
-    k_sleep(K_SECONDS(2));
-  }
+  // while (true) {
+  //   fuel_gauge_send_test_frame();
+  //   k_sleep(K_SECONDS(2));
+  // }
 
   /* RAK3172 hello world — send AT and print raw response */
 
   err = rak3172_init();
   if (err != 0) {
-    LOG_ERR("Error: RAK3172 init failed");
-    return -1;
+    LOG_ERR("Error: RAK3172 init failed (%d), continuing without LoRa", err);
   }
 
   // rak3172_print_version_info();
 
-  // while (true) {
-  //   rak3172_resume();
-  //   rak3172_send_message("hi");
-  //   rak3172_suspend();
-  //   k_sleep(K_SECONDS(5));
-  // }
+  while (true) {
+    rak3172_resume();
+    rak3172_send_message("hi");
+    rak3172_suspend();
+    k_sleep(K_SECONDS(5));
+  }
   /* WiFi scan hello world */
   wifi_scan_init();
   wifi_scan_start();

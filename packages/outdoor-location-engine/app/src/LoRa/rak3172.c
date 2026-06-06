@@ -1,4 +1,6 @@
+#include <errno.h>
 #include <string.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -11,6 +13,10 @@
 LOG_MODULE_REGISTER(rak3172, LOG_LEVEL_DBG);
 
 static const struct device *uart_dev = DEVICE_DT_GET(DT_ALIAS(lora_uart));
+
+/* RAK3172 reset (active low, idle high). Optional: a {0} spec if not wired. */
+static const struct gpio_dt_spec lora_reset =
+    GPIO_DT_SPEC_GET_OR(DT_ALIAS(lora_reset), gpios, {0});
 
 #define RX_RING_BUF_SIZE 256
 RING_BUF_DECLARE(rx_ring_buf, RX_RING_BUF_SIZE);
@@ -50,7 +56,7 @@ void rak3172_send_at(const char *cmd) {
   uart_poll_out(uart_dev, '\n');
 }
 
-void rak3172_read_response(int timeout_ms) {
+int rak3172_read_response(int timeout_ms) {
   int64_t deadline = k_uptime_get() + timeout_ms;
   char buf[128];
   int i = 0;
@@ -72,9 +78,14 @@ void rak3172_read_response(int timeout_ms) {
 
     if (c == '\n') {
       buf[i] = '\0';
-      LOG_INF("  << %s", buf);
-      if (strcmp(buf, "OK") == 0 || strstr(buf, "ERROR") != NULL) {
-        return;
+      LOG_INF("        << %s", buf);
+      /* Banner lines (RAKwireless.../Current Work Mode...) and other notices
+       * are skipped; we only conclude on OK or ERROR. */
+      if (strcmp(buf, "OK") == 0) {
+        return 0;
+      }
+      if (strstr(buf, "ERROR") != NULL) {
+        return -EIO;
       }
       i = 0;
       continue;
@@ -89,13 +100,26 @@ void rak3172_read_response(int timeout_ms) {
     buf[i] = '\0';
     LOG_INF("  << %s", buf);
   }
+  return -ETIMEDOUT;
 }
 
-static void rak3172_configure_p2p(void) {
-  LOG_INF("Configuring P2P parameters");
+static int rak3172_configure_p2p(void) {
+  LOG_INF("Configuring LORA P2P parameters");
   /* US915, SF7, BW 125kHz, CR 4/5, preamble 8, 5 dBm */
   rak3172_send_at("AT+P2P=915000000:7:125:0:8:5");
-  rak3172_read_response(3000);
+  return rak3172_read_response(3000);
+}
+
+static void rak3172_hw_reset(void) {
+  if (!gpio_is_ready_dt(&lora_reset)) {
+    LOG_WRN("RAK3172 reset line not wired; cannot hardware-reset");
+    return;
+  }
+  LOG_WRN("RAK3172 hardware reset");
+  gpio_pin_set_dt(&lora_reset, 1);  /* assert (active low) */
+  k_sleep(K_MSEC(10));
+  gpio_pin_set_dt(&lora_reset, 0);  /* deassert */
+  k_sleep(K_MSEC(300));             /* module boot time */
 }
 
 int rak3172_init(void) {
@@ -107,29 +131,40 @@ int rak3172_init(void) {
   uart_irq_callback_set(uart_dev, uart_irq_cb);
   uart_irq_rx_enable(uart_dev);
 
+  if (gpio_is_ready_dt(&lora_reset)) {
+    /* idle high = reset deasserted (active low) */
+    gpio_pin_configure_dt(&lora_reset, GPIO_OUTPUT_INACTIVE);
+  }
+
   LOG_INF("RAK3172 UART ready");
 
-  LOG_INF("Factory resetting RAK3172");
-  rak3172_send_at("ATR");
-  rak3172_read_response(5000);
+  /* AT+P2P's OK is the liveness signal; if it never ACKs, hardware-reset and retry. */
+  for (int attempt = 0; attempt < 3; attempt++) {
+    LOG_INF("Enabling P2P mode (RAK3172 will restart automatically.)");
+    rak3172_send_at("AT+NWM=0");
+    rak3172_read_response(8000);
 
-  LOG_INF("Enabling P2P mode");
-  rak3172_send_at("AT+NWM=0");
-  rak3172_read_response(8000);
+    if (rak3172_configure_p2p() != 0) {
+      LOG_WRN("RAK3172 not responding (attempt %d/3); hardware reset", attempt + 1);
+      rak3172_hw_reset();
+      continue;
+    }
+    k_sleep(K_MSEC(500));
 
-  rak3172_configure_p2p();
-  k_sleep(K_MSEC(500));
+    LOG_INF("Enabling low power mode");
+    rak3172_send_at("AT+LPM=1");
+    rak3172_read_response(1000);
 
-  LOG_INF("Enabling low power mode");
-  rak3172_send_at("AT+LPM=1");
-  rak3172_read_response(1000);
+    LOG_INF("Setting LPMLVL value");
+    rak3172_send_at("AT+LPMLVL=2");
+    rak3172_read_response(1000);
 
-  LOG_INF("Setting LPMLVL value");
-  rak3172_send_at("AT+LPMLVL=2");
-  rak3172_read_response(1000);
+    LOG_INF("RAK3172 ready");
+    return 0;
+  }
 
-  LOG_INF("RAK3172 ready");
-  return 0;
+  LOG_ERR("Error: RAK3172 unresponsive after hardware resets (tried 3 times)");
+  return -EIO;
 }
 
 int rak3172_send_message(const char *msg) {
@@ -154,6 +189,7 @@ int rak3172_send_message(const char *msg) {
    * after TX, this was due to the RF coupling into the RX/TX wires, which triggered a reboot.
    * This piece of code detects and reconfigure P2P in that case. */
   bool rebooted = false;
+  bool tx_done = false;
   int64_t deadline = k_uptime_get() + 10000;
   char buf[128];
   int i = 0;
@@ -176,6 +212,7 @@ int rak3172_send_message(const char *msg) {
       }
       if (strncmp(buf, "+EVT:TXP2P DONE", 15) == 0) {
         LOG_INF("TX done");
+        tx_done = true;
         break;
       }
       if (strncmp(buf, "RAKwireless", 11) == 0) {
@@ -196,6 +233,11 @@ int rak3172_send_message(const char *msg) {
   if (rebooted) {
     LOG_WRN("RAK3172 rebooted after TX, reconfiguring P2P");
     rak3172_configure_p2p();
+  } else if (!tx_done) {
+    LOG_WRN("RAK3172 no TX confirmation; resetting and reinitialising");
+    rak3172_hw_reset();
+    rak3172_init();
+    return -EIO;
   }
 
   return 0;
