@@ -112,6 +112,7 @@ extern "C" {
 typedef enum
 {
     BLE_QNIS_EVT_RX_DATA,      /**< Data received. */
+    BLE_QNIS_EVT_CONFIG_DATA,  /**< Config written (host/port for the nRF9151). */
     BLE_QNIS_EVT_TX_RDY,       /**< Service is ready to accept new data to be transmitted. */
     BLE_QNIS_EVT_COMM_STARTED, /**< Notification has been enabled. */
     BLE_QNIS_EVT_COMM_STOPPED, /**< Notification has been disabled. */
@@ -186,6 +187,7 @@ struct ble_qnis_s
     uint16_t                        service_handle;     /**< Handle of Qorvo NI Service (as provided by the SoftDevice). */
     ble_gatts_char_handles_t        tx_handles;         /**< Handles related to the TX characteristic (as provided by the SoftDevice). */
     ble_gatts_char_handles_t        rx_handles;         /**< Handles related to the RX characteristic (as provided by the SoftDevice). */
+    ble_gatts_char_handles_t        config_handles;     /**< Handles related to the Config characteristic (host/port for nRF9151). */
     blcm_link_ctx_storage_t * const p_link_ctx_storage; /**< Pointer to link context storage with handles of all current connections and its context. */
     ble_qnis_data_handler_t          data_handler;       /**< Event handler to be called for handling received data. */
 };

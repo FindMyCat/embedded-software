@@ -104,6 +104,8 @@
 #include "ble_qnis.h"
 #include "ble_anis.h"
 #include "buzzer.h"
+#include "i2c_nrf9151.h"
+#include "persistent_config.h"
 #include "ble_conn_params.h"
 #include "ble_conn_state.h"
 #include "peer_manager.h"
@@ -415,6 +417,46 @@ static void qnis_data_handler(ble_qnis_evt_t * p_evt)
 
         handle_new_data(p_data, data_len);
     }
+
+    if (p_evt->type == BLE_QNIS_EVT_CONFIG_DATA)
+    {
+        /* Payload: [port_lo][port_hi][host UTF-8 ...]. Assemble fmc_config and
+         * push it to the nRF9151 (raises CONFIG_RDY, 91 reads it back). */
+        const uint8_t *d = p_evt->params.rx_data.p_data;
+        uint16_t len = p_evt->params.rx_data.length;
+
+        if (len >= 2)
+        {
+            struct fmc_config cfg;
+            memset(&cfg, 0, sizeof(cfg));
+            cfg.port = (uint16_t)(d[0] | (d[1] << 8));
+
+            uint16_t host_len = len - 2;
+            if (host_len > sizeof(cfg.host) - 1)
+            {
+                host_len = sizeof(cfg.host) - 1;
+            }
+            memcpy(cfg.host, &d[2], host_len);
+
+            NRF_LOG_INFO("config rx over BLE: port=%u host_len=%u", cfg.port, host_len);
+            i2c_nrf9151_publish_config(&cfg);
+            persistent_config_save(&cfg);
+        }
+        else
+        {
+            NRF_LOG_ERROR("Error: config write too short (%u bytes)", len);
+        }
+    }
+}
+
+void app_ble_restore_persisted_config(const uint8_t *data, uint16_t len)
+{
+    ble_gatts_value_t val = {
+        .len     = len,
+        .offset  = 0,
+        .p_value = (uint8_t *)data,
+    };
+    sd_ble_gatts_value_set(BLE_CONN_HANDLE_INVALID, m_qnis.config_handles.value_handle, &val);
 }
 
 /**@brief Function for the GAP initialization.

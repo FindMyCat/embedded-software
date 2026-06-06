@@ -57,6 +57,7 @@ NRF_LOG_MODULE_REGISTER();
 #define BLE_UUID_QNIS_SEC_CHARACTERISTIC  0x941C    /**< The UUID of the Secure RX Characteristic. */
 #define BLE_UUID_QNIS_RX_CHARACTERISTIC   0x998A    /**< The UUID of the TX Characteristic. */
 #define BLE_UUID_QNIS_TX_CHARACTERISTIC   0x9AF2    /**< The UUID of the RX Characteristic. */
+#define BLE_UUID_QNIS_CONFIG_CHARACTERISTIC 0x9B00  /**< The UUID of the Config Characteristic (host/port for nRF9151). */
 
 #define BLE_QNIS_MAX_RX_CHAR_LEN        BLE_QNIS_MAX_DATA_LEN /**< Maximum length of the RX Characteristic (in bytes). */
 #define BLE_QNIS_MAX_TX_CHAR_LEN        BLE_QNIS_MAX_DATA_LEN /**< Maximum length of the TX Characteristic (in bytes). */
@@ -169,6 +170,15 @@ static void on_write(ble_qnis_t * p_qnis, ble_evt_t const * p_ble_evt)
              (p_qnis->data_handler != NULL))
     {
         evt.type                  = BLE_QNIS_EVT_RX_DATA;
+        evt.params.rx_data.p_data = p_evt_write->data;
+        evt.params.rx_data.length = p_evt_write->len;
+
+        p_qnis->data_handler(&evt);
+    }
+    else if ((p_evt_write->handle == p_qnis->config_handles.value_handle) &&
+             (p_qnis->data_handler != NULL))
+    {
+        evt.type                  = BLE_QNIS_EVT_CONFIG_DATA;
         evt.params.rx_data.p_data = p_evt_write->data;
         evt.params.rx_data.length = p_evt_write->len;
 
@@ -306,6 +316,26 @@ uint32_t ble_qnis_init(ble_qnis_t * p_qnis, ble_qnis_init_t const * p_qnis_init)
     add_char_params.write_access = SEC_OPEN;
 
     err_code = characteristic_add(p_qnis->service_handle, &add_char_params, &p_qnis->rx_handles);
+    if (err_code != NRF_SUCCESS)
+    {
+        return err_code;
+    }
+
+    // Add the Config Characteristic (host/port pushed to the nRF9151).
+    memset(&add_char_params, 0, sizeof(add_char_params));
+    add_char_params.uuid                     = BLE_UUID_QNIS_CONFIG_CHARACTERISTIC;
+    add_char_params.uuid_type                = p_qnis->uuid_type;
+    add_char_params.max_len                  = BLE_QNIS_MAX_RX_CHAR_LEN;
+    add_char_params.init_len                 = sizeof(uint8_t);
+    add_char_params.is_var_len               = true;
+    add_char_params.char_props.read          = 1;
+    add_char_params.char_props.write         = 1;
+    add_char_params.char_props.write_wo_resp = 1;
+
+    add_char_params.read_access  = SEC_OPEN;
+    add_char_params.write_access = SEC_OPEN;
+
+    err_code = characteristic_add(p_qnis->service_handle, &add_char_params, &p_qnis->config_handles);
     if (err_code != NRF_SUCCESS)
     {
         return err_code;

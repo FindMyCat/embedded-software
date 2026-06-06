@@ -4,15 +4,25 @@
 
 #include "nrfx_twis.h"
 #include "nrf_log.h"
+#include "nrf_gpio.h"
+
+#include "buzzer.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 #define I2C_NRF9151_SDA_PIN     NRF_GPIO_PIN_MAP(0, 26)
 #define I2C_NRF9151_SCL_PIN     NRF_GPIO_PIN_MAP(0, 4)
+#define CONFIG_RDY_PIN          NRF_GPIO_PIN_MAP(0, 5)  /* "config ready" -> nRF9151 */
 
 static const nrfx_twis_t m_twis = NRFX_TWIS_INSTANCE(1);
 
 static uint8_t m_buf[I2C_NRF9151_BUF_SIZE];
 static uint8_t m_rx_scratch[I2C_NRF9151_BUF_SIZE + 1];
 static uint8_t m_write_offset;
+
+/* Set in the TWIS ISR when the 91 acks a config; the buzzer beeps from a task
+ * (the ISR runs above the FreeRTOS-safe priority, so it cannot queue directly). */
+static volatile bool m_config_acked;
 
 /* Battery frame the nRF9151 streams over this link (matches fuel_gauge.c). */
 struct __attribute__((packed)) batt_frame {
@@ -52,6 +62,14 @@ static void twis_event_handler(nrfx_twis_evt_t const *p_event) {
                              NRF_LOG_FLOAT(f.tte), NRF_LOG_FLOAT(f.ttf));
                 NRF_LOG_INFO("      chg=%d", (int)f.chg_status);
             }
+            if (m_write_offset == I2C_NRF9151_REG_CONFIG_APPLIED &&
+                m_buf[I2C_NRF9151_REG_CONFIG_APPLIED] ==
+                    m_buf[I2C_NRF9151_REG_CONFIG_VERSION]) {
+                nrf_gpio_pin_clear(CONFIG_RDY_PIN);
+                m_config_acked = true;
+                NRF_LOG_INFO("config v%u applied by 91, CONFIG_RDY low",
+                             m_buf[I2C_NRF9151_REG_CONFIG_VERSION]);
+            }
             break;
         }
 
@@ -69,7 +87,24 @@ static void twis_event_handler(nrfx_twis_evt_t const *p_event) {
     }
 }
 
+/* Beeps once when the 91 acks a config write (deferred out of the TWIS ISR). */
+static void config_ack_task(void *arg) {
+    (void)arg;
+    for (;;) {
+        if (m_config_acked) {
+            m_config_acked = false;
+            buzzer_play(BUZZER_TUNE_BEEP);
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+
 void i2c_nrf9151_init(void) {
+    nrf_gpio_cfg_output(CONFIG_RDY_PIN);
+    nrf_gpio_pin_clear(CONFIG_RDY_PIN);
+
+    xTaskCreate(config_ack_task, "cfgack", 256, NULL, 1, NULL);
+
     nrfx_twis_config_t cfg = {
         .addr               = { I2C_NRF9151_SLAVE_ADDR, 0 },
         .scl                = I2C_NRF9151_SCL_PIN,
@@ -97,4 +132,21 @@ int i2c_nrf9151_write(uint8_t offset, const uint8_t *src, size_t len) {
     if ((size_t)offset + len > I2C_NRF9151_BUF_SIZE) return -1;
     for (size_t i = 0; i < len; i++) m_buf[offset + i] = src[i];
     return 0;
+}
+
+void i2c_nrf9151_publish_config(const struct fmc_config *cfg) {
+    i2c_nrf9151_write(I2C_NRF9151_REG_CONFIG, (const uint8_t *)cfg, sizeof(*cfg));
+    uint8_t ver = (uint8_t)(m_buf[I2C_NRF9151_REG_CONFIG_VERSION] + 1);
+    i2c_nrf9151_write(I2C_NRF9151_REG_CONFIG_VERSION, &ver, 1);
+    nrf_gpio_pin_set(CONFIG_RDY_PIN);
+    NRF_LOG_INFO("config published v%u, CONFIG_RDY high", ver);
+}
+
+void i2c_nrf9151_publish_test_config(void) {
+    struct fmc_config cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    strncpy(cfg.host, "test.findmycat.io", sizeof(cfg.host) - 1);
+    cfg.port = 1885;
+    strncpy(cfg.device_id, "dummy-device-0001", sizeof(cfg.device_id) - 1);
+    i2c_nrf9151_publish_config(&cfg);
 }

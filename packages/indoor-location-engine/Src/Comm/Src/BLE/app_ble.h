@@ -75,6 +75,10 @@ void ble_play_sound(void);
 
 bool ble_is_connected(void);
 
+/* Restore the Config characteristic's value (so iOS read-back works after a
+ * reboot), called when the persisted config is loaded from flash. */
+void app_ble_restore_persisted_config(const uint8_t *data, uint16_t len);
+
 //================ reuse NI defs =================
 void get_nus_data(ble_nus_t * pnus);
 void get_conn_handle(uint16_t * pconn_handle);
