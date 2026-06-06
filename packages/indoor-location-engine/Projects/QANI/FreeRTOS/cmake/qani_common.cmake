@@ -27,6 +27,7 @@ set(SDK_MBED "${SDK_EXT}/mbedtls")
 set(QANI_APP "${SRC_ROOT}/Apps/Src")
 set(QANI_BLE "${SRC_ROOT}/Comm/Src/BLE")
 set(QANI_BUZ "${SRC_ROOT}/Comm/Src/Buzzer")
+set(QANI_I2C "${SRC_ROOT}/Comm/Src/I2C")
 set(QANI_HAL "${SRC_ROOT}/HAL/Src/nrfx")
 set(QANI_BRD "${SRC_ROOT}/Boards/Src")
 
@@ -141,7 +142,7 @@ list(APPEND SRC_FILES
 
 foreach(f nrfx_saadc nrfx_rng nrfx_gpiote nrfx_rtc nrfx_spi nrfx_spim
           nrfx_timer nrfx_uart nrfx_uarte nrfx_power nrfx_wdt nrfx_clock
-          nrfx_systick nrfx_pwm)
+          nrfx_systick nrfx_pwm nrfx_twis)
     list(APPEND SRC_FILES ${SDK_MOD}/drivers/src/${f}.c)
 endforeach()
 list(APPEND SRC_FILES
@@ -190,6 +191,7 @@ list(APPEND SRC_FILES
     ${QANI_BLE}/qnis/ble_qnis.c
     ${QANI_BLE}/anis/ble_anis.c
     ${QANI_BUZ}/buzzer.c
+    ${QANI_I2C}/i2c_nrf9151.c
 
     ${SRC_ROOT}/Helpers/crc16.c
     ${SRC_ROOT}/Helpers/cJSON.c
@@ -233,6 +235,7 @@ set(INC_FOLDERS
     ${QANI_BLE}/qnis
     ${QANI_BLE}/anis
     ${QANI_BUZ}
+    ${QANI_I2C}
     ${SRC_ROOT}/UWB
     ${SRC_ROOT}/UWB/FreeRTOS
     ${SRC_ROOT}/UWBUtils

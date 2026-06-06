@@ -81,6 +81,7 @@
 
 #include "nrf9160_power_mode_manager.h"
 #include "buzzer.h"
+#include "i2c_nrf9151.h"
 
 #ifndef ACCESSORY_RANGING_ROLE
 #define ACCESSORY_RANGING_ROLE (1) /**< Responder 0, Initiator 1 */
@@ -154,6 +155,8 @@ int main(void) {
 
     buzzer_init();
     buzzer_play(BUZZER_TUNE_BOOT);
+
+    i2c_nrf9151_init();
 
     // Accessory Nearby Interaction Initialization
     niq_init(ResumeUwbTasks, StopUwbTask, (const void *)nrf_crypto_init,
