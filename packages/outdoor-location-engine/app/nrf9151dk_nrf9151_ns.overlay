@@ -1,0 +1,180 @@
+/*
+ * FindMyCat NRF9151 custom board (U3B) / nRF9151 DK with hand-wired companions.
+ *
+ *   SERIAL0  uart0  console
+ *   SERIAL1  uart1  RAK3172 LoRa     TX=P0.23  RX=P0.24
+ *   SERIAL2  i2c2   nPM1300 PMIC     SDA=P0.09 SCL=P0.08  (addr 0x6b, Thingy-matched)
+ *                   shared bus: also reaches the nRF52/DWM at 0x42 (see
+ *                   src/comm/nrf52_link.h); that peer has no DT node.
+ *   SERIAL3  spi3   nRF7002 Wi-Fi    SCK=P0.13 MOSI=P0.14 MISO=P0.15
+ *                   CS=P0.17  IRQ=P0.16  VDDIO_CTRL=P0.26  ENABLE/BUCKEN=P0.27
+ *
+ *   P0.20    NRF_91_CELL_MODE: pulled high by the engine to enable eDRX (gpiocus10)
+ *
+ */
+
+#include <zephyr/dt-bindings/regulator/npm13xx.h>
+
+&pinctrl {
+    /* RAK3172 LoRa on uart1 */
+    uart1_rak_default: uart1_rak_default {
+        group1 {
+            psels = <NRF_PSEL(UART_TX, 0, 23)>,
+                    <NRF_PSEL(UART_RX, 0, 24)>;
+        };
+    };
+    uart1_rak_sleep: uart1_rak_sleep {
+        group1 {
+            psels = <NRF_PSEL(UART_TX, 0, 23)>,
+                    <NRF_PSEL(UART_RX, 0, 24)>;
+            low-power-enable;
+        };
+    };
+
+    /* nPM1300 on i2c2 */
+    i2c2_npm_default: i2c2_npm_default {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 0, 9)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 8)>;
+        };
+    };
+    i2c2_npm_sleep: i2c2_npm_sleep {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 0, 9)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 8)>;
+            low-power-enable;
+        };
+    };
+
+    /* nRF7002 Wi-Fi on spi3 */
+    spi3_nrf70_default: spi3_nrf70_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 0, 13)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 14)>,
+                    <NRF_PSEL(SPIM_MISO, 0, 15)>;
+            nordic,drive-mode = <NRF_DRIVE_H0H1>;
+        };
+    };
+    spi3_nrf70_sleep: spi3_nrf70_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 0, 13)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 14)>,
+                    <NRF_PSEL(SPIM_MISO, 0, 15)>;
+            low-power-enable;
+        };
+    };
+};
+
+&uart1 {
+    status = "okay";
+    current-speed = <115200>;
+    pinctrl-0 = <&uart1_rak_default>;
+    pinctrl-1 = <&uart1_rak_sleep>;
+    pinctrl-names = "default", "sleep";
+};
+
+/* nPM1300 main PMIC on i2c2 (SDA=P0.09, SCL=P0.08) */
+&i2c2 {
+    clock-frequency = <I2C_BITRATE_STANDARD>;
+    pinctrl-0 = <&i2c2_npm_default>;
+    pinctrl-1 = <&i2c2_npm_sleep>;
+    pinctrl-names = "default", "sleep";
+
+    npm1300_pmic: npm1300@6b {
+        compatible = "nordic,npm1300";
+        status = "okay";
+        reg = <0x6b>;
+        pmic-int-pin = <3>;
+
+        npm1300_gpios: npm1300_gpios {
+            compatible = "nordic,npm1300-gpio";
+            status = "okay";
+            gpio-controller;
+            #gpio-cells = <2>;
+            ngpios = <5>;
+        };
+
+        regulators {
+            compatible = "nordic,npm1300-regulator";
+            status = "okay";
+
+            reg_3v3: BUCK2 {
+                regulator-min-microvolt = <3300000>;
+                regulator-max-microvolt = <3300000>;
+                regulator-boot-on;
+            };
+        };
+
+        npm1300_charger: charger {
+            compatible = "nordic,npm1300-charger";
+            status = "okay";
+            vbus-limit-microamp = <500000>;
+            /* LiPol LP803448 defaults; adjust to the cell actually fitted */
+            term-microvolt = <4200000>;
+            current-microamp = <675000>;
+            dischg-limit-microamp = <1000000>;
+            thermistor-cold-millidegrees = <0>;
+            thermistor-cool-millidegrees = <0>;
+            thermistor-warm-millidegrees = <45000>;
+            thermistor-hot-millidegrees = <45000>;
+            thermistor-ohms = <10000>;
+            thermistor-beta = <3435>;
+            charging-enable;
+        };
+    };
+};
+
+/* nRF7002 Wi-Fi companion on spi3, CS on P0.17 */
+&spi3 {
+    cs-gpios = <&gpio0 17 GPIO_ACTIVE_LOW>;
+    pinctrl-0 = <&spi3_nrf70_default>;
+    pinctrl-1 = <&spi3_nrf70_sleep>;
+    pinctrl-names = "default", "sleep";
+
+    nrf70: wifi@0 {
+        compatible = "nordic,nrf7002-spi";
+        status = "okay";
+        reg = <0>;
+        spi-max-frequency = <DT_FREQ_M(8)>;
+
+        iovdd-ctrl-gpios = <&gpio0 26 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+        bucken-gpios = <&gpio0 27 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+        host-irq-gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
+
+        nordic_wlan0: wlan0 {
+            compatible = "nordic,wlan";
+        };
+
+        wifi-max-tx-pwr-2g-dsss = <21>;
+        wifi-max-tx-pwr-2g-mcs0 = <16>;
+        wifi-max-tx-pwr-2g-mcs7 = <16>;
+        wifi-max-tx-pwr-5g-low-mcs0 = <9>;
+        wifi-max-tx-pwr-5g-low-mcs7 = <9>;
+        wifi-max-tx-pwr-5g-mid-mcs0 = <11>;
+        wifi-max-tx-pwr-5g-mid-mcs7 = <11>;
+        wifi-max-tx-pwr-5g-high-mcs0 = <13>;
+        wifi-max-tx-pwr-5g-high-mcs7 = <13>;
+    };
+};
+
+/* Free the on-board flash CS slot so it cannot clash with the nRF70 */
+&gd25wb256 {
+    status = "disabled";
+};
+
+/ {
+    chosen {
+        zephyr,wifi = &nordic_wlan0;
+    };
+    gpiocustom {
+        compatible = "gpio-keys";
+        gpiocus10: gpiocus_10 {
+            gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
+            label = "Custom gpio 10";
+        };
+    };
+    aliases {
+        lora-uart = &uart1;
+        gpiocus10 = &gpiocus10;
+    };
+};
