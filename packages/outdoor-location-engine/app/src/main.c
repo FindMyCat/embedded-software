@@ -36,7 +36,7 @@ static const struct gpio_dt_spec nrf52_config_ready_pin =
     GPIO_DT_SPEC_GET_OR(NRF52_CONFIG_READY_PIN, gpios, {0});
 
 static struct fmc_config nrf52_config;
-static struct k_work nrf52_config_work;
+static struct k_work_delayable nrf52_config_work;
 static struct gpio_callback nrf52_config_cb_data;
 
 static K_SEM_DEFINE(lte_connected, 0, 1);
@@ -166,7 +166,13 @@ static struct gpio_callback pwr_mode_cb_data;
  */
 static void nrf52_config_work_handler(struct k_work *work) {
   ARG_UNUSED(work);
-  nrf52_read_config(&nrf52_config);
+  /* On a transient failure, retry while the data-ready line is still asserted:
+   * the nRF52 holds it high until we ack, so a held-high line means "still
+   * pending" and there is no fresh edge to re-trigger us. */
+  if (nrf52_read_config(&nrf52_config) != 0 &&
+      gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
+    k_work_reschedule(&nrf52_config_work, K_MSEC(100));
+  }
 }
 
 /**
@@ -177,7 +183,7 @@ static void nrf52_config_ready_isr(const struct device *port,
   ARG_UNUSED(port);
   ARG_UNUSED(cb);
   ARG_UNUSED(pins);
-  k_work_submit(&nrf52_config_work);
+  k_work_schedule(&nrf52_config_work, K_NO_WAIT);
 }
 
 /**
@@ -229,7 +235,7 @@ retry:
 
   /* nRF52 config-ready line: 52 raises it when the iOS app pushes new config */
   if (device_is_ready(nrf52_config_ready_pin.port)) {
-    k_work_init(&nrf52_config_work, nrf52_config_work_handler);
+    k_work_init_delayable(&nrf52_config_work, nrf52_config_work_handler);
     gpio_pin_configure_dt(&nrf52_config_ready_pin, GPIO_INPUT);
     gpio_pin_interrupt_configure_dt(&nrf52_config_ready_pin,
                                     GPIO_INT_EDGE_TO_ACTIVE);
@@ -238,7 +244,7 @@ retry:
     gpio_add_callback(nrf52_config_ready_pin.port, &nrf52_config_cb_data);
     /* config may already be pending from before we armed the interrupt */
     if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
-      k_work_submit(&nrf52_config_work);
+      k_work_schedule(&nrf52_config_work, K_NO_WAIT);
     }
   } else {
     LOG_ERR("Error: nRF52 config-ready pin not ready");
