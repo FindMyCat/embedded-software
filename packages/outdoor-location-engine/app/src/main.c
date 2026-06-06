@@ -12,6 +12,7 @@
 #include <zephyr/drivers/gpio.h>
 
 // Application specific imports
+#include "comm/nrf52_link.h"
 #include "Dispatcher/Dispatcher.h"
 #include "FuelGauge/fuel_gauge.h"
 #include "LoRa/rak3172.h"
@@ -28,6 +29,15 @@ LOG_MODULE_REGISTER(main, 4);
 
 static const struct gpio_dt_spec power_mode_command_recv_pin =
     GPIO_DT_SPEC_GET_OR(POWER_MODE_COMMAND_PIN, gpios, {0});
+
+/* nRF52 raises this line when the iOS app has pushed new config over BLE */
+#define NRF52_CONFIG_READY_PIN DT_ALIAS(nrf52_config_ready)
+static const struct gpio_dt_spec nrf52_config_ready_pin =
+    GPIO_DT_SPEC_GET_OR(NRF52_CONFIG_READY_PIN, gpios, {0});
+
+static struct fmc_config nrf52_config;
+static struct k_work nrf52_config_work;
+static struct gpio_callback nrf52_config_cb_data;
 
 static K_SEM_DEFINE(lte_connected, 0, 1);
 
@@ -152,6 +162,25 @@ static void power_mode_command_recieved() {
 static struct gpio_callback pwr_mode_cb_data;
 
 /**
+ * @brief Read the config the nRF52 published. Runs on the system workqueue.
+ */
+static void nrf52_config_work_handler(struct k_work *work) {
+  ARG_UNUSED(work);
+  nrf52_read_config(&nrf52_config);
+}
+
+/**
+ * @brief ISR for the nRF52 config-ready line; defers the i2c read to a workitem.
+ */
+static void nrf52_config_ready_isr(const struct device *port,
+                                   struct gpio_callback *cb, uint32_t pins) {
+  ARG_UNUSED(port);
+  ARG_UNUSED(cb);
+  ARG_UNUSED(pins);
+  k_work_submit(&nrf52_config_work);
+}
+
+/**
  * @brief Application entry point.
  */
 int main(void) {
@@ -197,6 +226,23 @@ retry:
   gpio_init_callback(&pwr_mode_cb_data, power_mode_command_recieved,
                      BIT(power_mode_command_recv_pin.pin));
   gpio_add_callback(power_mode_command_recv_pin.port, &pwr_mode_cb_data);
+
+  /* nRF52 config-ready line: 52 raises it when the iOS app pushes new config */
+  if (device_is_ready(nrf52_config_ready_pin.port)) {
+    k_work_init(&nrf52_config_work, nrf52_config_work_handler);
+    gpio_pin_configure_dt(&nrf52_config_ready_pin, GPIO_INPUT);
+    gpio_pin_interrupt_configure_dt(&nrf52_config_ready_pin,
+                                    GPIO_INT_EDGE_TO_ACTIVE);
+    gpio_init_callback(&nrf52_config_cb_data, nrf52_config_ready_isr,
+                       BIT(nrf52_config_ready_pin.pin));
+    gpio_add_callback(nrf52_config_ready_pin.port, &nrf52_config_cb_data);
+    /* config may already be pending from before we armed the interrupt */
+    if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
+      k_work_submit(&nrf52_config_work);
+    }
+  } else {
+    LOG_ERR("Error: nRF52 config-ready pin not ready");
+  }
 
   /* nPM1300 fuel gauge hello world */
   err = fuel_gauge_start();

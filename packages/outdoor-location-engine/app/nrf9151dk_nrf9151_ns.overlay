@@ -172,9 +172,14 @@
             gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
             label = "Custom gpio 10";
         };
+        config_ready: config_ready {
+            gpios = <&gpio0 22 GPIO_ACTIVE_HIGH>;
+            label = "nRF52 config ready";
+        };
     };
     aliases {
         lora-uart = &uart1;
         gpiocus10 = &gpiocus10;
+        nrf52-config-ready = &config_ready;
     };
 };

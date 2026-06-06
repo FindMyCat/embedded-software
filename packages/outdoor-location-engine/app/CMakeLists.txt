@@ -43,3 +43,6 @@ target_sources(app PRIVATE src/WiFi/wifi_scan.h)
 
 target_sources(app PRIVATE src/FuelGauge/fuel_gauge.c)
 target_sources(app PRIVATE src/FuelGauge/fuel_gauge.h)
+
+target_sources(app PRIVATE src/comm/nrf52_link.c)
+target_sources(app PRIVATE src/comm/nrf52_link.h)
