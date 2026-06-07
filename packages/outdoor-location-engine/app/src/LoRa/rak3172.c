@@ -106,7 +106,7 @@ int rak3172_read_response(int timeout_ms) {
 static int rak3172_configure_p2p(void) {
   LOG_INF("Configuring LORA P2P parameters");
   /* US915, SF7, BW 125kHz, CR 4/5, preamble 8, 5 dBm */
-  rak3172_send_at("AT+P2P=915000000:7:125:0:8:5");
+  rak3172_send_at("AT+P2P=915000000:7:125:0:8:14");
   return rak3172_read_response(3000);
 }
 
