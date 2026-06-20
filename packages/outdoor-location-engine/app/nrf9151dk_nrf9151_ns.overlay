@@ -7,7 +7,7 @@
  *                   shared bus: also reaches the nRF52/DWM at 0x42 (see
  *                   src/comm/nrf52_link.h); that peer has no DT node.
  *   SERIAL3  spi3   nRF7002 Wi-Fi    SCK=P0.13 MOSI=P0.14 MISO=P0.15
- *                   CS=P0.17  IRQ=P0.16  VDDIO_CTRL=P0.26  ENABLE/BUCKEN=P0.27
+ *                   CS=P0.17  IRQ=P0.16  VDDIO_CTRL=P0.27  ENABLE/BUCKEN=P0.28
  *
  *   P0.20    NRF_91_CELL_MODE: pulled high by the engine to enable eDRX (gpiocus10)
  *
@@ -135,10 +135,10 @@
         compatible = "nordic,nrf7002-spi";
         status = "okay";
         reg = <0>;
-        spi-max-frequency = <DT_FREQ_M(8)>;
+        spi-max-frequency = <DT_FREQ_M(1)>;
 
-        iovdd-ctrl-gpios = <&gpio0 26 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
-        bucken-gpios = <&gpio0 27 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+        iovdd-ctrl-gpios = <&gpio0 27 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+        bucken-gpios = <&gpio0 28 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
         host-irq-gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
 
         nordic_wlan0: wlan0 {
