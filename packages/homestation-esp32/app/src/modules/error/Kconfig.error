@@ -1,0 +1,12 @@
+menu "Error"
+
+config ERROR_REBOOT_ON_FATAL
+	bool "Reboot on fatal error"
+	depends on REBOOT
+	default y
+
+module = ERROR
+module-str = Error
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu # Error

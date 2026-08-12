@@ -1,0 +1,31 @@
+menu "LoRa"
+
+config LORA_THREAD_STACK_SIZE
+	int "Thread stack size"
+	default 1024
+
+config LORA_MESSAGE_QUEUE_SIZE
+	int "Message queue size"
+	default 4
+
+config LORA_CAD_TEST
+	bool "CAD receive test beacon"
+	help
+	  Transmit a periodic long-preamble beacon instead of entering RX, to
+	  exercise the collar's duty-cycled CAD receive mode.
+
+config LORA_CAD_TEST_PREAMBLE
+	int "Beacon preamble length in symbols"
+	depends on LORA_CAD_TEST
+	default 512
+
+config LORA_CAD_TEST_PERIOD_MS
+	int "Beacon period in milliseconds"
+	depends on LORA_CAD_TEST
+	default 5000
+
+module = LORA
+module-str = LoRa
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu # LoRa
