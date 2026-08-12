@@ -10,8 +10,8 @@ build/*
 .venv/
 
 # West workspace (populated by make setup, not committed)
-.west/
-zephyr/
-modules/
-tools/
-bootloader/
+/.west/
+/zephyr/
+/modules/
+/tools/
+/bootloader/
