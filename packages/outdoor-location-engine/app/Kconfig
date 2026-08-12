@@ -44,7 +44,34 @@ config ACTIVE_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 
 config LOST_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 	int "Location refresh period in seconds for Lost Mode"
-	default 30	
+	default 30
+
+config LORA_CAD_RX_TEST
+	bool "CAD receive bench test"
+	help
+	  Run the duty-cycled CAD receive loop and log packets instead of
+	  continuing to the rest of the application. Requires the CAD firmware
+	  on the RAK3172.
+
+config LORA_CAD_RX_TEST_SYMBOLS
+	int "CAD symbol count index (0=1, 1=2, 2=4, 3=8, 4=16)"
+	depends on LORA_CAD_RX_TEST
+	default 1
+
+config LORA_CAD_RX_TEST_DET_PEAK
+	int "CAD detection peak threshold"
+	depends on LORA_CAD_RX_TEST
+	default 22
+
+config LORA_CAD_RX_TEST_DET_MIN
+	int "CAD detection minimum"
+	depends on LORA_CAD_RX_TEST
+	default 10
+
+config LORA_CAD_RX_TEST_INTERVAL_MS
+	int "Sniff interval in milliseconds"
+	depends on LORA_CAD_RX_TEST
+	default 450
 
 endmenu
 

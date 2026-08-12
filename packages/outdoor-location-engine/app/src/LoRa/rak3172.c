@@ -269,3 +269,84 @@ void rak3172_print_version_info(void) {
   rak3172_send_at("AT+VER=?");
   rak3172_read_response(3000);
 }
+
+int rak3172_wait_event(const char *prefix, char *buf, size_t buf_len,
+                       int timeout_ms) {
+  int64_t deadline = k_uptime_get() + timeout_ms;
+  size_t prefix_len = strlen(prefix);
+  int i = 0;
+
+  while (true) {
+    int64_t remaining = deadline - k_uptime_get();
+
+    if (remaining <= 0) {
+      return -ETIMEDOUT;
+    }
+
+    uint8_t c;
+
+    if (rx_get_byte(&c, remaining) != 0) {
+      return -ETIMEDOUT;
+    }
+
+    if (c == '\n') {
+      buf[i] = '\0';
+      if (i > 0) {
+        LOG_INF("  << %s", buf);
+        if (strncmp(buf, prefix, prefix_len) == 0) {
+          return 0;
+        }
+      }
+      i = 0;
+      continue;
+    }
+
+    if (c != '\r' && i < (int)buf_len - 1) {
+      buf[i++] = c;
+    }
+  }
+}
+
+int rak3172_cad_rx_configure(uint8_t symbols, uint8_t det_peak, uint8_t det_min,
+                             uint32_t interval_ms) {
+  char cmd[48];
+
+  snprintf(cmd, sizeof(cmd), "AT+CADP=%u:%u:%u:%u", symbols, det_peak, det_min,
+           interval_ms);
+  rak3172_send_at(cmd);
+
+  int err = rak3172_read_response(3000);
+
+  if (err != 0) {
+    LOG_ERR("Error: AT+CADP rejected (%d); is the CAD firmware flashed?", err);
+  }
+
+  return err;
+}
+
+int rak3172_cad_rx_start(void) {
+  rak3172_send_at("AT+CADRX=1");
+
+  int err = rak3172_read_response(3000);
+
+  if (err != 0) {
+    LOG_ERR("Error: AT+CADRX=1 failed (%d)", err);
+  }
+
+  return err;
+}
+
+int rak3172_cad_rx_stop(void) {
+  rak3172_send_at("AT+CADRX=0");
+  return rak3172_read_response(3000);
+}
+
+int rak3172_cad_rx_read(void) {
+  rak3172_send_at("AT+CADRD");
+  return rak3172_read_response(3000);
+}
+
+int rak3172_cad_rx_stats(void) {
+  rak3172_send_at("AT+CADSTAT=?");
+  return rak3172_read_response(3000);
+}

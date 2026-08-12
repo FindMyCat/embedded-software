@@ -272,15 +272,53 @@ retry:
 
   // rak3172_print_version_info();
 
-  while (true) {
-    rak3172_resume();
-    rak3172_send_message("hi");
-    rak3172_suspend();
-    k_sleep(K_SECONDS(5));
+  // while (true) {
+  //   rak3172_resume();
+  //   rak3172_send_message("hi");
+  //   rak3172_suspend();
+  //   k_sleep(K_SECONDS(5));
+  // }
+
+#if defined(CONFIG_LORA_CAD_RX_TEST)
+  LOG_INF("CAD receive bench test");
+
+  /* Low power mode gates the UART; keep the module awake so AT stays reliable
+   * while the sniff loop is being brought up. */
+  rak3172_send_at("AT+LPM=0");
+  rak3172_read_response(1000);
+
+  if (rak3172_cad_rx_configure(CONFIG_LORA_CAD_RX_TEST_SYMBOLS,
+                               CONFIG_LORA_CAD_RX_TEST_DET_PEAK,
+                               CONFIG_LORA_CAD_RX_TEST_DET_MIN,
+                               CONFIG_LORA_CAD_RX_TEST_INTERVAL_MS) != 0 ||
+      rak3172_cad_rx_start() != 0) {
+    LOG_ERR("Error: CAD receive test setup failed");
   }
+
+  char cad_event[160];
+  int64_t next_stats = k_uptime_get();
+
+  while (true) {
+    if (rak3172_wait_event("+EVT:CADRX:", cad_event, sizeof(cad_event), 1000) ==
+        0) {
+      LOG_INF("CAD packet: %s", cad_event + strlen("+EVT:CADRX:"));
+      rak3172_cad_rx_read();
+    }
+
+    if (k_uptime_get() >= next_stats) {
+      rak3172_cad_rx_stats();
+      next_stats = k_uptime_get() + 10000;
+    }
+  }
+#endif
+
   /* WiFi scan hello world */
   wifi_scan_init();
-  wifi_scan_start();
+  while (true) {
+    wifi_scan_start();
+    wifi_scan_stop();
+    k_sleep(K_SECONDS(15));
+  }
 
   /* WiFi location hello world */
   // err = wifi_location_init();
