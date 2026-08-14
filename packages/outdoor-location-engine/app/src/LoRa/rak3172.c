@@ -87,6 +87,13 @@ int rak3172_read_response(int timeout_ms) {
       if (strstr(buf, "ERROR") != NULL) {
         return -EIO;
       }
+      /* RUI3 error codes are AT_ prefixed (AT_COMMAND_NOT_FOUND, AT_BUSY_ERROR);
+       * successful responses echo the command as AT+. Without this the parser
+       * waits out the full timeout on any error that lacks "ERROR". */
+      if (strncmp(buf, "AT_", 3) == 0) {
+        LOG_WRN("RAK3172 rejected command: %s", buf);
+        return -EIO;
+      }
       i = 0;
       continue;
     }
@@ -343,6 +350,41 @@ int rak3172_cad_rx_stop(void) {
 
 int rak3172_cad_rx_read(void) {
   rak3172_send_at("AT+CADRD");
+  return rak3172_read_response(3000);
+}
+
+int rak3172_cad_rx_set_pin(uint32_t pin) {
+  char cmd[32];
+
+  snprintf(cmd, sizeof(cmd), "AT+CADPIN=%u", pin);
+  rak3172_send_at(cmd);
+
+  int err = rak3172_read_response(3000);
+
+  if (err != 0) {
+    LOG_ERR("Error: AT+CADPIN rejected (%d)", err);
+  }
+
+  return err;
+}
+
+int rak3172_cad_rx_set_absence(uint32_t seconds) {
+  char cmd[32];
+
+  snprintf(cmd, sizeof(cmd), "AT+CADABS=%u", seconds);
+  rak3172_send_at(cmd);
+
+  int err = rak3172_read_response(3000);
+
+  if (err != 0) {
+    LOG_ERR("Error: AT+CADABS rejected (%d)", err);
+  }
+
+  return err;
+}
+
+int rak3172_cad_rx_event(void) {
+  rak3172_send_at("AT+CADEVT=?");
   return rak3172_read_response(3000);
 }
 

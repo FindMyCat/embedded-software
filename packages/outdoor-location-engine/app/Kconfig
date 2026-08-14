@@ -73,6 +73,27 @@ config LORA_CAD_RX_TEST_INTERVAL_MS
 	depends on LORA_CAD_RX_TEST
 	default 450
 
+config LORA_CAD_RX_TEST_LOW_POWER
+	bool "Leave the RAK3172 in low power mode during the test"
+	depends on LORA_CAD_RX_TEST
+	help
+	  Keeps AT+LPM=1 and stops polling AT+CADSTAT, so the module can sleep
+	  between sniffs. Required for a meaningful current measurement, at the
+	  cost of sluggish AT responses and no periodic counters.
+
+config LORA_CAD_RX_TEST_WAKE_PIN
+	int "RUI3 pin number the RAK3172 drives as the wake line"
+	depends on LORA_CAD_RX_TEST
+	default 9
+	help
+	  RUI3 numbering is port * 16 + pin, so PA9 is 9 and PB5 is 21. Reaches
+	  the nRF9151 on the lora-wake alias. 4294967295 leaves the pin unused.
+
+config LORA_CAD_RX_TEST_ABSENCE_S
+	int "Seconds without a detection before the wake line asserts (0 = off)"
+	depends on LORA_CAD_RX_TEST
+	default 30
+
 endmenu
 
 menu "Zephyr Kernel"

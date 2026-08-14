@@ -21,6 +21,9 @@ int rak3172_cad_rx_start(void);
 int rak3172_cad_rx_stop(void);
 int rak3172_cad_rx_read(void);
 int rak3172_cad_rx_stats(void);
+int rak3172_cad_rx_set_pin(uint32_t pin);
+int rak3172_cad_rx_set_absence(uint32_t seconds);
+int rak3172_cad_rx_event(void);
 int rak3172_wait_event(const char *prefix, char *buf, size_t buf_len,
                        int timeout_ms);
 

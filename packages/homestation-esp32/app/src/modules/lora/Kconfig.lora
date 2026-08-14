@@ -24,6 +24,10 @@ config LORA_CAD_TEST_PERIOD_MS
 	depends on LORA_CAD_TEST
 	default 5000
 
+config LORA_TX_POWER_DBM
+	int "P2P transmit power in dBm (5-22)"
+	default 5
+
 module = LORA
 module-str = LoRa
 source "subsys/logging/Kconfig.template.log_config"

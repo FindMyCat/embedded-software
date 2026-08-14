@@ -10,6 +10,8 @@
  *                   CS=P0.17  IRQ=P0.16  VDDIO_CTRL=P0.27  ENABLE/BUCKEN=P0.28
  *
  *   P0.20    NRF_91_CELL_MODE: pulled high by the engine to enable eDRX (gpiocus10)
+ *   P0.12    RAK3172 wake line: asserted for a buffered packet or for absence
+ *            (module pin 20 / PA9, set with AT+CADPIN=9)
  *
  */
 
@@ -180,11 +182,16 @@
             gpios = <&gpio0 25 GPIO_ACTIVE_LOW>;
             label = "RAK3172 reset";
         };
+        lora_wake: lora_wake {
+            gpios = <&gpio0 12 GPIO_ACTIVE_HIGH>;
+            label = "RAK3172 packet ready or home station absent";
+        };
     };
     aliases {
         lora-uart = &uart1;
         gpiocus10 = &gpiocus10;
         nrf52-config-ready = &config_ready;
         lora-reset = &lora_reset;
+        lora-wake = &lora_wake;
     };
 };

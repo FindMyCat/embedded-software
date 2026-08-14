@@ -30,6 +30,11 @@ LOG_MODULE_REGISTER(main, 4);
 static const struct gpio_dt_spec power_mode_command_recv_pin =
     GPIO_DT_SPEC_GET_OR(POWER_MODE_COMMAND_PIN, gpios, {0});
 
+/* RAK3172 raises this line for a buffered packet or when the home station has
+ * gone silent; AT+CADEVT says which. */
+static const struct gpio_dt_spec lora_wake_pin =
+    GPIO_DT_SPEC_GET_OR(DT_ALIAS(lora_wake), gpios, {0});
+
 /* nRF52 raises this line when the iOS app has pushed new config over BLE */
 #define NRF52_CONFIG_READY_PIN DT_ALIAS(nrf52_config_ready)
 static const struct gpio_dt_spec nrf52_config_ready_pin =
@@ -282,33 +287,60 @@ retry:
 #if defined(CONFIG_LORA_CAD_RX_TEST)
   LOG_INF("CAD receive bench test");
 
+#if !defined(CONFIG_LORA_CAD_RX_TEST_LOW_POWER)
   /* Low power mode gates the UART; keep the module awake so AT stays reliable
    * while the sniff loop is being brought up. */
   rak3172_send_at("AT+LPM=0");
   rak3172_read_response(1000);
+#endif
+
+  if (gpio_is_ready_dt(&lora_wake_pin)) {
+    gpio_pin_configure_dt(&lora_wake_pin, GPIO_INPUT);
+  } else {
+    LOG_WRN("RAK3172 wake line not wired; watching UART events only");
+  }
 
   if (rak3172_cad_rx_configure(CONFIG_LORA_CAD_RX_TEST_SYMBOLS,
                                CONFIG_LORA_CAD_RX_TEST_DET_PEAK,
                                CONFIG_LORA_CAD_RX_TEST_DET_MIN,
                                CONFIG_LORA_CAD_RX_TEST_INTERVAL_MS) != 0 ||
+      rak3172_cad_rx_set_pin(CONFIG_LORA_CAD_RX_TEST_WAKE_PIN) != 0 ||
+      rak3172_cad_rx_set_absence(CONFIG_LORA_CAD_RX_TEST_ABSENCE_S) != 0 ||
       rak3172_cad_rx_start() != 0) {
     LOG_ERR("Error: CAD receive test setup failed");
   }
 
   char cad_event[160];
   int64_t next_stats = k_uptime_get();
+  int wake_level = -1;
 
   while (true) {
-    if (rak3172_wait_event("+EVT:CADRX:", cad_event, sizeof(cad_event), 1000) ==
+    if (rak3172_wait_event("+EVT:CAD", cad_event, sizeof(cad_event), 1000) ==
         0) {
-      LOG_INF("CAD packet: %s", cad_event + strlen("+EVT:CADRX:"));
-      rak3172_cad_rx_read();
+      LOG_INF("CAD event: %s", cad_event);
+      if (strncmp(cad_event, "+EVT:CADRX:", 11) == 0) {
+        rak3172_cad_rx_read();
+      }
     }
 
+    if (gpio_is_ready_dt(&lora_wake_pin)) {
+      int level = gpio_pin_get_dt(&lora_wake_pin);
+
+      if (level >= 0 && level != wake_level) {
+        wake_level = level;
+        LOG_INF("RAK3172 wake line %s", level ? "asserted" : "clear");
+        if (level) {
+          rak3172_cad_rx_event();
+        }
+      }
+    }
+
+#if !defined(CONFIG_LORA_CAD_RX_TEST_LOW_POWER)
     if (k_uptime_get() >= next_stats) {
       rak3172_cad_rx_stats();
       next_stats = k_uptime_get() + 10000;
     }
+#endif
   }
 #endif
 

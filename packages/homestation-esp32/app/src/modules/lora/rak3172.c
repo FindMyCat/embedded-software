@@ -92,9 +92,13 @@ void rak3172_read_response(int timeout_ms) {
 }
 
 static void rak3172_configure_p2p(void) {
+  char cmd[48];
+
   LOG_INF("Configuring P2P parameters");
-  /* US915, SF7, BW 125kHz, CR 4/5, preamble 8, 5 dBm */
-  rak3172_send_at("AT+P2P=915000000:7:125:0:8:5");
+  /* US915, SF7, BW 125kHz, CR 4/5, preamble 8 */
+  snprintf(cmd, sizeof(cmd), "AT+P2P=915000000:7:125:0:8:%d",
+           CONFIG_LORA_TX_POWER_DBM);
+  rak3172_send_at(cmd);
   rak3172_read_response(3000);
 }
 
