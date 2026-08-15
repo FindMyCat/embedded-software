@@ -10,7 +10,7 @@ LOG_MODULE_REGISTER(rak3172, LOG_LEVEL_DBG);
 
 static const struct device *uart_dev = DEVICE_DT_GET(DT_ALIAS(rak3172_uart));
 
-#define RX_RING_BUF_SIZE 256
+#define RX_RING_BUF_SIZE 512
 RING_BUF_DECLARE(rx_ring_buf, RX_RING_BUF_SIZE);
 static K_SEM_DEFINE(rx_sem, 0, RX_RING_BUF_SIZE);
 
@@ -27,8 +27,9 @@ static void uart_irq_cb(const struct device *dev, void *user_data) {
     uint8_t c;
 
     if (uart_fifo_read(dev, &c, 1) == 1) {
-      ring_buf_put(&rx_ring_buf, &c, 1);
-      k_sem_give(&rx_sem);
+      if (ring_buf_put(&rx_ring_buf, &c, 1) == 1) {
+        k_sem_give(&rx_sem);
+      }
     }
   }
 }
@@ -73,7 +74,10 @@ void rak3172_read_response(int timeout_ms) {
     if (c == '\n') {
       buf[i] = '\0';
       LOG_INF("  << %s", buf);
-      if (strcmp(buf, "OK") == 0 || strstr(buf, "ERROR") != NULL) {
+      /* RUI3 answers OK, or an AT_-prefixed failure such as AT_PARAM_ERROR
+       * or AT_COMMAND_NOT_FOUND. Either way the command is finished. */
+      if (strcmp(buf, "OK") == 0 || strncmp(buf, "AT_", 3) == 0 ||
+          strstr(buf, "ERROR") != NULL) {
         return;
       }
       i = 0;
@@ -239,13 +243,25 @@ void rak3172_set_preamble(uint16_t symbols) {
 
 void rak3172_start_rx(void) {
   LOG_INF("Entering continuous RX mode");
+
+  /* RUI3 leaves receive mode once a packet arrives, and ignores or rejects
+   * the first command issued after +EVT:RXP2P. Stopping first absorbs that,
+   * so a short timeout is enough: the reply is often never sent. */
+  rak3172_send_at("AT+PRECV=0");
+  rak3172_read_response(200);
+  k_sleep(K_MSEC(50));
+
   rak3172_send_at("AT+PRECV=65535");
   rak3172_read_response(3000);
 }
 
+/* Callers must pass the same buffer every time: a line that is still
+ * incomplete when the timeout expires stays in it, and the next call resumes
+ * where this one stopped. Resetting per call would drop the head of any line
+ * that happened to start near the end of a timeout window. */
 int rak3172_read_event(char *buf, size_t buf_len, int timeout_ms) {
+  static int i;
   int64_t deadline = k_uptime_get() + timeout_ms;
-  int i = 0;
 
   while (true) {
     int64_t remaining = deadline - k_uptime_get();
@@ -263,9 +279,9 @@ int rak3172_read_event(char *buf, size_t buf_len, int timeout_ms) {
     if (c == '\n') {
       buf[i] = '\0';
       if (i > 0) {
+        i = 0;
         return 0;
       }
-      i = 0;
       continue;
     }
 

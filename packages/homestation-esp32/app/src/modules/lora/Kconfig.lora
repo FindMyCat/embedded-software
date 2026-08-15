@@ -2,7 +2,7 @@ menu "LoRa"
 
 config LORA_THREAD_STACK_SIZE
 	int "Thread stack size"
-	default 1024
+	default 2048
 
 config LORA_MESSAGE_QUEUE_SIZE
 	int "Message queue size"

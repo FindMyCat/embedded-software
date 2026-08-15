@@ -2,6 +2,7 @@ menu "Homestation ESP32"
 
 rsource "src/modules/trigger/Kconfig.trigger"
 rsource "src/modules/lora/Kconfig.lora"
+rsource "src/modules/wifi/Kconfig.wifi"
 rsource "src/modules/error/Kconfig.error"
 
 endmenu

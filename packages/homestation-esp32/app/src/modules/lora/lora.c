@@ -1,17 +1,60 @@
 #include <stdio.h>
 #include <string.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/util.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/zbus/zbus.h>
 
 #include "message_channel.h"
 #include "rak3172.h"
+#include "wifi_scan_frame.h"
 
 LOG_MODULE_REGISTER(lora, CONFIG_LORA_LOG_LEVEL);
 
 ZBUS_SUBSCRIBER_DEFINE(lora, CONFIG_LORA_MESSAGE_QUEUE_SIZE);
 
 #define EVT_RXP2P_PREFIX "+EVT:RXP2P:"
+
+#define LORA_MAX_PAYLOAD_BYTES 127
+
+/* Body of a +EVT:RXP2P line, formatted by RUI3 as RSSI:SNR:payload-hex */
+static void handle_rxp2p(char *body) {
+  uint8_t payload[LORA_MAX_PAYLOAD_BYTES];
+  struct wifi_scan_report report;
+  char *snr = strchr(body, ':');
+
+  if (!snr) {
+    LOG_WRN("Malformed RXP2P event: %s", body);
+    return;
+  }
+  *snr++ = '\0';
+
+  char *hex = strchr(snr, ':');
+
+  if (!hex) {
+    LOG_WRN("Malformed RXP2P event: %s", body);
+    return;
+  }
+  *hex++ = '\0';
+
+  size_t len = hex2bin(hex, strlen(hex), payload, sizeof(payload));
+
+  if (len == 0) {
+    LOG_WRN("Undecodable RXP2P payload: %s", hex);
+    return;
+  }
+
+  LOG_INF("LoRa RX: %u bytes, RSSI %s dBm, SNR %s", (unsigned)len, body, snr);
+
+  if (!wifi_scan_frame_matches(payload, len)) {
+    LOG_HEXDUMP_INF(payload, len, "Unrecognised payload");
+    return;
+  }
+
+  if (wifi_scan_frame_decode(payload, len, &report) == 0) {
+    wifi_scan_report_log(&report);
+  }
+}
 
 #if defined(CONFIG_LORA_CAD_TEST)
 static void lora_cad_test_beacon(void) {
@@ -55,7 +98,7 @@ static void lora_task(void) {
 
   rak3172_start_rx();
 
-  char event[128];
+  char event[320];
 
   while (true) {
     if (rak3172_read_event(event, sizeof(event), 100) != 0) {
@@ -63,8 +106,10 @@ static void lora_task(void) {
     }
 
     if (strncmp(event, EVT_RXP2P_PREFIX, strlen(EVT_RXP2P_PREFIX)) == 0) {
-      LOG_INF("LoRa RX: %s", event + strlen(EVT_RXP2P_PREFIX));
+      handle_rxp2p(event + strlen(EVT_RXP2P_PREFIX));
       rak3172_start_rx();
+    } else {
+      LOG_INF("  << %s", event);
     }
   }
 }

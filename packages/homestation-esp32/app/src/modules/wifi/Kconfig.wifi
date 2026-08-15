@@ -1,0 +1,7 @@
+menu "WiFi"
+
+module = WIFI
+module-str = WiFi
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu # WiFi

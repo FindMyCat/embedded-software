@@ -287,6 +287,11 @@ retry:
 #if defined(CONFIG_LORA_CAD_RX_TEST)
   LOG_INF("CAD receive bench test");
 
+#if defined(CONFIG_LORA_CAD_RX_TEST_RESET_FIRST)
+  rak3172_reset_test();
+  rak3172_init();
+#endif
+
 #if !defined(CONFIG_LORA_CAD_RX_TEST_LOW_POWER)
   /* Low power mode gates the UART; keep the module awake so AT stays reliable
    * while the sniff loop is being brought up. */
@@ -345,10 +350,33 @@ retry:
 #endif
 
   /* WiFi scan hello world */
+#define WIFI_SCAN_LORA_ACCESS_POINTS 6
+
   wifi_scan_init();
   while (true) {
+    struct wifi_scan_frame frame;
+
     wifi_scan_start();
     wifi_scan_stop();
+
+    err = wifi_scan_pack_strongest_access_points(&frame,
+                                                 WIFI_SCAN_LORA_ACCESS_POINTS);
+    if (err) {
+      LOG_ERR("Error: packing scan results failed (%d)", err);
+    } else if (frame.bytes[1] == 0) {
+      LOG_WRN("No usable access points to send");
+    } else {
+      LOG_INF("Sending %u access points over LoRa (%u bytes)", frame.bytes[1],
+              (unsigned)frame.len);
+
+      rak3172_resume();
+      err = rak3172_send_payload(frame.bytes, frame.len);
+      if (err) {
+        LOG_ERR("Error: LoRa send failed (%d)", err);
+      }
+      rak3172_suspend();
+    }
+
     k_sleep(K_SECONDS(15));
   }
 

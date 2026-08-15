@@ -94,6 +94,14 @@ config LORA_CAD_RX_TEST_ABSENCE_S
 	depends on LORA_CAD_RX_TEST
 	default 30
 
+config LORA_CAD_RX_TEST_RESET_FIRST
+	bool "Pulse the reset line before starting, to prove it works"
+	depends on LORA_CAD_RX_TEST
+	help
+	  Asserts the reset GPIO and checks the module reports PIN in its reset
+	  flags. Answers whether the reset line alone can recover a wedged module
+	  or whether a power switch is needed.
+
 endmenu
 
 menu "Zephyr Kernel"

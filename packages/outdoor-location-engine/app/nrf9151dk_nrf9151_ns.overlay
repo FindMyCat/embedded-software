@@ -179,7 +179,11 @@
             label = "nRF52 config ready";
         };
         lora_reset: lora_reset {
-            gpios = <&gpio0 25 GPIO_ACTIVE_LOW>;
+            /* TODO: (sahas) active high only suits the dev board, which drives a
+             * FET gate that pulls the module's active-low NRST down against a
+             * 10k pull-up. U3B wires NRST directly, so switch back to
+             * GPIO_ACTIVE_LOW there or the module sits held in reset. */
+            gpios = <&gpio0 25 GPIO_ACTIVE_HIGH>;
             label = "RAK3172 reset";
         };
         lora_wake: lora_wake {

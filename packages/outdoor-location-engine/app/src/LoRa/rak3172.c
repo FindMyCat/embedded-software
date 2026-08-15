@@ -117,7 +117,7 @@ static int rak3172_configure_p2p(void) {
   return rak3172_read_response(3000);
 }
 
-static void rak3172_hw_reset(void) {
+void rak3172_hw_reset(void) {
   if (!gpio_is_ready_dt(&lora_reset)) {
     LOG_WRN("RAK3172 reset line not wired; cannot hardware-reset");
     return;
@@ -174,18 +174,17 @@ int rak3172_init(void) {
   return -EIO;
 }
 
-int rak3172_send_message(const char *msg) {
+int rak3172_send_payload(const uint8_t *data, size_t len) {
   char cmd[272] = "AT+PSEND=";
   char *hex = cmd + strlen("AT+PSEND=");
-  int len = strlen(msg);
 
   if (len > 127) {
-    LOG_ERR("Error: message too long (%d bytes, max 127)", len);
+    LOG_ERR("Error: payload too long (%u bytes, max 127)", (unsigned)len);
     return -1;
   }
 
-  for (int i = 0; i < len; i++) {
-    snprintf(&hex[i * 2], 3, "%02X", (uint8_t)msg[i]);
+  for (size_t i = 0; i < len; i++) {
+    snprintf(&hex[i * 2], 3, "%02X", data[i]);
   }
 
   rak3172_send_at(cmd);
@@ -248,6 +247,10 @@ int rak3172_send_message(const char *msg) {
   }
 
   return 0;
+}
+
+int rak3172_send_message(const char *msg) {
+  return rak3172_send_payload((const uint8_t *)msg, strlen(msg));
 }
 
 void rak3172_sleep(void) {
@@ -386,6 +389,24 @@ int rak3172_cad_rx_set_absence(uint32_t seconds) {
 int rak3172_cad_rx_event(void) {
   rak3172_send_at("AT+CADEVT=?");
   return rak3172_read_response(3000);
+}
+
+int rak3172_reset_test(void) {
+  char line[128];
+
+  LOG_INF("Reset test: pulsing the reset line");
+  rak3172_hw_reset();
+
+  /* A module that saw the pin reports PIN in its reset flags. Silence means the
+   * line never reached it, or it is wedged badly enough that reset does not
+   * recover it and only a power cycle will. */
+  if (rak3172_wait_event("+EVT:RESET:", line, sizeof(line), 15000) == 0) {
+    LOG_INF("Reset test: module rebooted, %s", line);
+    return 0;
+  }
+
+  LOG_ERR("Error: reset test: no reboot seen; reset line ineffective");
+  return -EIO;
 }
 
 int rak3172_cad_rx_stats(void) {

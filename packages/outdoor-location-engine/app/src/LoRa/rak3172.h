@@ -9,6 +9,7 @@ void rak3172_send_at(const char *cmd);
 /* 0 if the module answered OK, -EIO on ERROR, -ETIMEDOUT if it went silent. */
 int rak3172_read_response(int timeout_ms);
 int rak3172_send_message(const char *msg);
+int rak3172_send_payload(const uint8_t *data, size_t len);
 void rak3172_suspend(void);
 void rak3172_resume(void);
 void rak3172_print_version_info(void);
@@ -24,6 +25,11 @@ int rak3172_cad_rx_stats(void);
 int rak3172_cad_rx_set_pin(uint32_t pin);
 int rak3172_cad_rx_set_absence(uint32_t seconds);
 int rak3172_cad_rx_event(void);
+
+/* Pulse the reset line. The module reports PIN in its +EVT:RESET line if the
+ * line actually reached it. */
+void rak3172_hw_reset(void);
+int rak3172_reset_test(void);
 int rak3172_wait_event(const char *prefix, char *buf, size_t buf_len,
                        int timeout_ms);
 
