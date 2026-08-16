@@ -5,7 +5,7 @@
 #include "message_channel.h"
 
 // TODO: https://github.com/ChitlangeSahas/HomeStation/issues/2
-#define FORMAT_STRING "{\"msg\": \"33.361160,-111.972670,0,15.31,%s\"}"
+#define FORMAT_STRING "{\"msg\": \"-48.876667,-123.393333,0,15.31,%s\"}"
 
 static char batt_lvl[4] = "0";
 
