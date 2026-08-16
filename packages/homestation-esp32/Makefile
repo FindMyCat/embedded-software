@@ -15,11 +15,17 @@ setup: $(VENV)
 	$(WEST) init -l manifest
 	$(WEST) update
 	$(PIP) install -r zephyr/scripts/requirements.txt
+	$(WEST) blobs fetch hal_espressif
 	$(WEST) sdk install
 	$(WEST) zephyr-export
 
+LOCAL_CONF := $(wildcard app/local.conf)
+ifneq ($(LOCAL_CONF),)
+BUILD_ARGS := -- -DEXTRA_CONF_FILE=local.conf
+endif
+
 build:
-	$(WEST) build -b $(BOARD) app
+	$(WEST) build -b $(BOARD) app $(BUILD_ARGS)
 
 flash:
 	$(WEST) flash

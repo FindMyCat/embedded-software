@@ -1,5 +1,43 @@
 menu "WiFi"
 
+config WIFI_STATION_SSID
+	string "Home access point SSID"
+	default ""
+
+config WIFI_STATION_PSK
+	string "Home access point password"
+	default ""
+	help
+	  Leave empty for an open network. Set this in a gitignored local.conf,
+	  never in prj.conf.
+
+config WIFI_STATION_CONNECT_TIMEOUT_S
+	int "Seconds to wait for an IPv4 address"
+	default 60
+
+config WIFI_GEOLOCATION
+	bool "Resolve access point lists to a position via Google Geolocation"
+	depends on HTTP_CLIENT
+	depends on JSON_LIBRARY
+
+if WIFI_GEOLOCATION
+
+config WIFI_GEOLOCATION_API_KEY
+	string "Google Geolocation API key"
+	default ""
+	help
+	  Set this in a gitignored local.conf, never in prj.conf.
+
+config WIFI_GEOLOCATION_HOST
+	string "Geolocation API host"
+	default "www.googleapis.com"
+
+config WIFI_GEOLOCATION_TIMEOUT_S
+	int "Request timeout in seconds"
+	default 20
+
+endif # WIFI_GEOLOCATION
+
 module = WIFI
 module-str = WiFi
 source "subsys/logging/Kconfig.template.log_config"

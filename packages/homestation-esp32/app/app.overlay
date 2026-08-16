@@ -26,6 +26,11 @@
 	pinctrl-names = "default";
 };
 
+/* Station mode for the geolocation lookup; disabled by default on this board */
+&wifi {
+	status = "okay";
+};
+
 / {
 	aliases {
 		rak3172-uart = &uart1;

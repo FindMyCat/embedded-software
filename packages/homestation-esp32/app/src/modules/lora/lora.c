@@ -8,6 +8,10 @@
 #include "message_channel.h"
 #include "rak3172.h"
 #include "wifi_scan_frame.h"
+#if defined(CONFIG_WIFI_GEOLOCATION)
+#include "wifi_geolocation.h"
+#include "wifi_station.h"
+#endif
 
 LOG_MODULE_REGISTER(lora, CONFIG_LORA_LOG_LEVEL);
 
@@ -51,9 +55,25 @@ static void handle_rxp2p(char *body) {
     return;
   }
 
-  if (wifi_scan_frame_decode(payload, len, &report) == 0) {
-    wifi_scan_report_log(&report);
+  if (wifi_scan_frame_decode(payload, len, &report) != 0) {
+    return;
   }
+
+  wifi_scan_report_log(&report);
+
+#if defined(CONFIG_WIFI_GEOLOCATION)
+  struct wifi_location location;
+
+  if (!wifi_station_is_ready()) {
+    LOG_WRN("WiFi station not ready, skipping geolocation lookup");
+    return;
+  }
+
+  if (wifi_geolocation_resolve(&report, &location) == 0) {
+    LOG_INF("Position: %.6f, %.6f (accuracy %.0f m)", location.latitude,
+            location.longitude, location.accuracy_m);
+  }
+#endif
 }
 
 #if defined(CONFIG_LORA_CAD_TEST)

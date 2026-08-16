@@ -1,0 +1,4 @@
+# Copy to local.conf and fill in. local.conf is gitignored.
+CONFIG_WIFI_STATION_SSID="your-ssid"
+CONFIG_WIFI_STATION_PSK="your-password"
+CONFIG_WIFI_GEOLOCATION_API_KEY="your-google-api-key"

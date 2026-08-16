@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(homestation_esp32)
 
+zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
 add_subdirectory(src/common)
 add_subdirectory(src/modules/trigger)
 add_subdirectory(src/modules/lora)

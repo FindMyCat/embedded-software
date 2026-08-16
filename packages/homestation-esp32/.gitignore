@@ -9,6 +9,9 @@ build/*
 # Python venv
 .venv/
 
+# WiFi credentials and API keys
+app/local.conf
+
 # West workspace (populated by make setup, not committed)
 /.west/
 /zephyr/

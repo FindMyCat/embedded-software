@@ -2,7 +2,11 @@ menu "LoRa"
 
 config LORA_THREAD_STACK_SIZE
 	int "Thread stack size"
+	default 8192 if WIFI_GEOLOCATION
 	default 2048
+	help
+	  The geolocation lookup runs on this thread, and an mbedTLS handshake
+	  needs several kilobytes of stack.
 
 config LORA_MESSAGE_QUEUE_SIZE
 	int "Message queue size"
