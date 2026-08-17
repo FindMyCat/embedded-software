@@ -6,6 +6,9 @@
 /build*/
 /nrf9160-dk*/
 
+# device id, broker hostname and topic
+app/local.conf
+
 # West workspace and NCS SDK (populated by make setup, not committed)
 .west/
 nrf/

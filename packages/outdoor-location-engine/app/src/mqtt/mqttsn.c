@@ -7,12 +7,17 @@
 #include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
 #include "../utils/network.h"
+#include "mqttsn.h"
 
 #define APP_BMEM
 #define APP_DMEM
 
 static APP_BMEM struct mqtt_sn_client client;
 static APP_BMEM struct mqtt_sn_transport_udp tp;
+/* TODO: take the client id from fmc_config.device_id, which the iOS app pushes
+ * over BLE, instead of the compile-time CONFIG_DEVICE_ID. Every collar built
+ * from this tree currently shares one identity, and Traccar matches incoming
+ * positions on this string against a device uniqueId. */
 static APP_BMEM struct mqtt_sn_data client_id = MQTT_SN_DATA_STRING_LITERAL(CONFIG_DEVICE_ID);
 
 static uint8_t tx_buf[CONFIG_MQTT_SN_BUFFER_SIZE];
@@ -57,8 +62,17 @@ void evt_cb(struct mqtt_sn_client *client, const struct mqtt_sn_evt *evt)
  * @brief Function to initialize MQTT-SN connection.
  */
 int mqttsn_initialize() {
+	static bool client_initialized;
 	int err;
 	struct sockaddr_in gateway = {0};
+
+	/* mqtt_sn_client_init() memsets the client, orphaning any gateway it
+	 * still holds. Release it first or the slab runs out after a few
+	 * reconnects, and add_gw then fails with "no free slot". */
+	if (client_initialized) {
+		mqtt_sn_client_deinit(&client);
+	}
+	client_initialized = true;
 
 	char *ip_str = getIpAddressFromHostname(CONFIG_FINDMYCAT_CLOUD_HOSTNAME);
 	LOG_DBG("Parsing MQTT host IP ", ip_str);
@@ -78,6 +92,14 @@ int mqttsn_initialize() {
 	err = mqtt_sn_client_init(&client, &client_id, &tp.tp, evt_cb, tx_buf, sizeof(tx_buf),
 				  rx_buf, sizeof(rx_buf));
 	__ASSERT(err == 0, "mqtt_sn_client_init() failed %d", err);
+
+	struct mqtt_sn_data gw_addr = {
+		.data = (const uint8_t *)&gateway,
+		.size = sizeof(gateway),
+	};
+
+	err = mqtt_sn_add_gw(&client, CONFIG_MQTT_SN_GATEWAY_ID, gw_addr);
+	__ASSERT(err == 0, "mqtt_sn_add_gw() failed %d", err);
 
 	err = mqtt_sn_connect(&client, false, true);
 	__ASSERT(err == 0, "mqtt_sn_connect() failed %d", err);
@@ -125,6 +147,15 @@ int mqttsn_publish(char *data_str) {
 	}
 
 	return 0;
+}
+
+int mqttsn_publish_test(void) {
+	char payload[100];
+
+	snprintk(payload, sizeof(payload), "{\"msg\": \"%.06f,%.06f,%d,%.02f,%d\"}",
+		 0.0, 0.0, 8, 21.0, 85);
+
+	return mqttsn_publish(payload);
 }
 
 /**

@@ -4,6 +4,9 @@ BOARD_T91X   := thingy91x/nrf9151/ns
 BOARD_9151DK := nrf9151dk/nrf9151/ns
 JLINK        := /Applications/SEGGER/JLink_V834
 
+NCS   := nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) --
+LOCAL := $(if $(wildcard app/local.conf),;local.conf)
+
 .PHONY: setup build build-dev build-prod build-dev-t91x build-prod-t91x build-dev-9151dk build-prod-9151dk flash clean
 
 setup:
@@ -13,22 +16,22 @@ setup:
 build: build-dev
 
 build-dev:
-	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west build -b $(BOARD) app -- -DEXTRA_CONF_FILE=overlay-dev.conf
+	$(NCS) west build -b $(BOARD) app -- "-DEXTRA_CONF_FILE=overlay-dev.conf$(LOCAL)"
 
 build-prod:
-	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west build -b $(BOARD) app -- -DEXTRA_CONF_FILE=overlay-prod.conf
+	$(NCS) west build -b $(BOARD) app -- "-DEXTRA_CONF_FILE=overlay-prod.conf$(LOCAL)"
 
 build-dev-t91x:
-	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west build -b $(BOARD_T91X) app -- "-DEXTRA_CONF_FILE=overlay-dev.conf;overlay-t91x.conf"
+	$(NCS) west build -b $(BOARD_T91X) app -- "-DEXTRA_CONF_FILE=overlay-dev.conf;overlay-t91x.conf$(LOCAL)"
 
 build-prod-t91x:
-	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west build -b $(BOARD_T91X) app -- "-DEXTRA_CONF_FILE=overlay-prod.conf;overlay-t91x.conf"
+	$(NCS) west build -b $(BOARD_T91X) app -- "-DEXTRA_CONF_FILE=overlay-prod.conf;overlay-t91x.conf$(LOCAL)"
 
 build-dev-9151dk:
-	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west build -b $(BOARD_9151DK) app -- "-DEXTRA_CONF_FILE=overlay-dev.conf;overlay-9151dk.conf"
+	$(NCS) west build -b $(BOARD_9151DK) app -- "-DEXTRA_CONF_FILE=overlay-dev.conf;overlay-9151dk.conf$(LOCAL)"
 
 build-prod-9151dk:
-	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west build -b $(BOARD_9151DK) app -- "-DEXTRA_CONF_FILE=overlay-prod.conf;overlay-9151dk.conf"
+	$(NCS) west build -b $(BOARD_9151DK) app -- "-DEXTRA_CONF_FILE=overlay-prod.conf;overlay-9151dk.conf$(LOCAL)"
 
 RUNNER      ?= jlink
 JLINK_SPEED ?= 1000

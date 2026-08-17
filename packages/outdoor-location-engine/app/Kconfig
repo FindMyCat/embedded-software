@@ -11,6 +11,12 @@ config LTE_CONNECT_MAX_RETRIES
 config FINDMYCAT_CLOUD_HOSTNAME
 	string "Hostname of the FindMyCat Cloud"
 
+config MQTT_SN_GATEWAY_ID
+	int "Id of the MQTT-SN gateway"
+	default 1
+	help
+	  Must match mqtt.sn.gateway_id in the broker's emqx_sn.conf.
+
 config MQTT_SN_GATEWAY_PORT
 	int "Port of the MQTT-SN gateway"
 
@@ -44,6 +50,18 @@ config ACTIVE_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 
 config LOST_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 	int "Location refresh period in seconds for Lost Mode"
+	default 30
+
+config MQTTSN_PUBLISH_TEST
+	bool "MQTT-SN publish bench test"
+	help
+	  Connect LTE and publish a dummy position at 0,0 on a loop instead of
+	  continuing to the rest of the application. Proves the gateway, rule
+	  engine and Traccar without waiting for a GNSS fix.
+
+config MQTTSN_PUBLISH_TEST_INTERVAL_S
+	int "Seconds between test publishes"
+	depends on MQTTSN_PUBLISH_TEST
 	default 30
 
 config LORA_CAD_RX_TEST

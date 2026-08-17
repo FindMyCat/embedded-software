@@ -19,6 +19,7 @@
 #include "WiFi/wifi_location.h"
 #include "WiFi/wifi_scan.h"
 #include "LocationEngine/LocationEngine.h"
+#include "mqtt/mqttsn.h"
 #include "Responder/Responder.h"
 #include "UDPListener/NewUDPListener.h"
 
@@ -346,6 +347,45 @@ retry:
       next_stats = k_uptime_get() + 10000;
     }
 #endif
+  }
+#endif
+
+#if defined(CONFIG_MQTTSN_PUBLISH_TEST)
+  LOG_INF("MQTT-SN publish bench test");
+
+  while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
+    err = initializeLte();
+    if (!err) {
+      break;
+    }
+    LOG_ERR("Error: LTE connect failed (%d), retrying", err);
+    retry_count++;
+    k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
+  }
+
+  int64_t next_publish = 0;
+
+  while (true) {
+    mqttsn_check_input();
+
+    if (!get_mqttsn_connection_status()) {
+      LOG_INF("MQTT-SN not connected. Initialising connection.");
+      err = mqttsn_initialize();
+      if (err) {
+        LOG_ERR("Error: MQTT-SN initialization failed (%d)", err);
+        mqttsn_disconnect();
+        k_sleep(K_SECONDS(5));
+      }
+    } else if (k_uptime_get() >= next_publish) {
+      err = mqttsn_publish_test();
+      if (err) {
+        LOG_ERR("Error: MQTT-SN test publish failed (%d)", err);
+      }
+      next_publish =
+          k_uptime_get() + CONFIG_MQTTSN_PUBLISH_TEST_INTERVAL_S * MSEC_PER_SEC;
+    }
+
+    k_sleep(K_MSEC(500));
   }
 #endif
 
