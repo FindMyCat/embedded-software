@@ -7,6 +7,7 @@
 #include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
 #include "../utils/network.h"
+#include "mqttsn.h"
 
 #define APP_BMEM
 #define APP_DMEM

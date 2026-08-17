@@ -3,6 +3,8 @@
                             /* Including a header file twice causes all kinds */
                             /* of interesting problems.*/
 
+#include <stdbool.h>
+
 int mqttsn_initialize();
 int mqttsn_disconnect();
 int mqttsn_check_input();
