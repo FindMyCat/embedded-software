@@ -79,7 +79,7 @@ static int initializeLte() {
 	err = lte_lc_edrx_req(true);
 	
 	if (err) {
-		LOG_INF("lte_lc_edrx_req, error: %d\n", err);
+		LOG_INF("lte_lc_edrx_req, error: %d", err);
 	}
 
 	err = lte_lc_connect();
@@ -160,7 +160,7 @@ int main(void) {
 	
 retry:
 	if (!device_is_ready(power_mode_command_recv_pin.port)) {
-		LOG_ERR("Error: Device %s is not ready\n", power_mode_command_recv_pin.port->name);
+		LOG_ERR("Error: Device %s is not ready", power_mode_command_recv_pin.port->name);
 		goto retry;
 	}
 
@@ -175,14 +175,14 @@ retry:
 
 	err = gpio_pin_configure_dt(&power_mode_command_recv_pin, GPIO_INPUT | GPIO_PULL_DOWN);
 	if (err != 0) {
-		LOG_ERR("Error %d: failed to configure %s pin %d\n", 
+		LOG_ERR("Error %d: failed to configure %s pin %d", 
 			err, power_mode_command_recv_pin.port->name, power_mode_command_recv_pin.pin);
 		goto retry;
 	}
 
 	err = gpio_pin_interrupt_configure_dt(&power_mode_command_recv_pin, GPIO_INT_EDGE_BOTH);
 	if (err != 0) {
-		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
+		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d",
 			err, power_mode_command_recv_pin.port->name, power_mode_command_recv_pin.pin);
 		return -1;
 	}
@@ -196,7 +196,7 @@ retry:
         err = initializeLte();
 
         if (err) {
-            LOG_INF("Failed to connect to LTE with error: %d\n", err);
+            LOG_INF("Failed to connect to LTE with error: %d", err);
             retry_count++;
             k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
         } else {
@@ -215,7 +215,7 @@ retry:
         err = initializeLocation();
 
         if (err) {
-            LOG_INF("Failed to initialize location services with error: %d\n", err);
+            LOG_INF("Failed to initialize location services with error: %d", err);
             retry_count++;
             k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
         } else {
@@ -235,7 +235,7 @@ retry:
         err = create_udp_listener();
 
         if (err) {
-            LOG_INF("Failed to create UDP Listener with error: %d\n", err);
+            LOG_INF("Failed to create UDP Listener with error: %d", err);
 			destroy_udp_listener();
             retry_count++;
             k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));

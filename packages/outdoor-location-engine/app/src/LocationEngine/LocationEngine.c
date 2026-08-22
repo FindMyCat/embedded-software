@@ -35,7 +35,7 @@ void location_publish(double latitude, double longitude, int satellites, double 
 try_connecting_mqttsn:
 		mqttsn_check_input();
 		if(get_mqttsn_connection_status() == false) {
-			LOG_INF("MQTT-SN not connected. Initialing connection.\n");
+			LOG_INF("MQTT-SN not connected. Initialing connection.");
 			err = mqttsn_initialize();
 			connecting_retries += 1;
 			/* CONNACK only lands if input keeps being pumped, so poll for it
@@ -52,10 +52,10 @@ try_connecting_mqttsn:
 			mqttsn_disconnect();
 			if (connecting_retries <= 3)
 			{
-				LOG_ERR("MQTT-SN initialization failed, Retrying. Error: %d\n", err);
+				LOG_ERR("MQTT-SN initialization failed, Retrying. Error: %d", err);
 				goto try_connecting_mqttsn;
 			} else {
-				LOG_ERR("MQTT-SN initialization failed Max Retries exceeded. Error: %d\n", err);
+				LOG_ERR("MQTT-SN initialization failed Max Retries exceeded. Error: %d", err);
 			}
 		}
 		else {
@@ -110,12 +110,12 @@ void location_event_handler(const struct location_event_data *event_data)
 	case LOCATION_EVT_LOCATION:
 		location_engine_has_fix = true;
 
-		LOG_INF("Got location:\n");
-		printk("  method: %s\n", location_method_str(event_data->method));
-		printk("  latitude: %.06f\n", event_data->location.latitude);
-		printk("  longitude: %.06f\n", event_data->location.longitude);
-		printk("  accuracy: %.01f m\n", event_data->location.accuracy);
-		printk("  satellites tracked: %d \n", event_data->location.details.gnss.satellites_tracked);
+		LOG_INF("Got location by %s: %.06f,%.06f accuracy %.01f m, %d satellites",
+			location_method_str(event_data->method),
+			event_data->location.latitude,
+			event_data->location.longitude,
+			event_data->location.accuracy,
+			event_data->location.details.gnss.satellites_tracked);
 
 		location_publish(event_data->location.latitude,
 			event_data->location.longitude,
@@ -123,11 +123,10 @@ void location_event_handler(const struct location_event_data *event_data)
 			event_data->location.accuracy);
 
 		if (event_data->location.datetime.valid) {
-			printk("  date: %04d-%02d-%02d\n",
+			LOG_INF("Fix time %04d-%02d-%02d %02d:%02d:%02d.%03d UTC",
 				event_data->location.datetime.year,
 				event_data->location.datetime.month,
-				event_data->location.datetime.day);
-			printk("  time: %02d:%02d:%02d.%03d UTC\n",
+				event_data->location.datetime.day,
 				event_data->location.datetime.hour,
 				event_data->location.datetime.minute,
 				event_data->location.datetime.second,
@@ -136,23 +135,23 @@ void location_event_handler(const struct location_event_data *event_data)
 		break;
 
 	case LOCATION_EVT_TIMEOUT:
-		LOG_ERR("Getting location timed out\n\n");
+		LOG_ERR("Getting location timed out");
 		break;
 
 	case LOCATION_EVT_ERROR:
-		LOG_ERR("Getting location failed\n\n");
+		LOG_ERR("Getting location failed");
 		break;
 
 	case LOCATION_EVT_GNSS_ASSISTANCE_REQUEST:
-		LOG_INF("Getting location assistance requested (A-GPS). Not doing anything.\n\n");
+		LOG_INF("Getting location assistance requested (A-GPS). Not doing anything.");
 		break;
 
 	case LOCATION_EVT_GNSS_PREDICTION_REQUEST:
-		LOG_INF("Getting location assistance requested (P-GPS). Not doing anything.\n\n");
+		LOG_INF("Getting location assistance requested (P-GPS). Not doing anything.");
 		break;
 
 	default:
-		LOG_INF("Getting location: Unknown event\n\n");
+		LOG_INF("Getting location: Unknown event");
 		break;
 	}
 
@@ -182,11 +181,11 @@ void location_with_fallback_get(void)
 	/* Default cellular configuration may be overridden here. */
 	config.methods[1].cellular.timeout = 40 * MSEC_PER_SEC;
 
-	LOG_INF("Requesting location with short GNSS timeout to trigger fallback to cellular...\n");
+	LOG_INF("Requesting location with short GNSS timeout to trigger fallback to cellular...");
 
 	err = location_request(&config);
 	if (err) {
-		LOG_ERR("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d", err);
 		return;
 	}
 
@@ -202,11 +201,11 @@ void location_default_get(void)
 {
 	int err;
 
-	LOG_INF("Requesting location with the default configuration...\n");
+	LOG_INF("Requesting location with the default configuration...");
 
 	err = location_request(NULL);
 	if (err) {
-		LOG_ERR("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d", err);
 		return;
 	}
 
@@ -225,11 +224,11 @@ void location_gnss_low_accuracy_get(void)
 	location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
 	config.methods[0].gnss.accuracy = LOCATION_ACCURACY_LOW;
 
-	LOG_INF("Requesting low accuracy GNSS location...\n");
+	LOG_INF("Requesting low accuracy GNSS location...");
 
 	err = location_request(&config);
 	if (err) {
-		LOG_ERR("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d", err);
 		return;
 	}
 
@@ -248,11 +247,11 @@ void location_gnss_high_accuracy_get(void)
 	location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
 	config.methods[0].gnss.accuracy = LOCATION_ACCURACY_HIGH;
 
-	LOG_INF("Requesting high accuracy GNSS location...\n");
+	LOG_INF("Requesting high accuracy GNSS location...");
 
 	err = location_request(&config);
 	if (err) {
-		LOG_ERR("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d", err);
 		return;
 	}
 
@@ -271,11 +270,11 @@ void location_gnss_periodic_get(int period)
 	location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
 	config.interval = period;
 
-	printk("Requesting %d s periodic GNSS location with cellular fallback...\n", period);
+	LOG_INF("Requesting %d s periodic GNSS location with cellular fallback...", period);
 
 	err = location_request(&config);
 	if (err) {
-		LOG_ERR("Requesting location failed, error: %d\n", err);
+		LOG_ERR("Requesting location failed, error: %d", err);
 		return;
 	}
 }

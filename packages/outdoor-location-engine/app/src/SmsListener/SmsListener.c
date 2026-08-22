@@ -15,7 +15,7 @@ void sms_listener_init(void* smsCallback) {
 
 	handle = sms_register_listener(smsCallback, NULL);
 	if (handle) {
-		LOG_ERR("sms_register_listener returned err: %d\n", handle);
+		LOG_ERR("sms_register_listener returned err: %d", handle);
 		return;
 	}
 
