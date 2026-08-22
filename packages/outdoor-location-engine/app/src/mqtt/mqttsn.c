@@ -7,6 +7,7 @@
 #include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
 #include "../utils/network.h"
+#include "mqttsn.h"
 
 #define APP_BMEM
 #define APP_DMEM
@@ -57,8 +58,17 @@ void evt_cb(struct mqtt_sn_client *client, const struct mqtt_sn_evt *evt)
  * @brief Function to initialize MQTT-SN connection.
  */
 int mqttsn_initialize() {
+	static bool client_initialized;
 	int err;
 	struct sockaddr_in gateway = {0};
+
+	/* mqtt_sn_client_init() memsets the client, orphaning any gateway it
+	 * still holds. Release it first or the slab runs out after a few
+	 * reconnects, and add_gw then fails with "no free slot". */
+	if (client_initialized) {
+		mqtt_sn_client_deinit(&client);
+	}
+	client_initialized = true;
 
 	char *ip_str = getIpAddressFromHostname(CONFIG_FINDMYCAT_CLOUD_HOSTNAME);
 	LOG_DBG("Parsing MQTT host IP ", ip_str);
@@ -78,6 +88,16 @@ int mqttsn_initialize() {
 	err = mqtt_sn_client_init(&client, &client_id, &tp.tp, evt_cb, tx_buf, sizeof(tx_buf),
 				  rx_buf, sizeof(rx_buf));
 	__ASSERT(err == 0, "mqtt_sn_client_init() failed %d", err);
+
+	/* Zephyr 4.x sends to a registered gateway rather than to the transport
+	 * address, so a static gateway must be added explicitly. */
+	struct mqtt_sn_data gw_addr = {
+		.data = (const uint8_t *)&gateway,
+		.size = sizeof(gateway),
+	};
+
+	err = mqtt_sn_add_gw(&client, CONFIG_MQTT_SN_GATEWAY_ID, gw_addr);
+	__ASSERT(err == 0, "mqtt_sn_add_gw() failed %d", err);
 
 	err = mqtt_sn_connect(&client, false, true);
 	__ASSERT(err == 0, "mqtt_sn_connect() failed %d", err);
