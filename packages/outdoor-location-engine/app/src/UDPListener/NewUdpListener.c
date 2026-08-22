@@ -4,7 +4,7 @@
 #include "../Responder/Responder.h"
 #include "../Dispatcher/Dispatcher.h"
 
-LOG_MODULE_REGISTER(new_udp_listener, 4);
+LOG_MODULE_REGISTER(new_udp_listener, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 #define UDP_PORT 12345
 #define MAX_DATA_SIZE 256

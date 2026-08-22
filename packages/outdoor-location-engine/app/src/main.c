@@ -16,7 +16,7 @@
 #include "Responder/Responder.h"
 #include "UDPListener/NewUDPListener.h"
 
-LOG_MODULE_REGISTER(main, 4);
+LOG_MODULE_REGISTER(main, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 /* Indoor location engine sends 1 for PSM mode and 0 for eDRX mode */
 #define POWER_MODE_COMMAND_PIN		DT_ALIAS(gpiocus10)

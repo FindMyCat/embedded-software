@@ -2,7 +2,7 @@
 #include "../Responder/Responder.h"
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(dispatcher, 4);
+LOG_MODULE_REGISTER(dispatcher, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 static int currentDispatcherState = DISPATCHER_STATE_IDLE;
 
 /**

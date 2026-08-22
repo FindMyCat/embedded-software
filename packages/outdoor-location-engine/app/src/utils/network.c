@@ -2,7 +2,7 @@
 #include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(network_utils, 4);
+LOG_MODULE_REGISTER(network_utils, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 char* getIpAddressFromHostname(char* hostname) {
     struct zsock_addrinfo *res, *ai;

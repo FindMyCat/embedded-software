@@ -7,7 +7,7 @@
 #include "../LocationEngine/LocationEngine.h"
 #include "../Dispatcher/Dispatcher.h"
 
-LOG_MODULE_REGISTER(responder, 4);
+LOG_MODULE_REGISTER(responder, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 static struct k_timer periodic_timer;
 

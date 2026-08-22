@@ -21,7 +21,7 @@ static uint8_t rx_buf[CONFIG_MQTT_SN_BUFFER_SIZE];
 
 static bool mqtt_sn_connected = false;
 
-LOG_MODULE_REGISTER(mqttsn, 4);
+LOG_MODULE_REGISTER(mqttsn, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 /**
  * @brief Callback function for MQTT-SN events.

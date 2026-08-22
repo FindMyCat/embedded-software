@@ -8,7 +8,7 @@
 
 K_SEM_DEFINE(location_event, 0, 1);
 
-LOG_MODULE_REGISTER(gnss, 4);
+LOG_MODULE_REGISTER(location_engine, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 static bool location_engine_has_fix = false;
 
