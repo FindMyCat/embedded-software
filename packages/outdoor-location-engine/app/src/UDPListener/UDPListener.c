@@ -6,7 +6,7 @@
 #define UDP_PORT 12345
 #define MAX_DATA_SIZE 256
 
-LOG_MODULE_REGISTER(udp_listener, 4);
+LOG_MODULE_REGISTER(udp_listener, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 
 void udp_listener_init() {

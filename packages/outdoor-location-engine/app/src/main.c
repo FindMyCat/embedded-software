@@ -23,7 +23,7 @@
 #include "Responder/Responder.h"
 #include "UDPListener/NewUDPListener.h"
 
-LOG_MODULE_REGISTER(main, 4);
+LOG_MODULE_REGISTER(main, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 /* Indoor location engine sends 1 for PSM mode and 0 for eDRX mode */
 #define POWER_MODE_COMMAND_PIN DT_ALIAS(gpiocus10)
@@ -54,7 +54,6 @@ static void date_time_evt_handler(const struct date_time_evt *evt) {
 }
 
 static void lte_event_handler(const struct lte_lc_evt *const evt) {
-  LOG_INF("************************************* LTE event: %d", evt->type);
   switch (evt->type) {
   case LTE_LC_EVT_NW_REG_STATUS:
     if ((evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME) ||
@@ -63,7 +62,33 @@ static void lte_event_handler(const struct lte_lc_evt *const evt) {
       k_sem_give(&lte_connected);
     }
     break;
+  /* Which power mode the network actually granted, and whether the modem is
+   * currently in RRC idle or connected. The carrier applies a shorter inbound
+   * idle timer in idle mode, so this is the state the reachability test needs
+   * alongside the uplink age. */
+  case LTE_LC_EVT_EDRX_UPDATE:
+    LOG_INF("eDRX granted: mode %d, interval %.2f s, PTW %.2f s",
+            evt->edrx_cfg.mode, (double)evt->edrx_cfg.edrx,
+            (double)evt->edrx_cfg.ptw);
+    break;
+  case LTE_LC_EVT_PSM_UPDATE:
+    LOG_INF("PSM granted: TAU %d s, active time %d s", evt->psm_cfg.tau,
+            evt->psm_cfg.active_time);
+    break;
+  case LTE_LC_EVT_RRC_UPDATE:
+    LOG_INF("RRC mode: %s", evt->rrc_mode == LTE_LC_RRC_MODE_CONNECTED
+                                ? "connected"
+                                : "idle");
+    break;
+  /* Whether this cell honours the release hints we set with SO_RAI. Without
+   * AS RAI the modem waits out the network's RRC inactivity timer instead. */
+  case LTE_LC_EVT_RAI_UPDATE:
+    LOG_DBG("RAI on cell 0x%08x: AS %s, CP %s", evt->rai_cfg.cell_id,
+            evt->rai_cfg.as_rai ? "yes" : "no",
+            evt->rai_cfg.cp_rai ? "yes" : "no");
+    break;
   default:
+    LOG_DBG("Unhandled LTE event %d", evt->type);
     break;
   }
 }
@@ -271,10 +296,12 @@ retry:
 
   /* RAK3172 hello world — send AT and print raw response */
 
+#if defined(CONFIG_LORA_RAK3172_INIT)
   err = rak3172_init();
   if (err != 0) {
     LOG_ERR("Error: RAK3172 init failed (%d), continuing without LoRa", err);
   }
+#endif
 
   // rak3172_print_version_info();
 
@@ -387,6 +414,47 @@ retry:
 
     k_sleep(K_MSEC(500));
   }
+#endif
+
+#if defined(CONFIG_UDP_REACHABILITY_TEST)
+  LOG_INF("UDP reachability bench test");
+
+  while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
+    err = initializeLte();
+    if (!err) {
+      break;
+    }
+    LOG_ERR("Error: LTE connect failed (%d), retrying", err);
+    retry_count++;
+    k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
+  }
+
+  if (create_udp_listener() != 0) {
+    LOG_ERR("Error: UDP listener creation failed");
+    return -1;
+  }
+
+  start_udp_listener_thread();
+
+  /* One touch up front so the carrier has seen this path at least once, then
+   * silence: any ping that stops landing during the silent phase dates the
+   * idle timer. */
+  udp_listener_touch_uplink(
+      IS_ENABLED(CONFIG_UDP_REACHABILITY_TEST_TOUCH_FROM_LISTENER_PORT));
+
+#if CONFIG_UDP_REACHABILITY_TEST_TOUCH_INTERVAL_S > 0
+  k_sleep(K_SECONDS(CONFIG_UDP_REACHABILITY_TEST_SILENT_PHASE_S));
+
+  while (true) {
+    udp_listener_touch_uplink(
+        IS_ENABLED(CONFIG_UDP_REACHABILITY_TEST_TOUCH_FROM_LISTENER_PORT));
+    k_sleep(K_SECONDS(CONFIG_UDP_REACHABILITY_TEST_TOUCH_INTERVAL_S));
+  }
+#else
+  /* Silent run: the listener thread does the work, so this one never needs to
+   * wake again. Any periodic wake here would show up in the current trace. */
+  k_sleep(K_FOREVER);
+#endif
 #endif
 
   /* WiFi scan hello world */

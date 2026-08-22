@@ -66,6 +66,7 @@ config MQTTSN_PUBLISH_TEST_INTERVAL_S
 
 config LORA_CAD_RX_TEST
 	bool "CAD receive bench test"
+	select LORA_RAK3172_INIT
 	help
 	  Run the duty-cycled CAD receive loop and log packets instead of
 	  continuing to the rest of the application. Requires the CAD firmware
@@ -119,6 +120,70 @@ config LORA_CAD_RX_TEST_RESET_FIRST
 	  Asserts the reset GPIO and checks the module reports PIN in its reset
 	  flags. Answers whether the reset line alone can recover a wedged module
 	  or whether a power switch is needed.
+
+config SPOOF_PING_BASE_LATITUDE_MICRODEGREES
+	int "Latitude a test ping reports, in millionths of a degree"
+	default 37423021
+	help
+	  A test ping publishes a position near this point instead of waiting for
+	  a GNSS fix, so the gateway, rule engine and Traccar can be exercised in
+	  seconds. 37423021 is 37.423021.
+
+config SPOOF_PING_BASE_LONGITUDE_MICRODEGREES
+	int "Longitude a test ping reports, in millionths of a degree"
+	default -122083739
+
+config SPOOF_PING_JITTER_MICRODEGREES
+	int "Random spread applied to a test ping position"
+	default 1000
+	help
+	  Each test ping lands within this many millionths of a degree of the
+	  base point, so repeated pings move on the map rather than stacking.
+	  1000 is about 100 metres.
+
+config LORA_RAK3172_INIT
+	bool "Bring up the RAK3172 at boot"
+	default y
+	help
+	  Opens the UART and runs the module through its init sequence. Turn off
+	  to keep LoRa entirely out of a run, so a bench test starts faster and
+	  its log is not interleaved with AT traffic. LORA_CAD_RX_TEST needs
+	  this enabled.
+
+config UDP_REACHABILITY_TEST
+	bool "Carrier inbound-UDP idle timer bench test"
+	help
+	  Connects LTE, starts the UDP listener and then deliberately stays
+	  silent so the carrier idle timer can expire. Logs the age of the last
+	  uplink next to every inbound datagram, so Hologram Cloud Messaging
+	  pings sent from the iOS app can be correlated with uplink silence.
+	  After the silent phase it starts touching the uplink periodically to
+	  show whether inbound delivery recovers.
+
+config UDP_REACHABILITY_TEST_SILENT_PHASE_S
+	int "Seconds to stay silent before the touch phase begins"
+	depends on UDP_REACHABILITY_TEST
+	default 600
+
+config UDP_REACHABILITY_TEST_TOUCH_INTERVAL_S
+	int "Uplink touch interval during the touch phase (0 = never touch)"
+	depends on UDP_REACHABILITY_TEST
+	default 20
+	help
+	  Must be shorter than the carrier idle timer to hold the path open.
+	  Hologram documents 30 seconds in Open state and 60 in Ready state. Set
+	  to 0 to stay silent for the whole run, which dates how long inbound
+	  delivery survives with no uplink at all.
+
+config UDP_REACHABILITY_TEST_TOUCH_FROM_LISTENER_PORT
+	bool "Touch from the listener port rather than an ephemeral one"
+	depends on UDP_REACHABILITY_TEST
+	default y
+	help
+	  Distinguishes a per-flow carrier idle timer from a per-session one. If
+	  inbound only recovers with this enabled, the carrier tracks state per
+	  five-tuple. If an ephemeral port also restores it, the timer applies to
+	  the whole PDN session.
 
 endmenu
 

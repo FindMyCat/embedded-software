@@ -7,7 +7,7 @@ JLINK        := /Applications/SEGGER/JLink_V834
 NCS   := nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) --
 LOCAL := $(if $(wildcard app/local.conf),;local.conf)
 
-.PHONY: setup build build-dev build-prod build-dev-t91x build-prod-t91x build-dev-9151dk build-prod-9151dk flash clean
+.PHONY: setup build build-dev build-prod build-dev-t91x build-prod-t91x build-dev-9151dk build-prod-9151dk flash logs flash-logs clean
 
 setup:
 	west init -l manifest
@@ -39,7 +39,21 @@ JLINK_SPEED ?= 1000
 flash:
 	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west -v flash --runner $(RUNNER) --speed $(JLINK_SPEED)
 
-recover: 
+# JLinkExe holds the debug connection and serves RTT on localhost:19021, so it
+# is backgrounded here and torn down on exit, leaving the client in the
+# foreground. Override for the 9160: make logs JLINK_DEVICE=nRF9160_xxAA
+JLINK_DEVICE ?= nRF9151_xxCA
+RTT_SPEED    ?= 4000
+
+logs:
+	@set -m; \
+	( tail -f /dev/null | $(JLINK)/JLinkExe -device $(JLINK_DEVICE) -if SWD -speed $(RTT_SPEED) -autoconnect 1 >/dev/null 2>&1 ) & \
+	SERVER_PGID=$$!; \
+	trap "kill -- -$$SERVER_PGID 2>/dev/null; true" EXIT INT TERM; \
+	sleep 2; \
+	$(JLINK)/JLinkRTTClient || true
+
+recover:
 	west flash --recover
 clean:
 	rm -rf build

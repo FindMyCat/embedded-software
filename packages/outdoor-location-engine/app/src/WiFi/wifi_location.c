@@ -3,7 +3,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(wifi_location, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(wifi_location, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 static K_SEM_DEFINE(wifi_location_event, 0, 1);
 

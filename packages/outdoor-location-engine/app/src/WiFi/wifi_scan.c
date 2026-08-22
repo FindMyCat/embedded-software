@@ -8,7 +8,7 @@
 #include <zephyr/net/wifi_mgmt.h>
 #include <zephyr/sys/byteorder.h>
 
-LOG_MODULE_REGISTER(wifi_scan, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(wifi_scan, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 static K_SEM_DEFINE(scan_done, 0, 1);
 static struct net_mgmt_event_callback wifi_cb;

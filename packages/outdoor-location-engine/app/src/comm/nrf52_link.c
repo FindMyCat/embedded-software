@@ -5,7 +5,7 @@
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(nrf52_link, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(nrf52_link, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 static const struct device *i2c = DEVICE_DT_GET(NRF52_I2C_NODE);
 

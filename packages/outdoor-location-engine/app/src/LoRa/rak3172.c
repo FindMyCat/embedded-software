@@ -10,7 +10,7 @@
 
 #include "rak3172.h"
 
-LOG_MODULE_REGISTER(rak3172, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(rak3172, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 static const struct device *uart_dev = DEVICE_DT_GET(DT_ALIAS(lora_uart));
 
