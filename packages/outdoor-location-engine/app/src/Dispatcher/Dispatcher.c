@@ -22,6 +22,9 @@ void dispatcherCallback() {
     } else if (currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_PING) {
         LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_PING");
         respond_to_ping();
+    } else if (currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_SPOOF_PING) {
+        LOG_INF("dispatcherCallback: currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_SPOOF_PING");
+        respond_to_spoof_ping();
     }
 }
 

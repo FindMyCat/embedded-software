@@ -50,7 +50,27 @@ config ACTIVE_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 
 config LOST_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 	int "Location refresh period in seconds for Lost Mode"
-	default 30	
+	default 30
+
+config SPOOF_PING_BASE_LATITUDE_MICRODEGREES
+	int "Latitude a test ping reports, in millionths of a degree"
+	default 37423021
+	help
+	  A test ping publishes a position near this point instead of waiting for
+	  a GNSS fix, so the gateway, rule engine and Traccar can be exercised in
+	  seconds. 37423021 is 37.423021.
+
+config SPOOF_PING_BASE_LONGITUDE_MICRODEGREES
+	int "Longitude a test ping reports, in millionths of a degree"
+	default -122083739
+
+config SPOOF_PING_JITTER_MICRODEGREES
+	int "Random spread applied to a test ping position"
+	default 1000
+	help
+	  Each test ping lands within this many millionths of a degree of the
+	  base point, so repeated pings move on the map rather than stacking.
+	  1000 is about 100 metres.
 
 endmenu
 

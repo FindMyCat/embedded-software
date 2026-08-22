@@ -6,6 +6,8 @@
 
 
 
+void location_publish(double latitude, double longitude, int satellites, double accuracy);
+void location_publish_spoofed(void);
 void location_default_get(void);
 void location_gnss_low_accuracy_get(void);
 void location_gnss_high_accuracy_get(void);

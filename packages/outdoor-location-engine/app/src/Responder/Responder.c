@@ -33,6 +33,18 @@ void respond_to_ping(void) {
     changeDispatcherState(DISPATCHER_STATE_IDLE);
 }
 
+/**
+ * @brief Answer a spoof ping with a made up position, skipping GNSS.
+ *
+ * The real ping path waits on a high accuracy fix and then sleeps 30 seconds.
+ * This one publishes immediately, so the cloud pipeline can be exercised
+ * without a sky view or the wait.
+ */
+void respond_to_spoof_ping(void) {
+    location_publish_spoofed();
+    changeDispatcherState(DISPATCHER_STATE_IDLE);
+}
+
 void turn_on_lost_mode() {
     k_timer_init(&periodic_timer, periodic_work_handler, NULL);
     k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));

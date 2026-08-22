@@ -2,6 +2,7 @@
 #include <zephyr/kernel.h>
 #include <modem/location.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/random/random.h>
 
 #include "../mqtt/mqttsn.h"
 
@@ -15,29 +16,22 @@ static bool location_engine_has_fix = false;
 #define MQTT_SN_CONNECT_POLL_MS 100
 #define MQTT_SN_FLUSH_MS 2000
 
-void location_event_handler(const struct location_event_data *event_data)
+/**
+ * @brief Connect to the gateway if needed, then publish one position.
+ */
+void location_publish(double latitude, double longitude, int satellites, double accuracy)
 {
-	switch (event_data->id) {
-	case LOCATION_EVT_LOCATION:
-		location_engine_has_fix = true;
+	int err = 0;
 
-		int err = 0;
-	
-		LOG_INF("Got location:\n");
-		printk("  method: %s\n", location_method_str(event_data->method));
-		printk("  latitude: %.06f\n", event_data->location.latitude);
-		printk("  longitude: %.06f\n", event_data->location.longitude);
-		printk("  accuracy: %.01f m\n", event_data->location.accuracy);
-		printk("  satellites tracked: %d \n", event_data->location.details.gnss.satellites_tracked);
-		char location_str[100]; // create a character array to store the formatted string
-		snprintk(location_str, sizeof(location_str), "{\"msg\": \"%.06f,%.06f,%d,%.02f,%d\"}", 
-			event_data->location.latitude, 
-			event_data->location.longitude, 
-			event_data->location.details.gnss.satellites_tracked, 
-			event_data->location.accuracy, 
-			25); // Todo: replace with actual battery reading
-		
-		int connecting_retries = 0;
+	char location_str[100]; // create a character array to store the formatted string
+	snprintk(location_str, sizeof(location_str), "{\"msg\": \"%.06f,%.06f,%d,%.02f,%d\"}",
+		latitude,
+		longitude,
+		satellites,
+		accuracy,
+		25); // Todo: replace with actual battery reading
+
+	int connecting_retries = 0;
 try_connecting_mqttsn:
 		mqttsn_check_input();
 		if(get_mqttsn_connection_status() == false) {
@@ -77,6 +71,56 @@ try_connecting_mqttsn:
 				k_sleep(K_MSEC(MQTT_SN_CONNECT_POLL_MS));
 			}
 		}
+}
+
+/**
+ * @brief Jitter in degrees, up to plus or minus the configured radius.
+ */
+static double random_offset_degrees(void)
+{
+	uint32_t span = (uint32_t)CONFIG_SPOOF_PING_JITTER_MICRODEGREES * 2 + 1;
+	int32_t offset = (int32_t)(sys_rand32_get() % span) -
+			 CONFIG_SPOOF_PING_JITTER_MICRODEGREES;
+
+	return (double)offset / 1000000.0;
+}
+
+/**
+ * @brief Publish a made up position near the configured base point.
+ *
+ * Exercises the gateway, rule engine and Traccar without waiting for a GNSS
+ * fix, so a spoof ping answers in seconds rather than minutes. Reports zero
+ * satellites, which no real fix does, so a spoofed point stays identifiable
+ * once it reaches the cloud.
+ */
+void location_publish_spoofed(void)
+{
+	double latitude = (double)CONFIG_SPOOF_PING_BASE_LATITUDE_MICRODEGREES / 1000000.0 +
+			  random_offset_degrees();
+	double longitude = (double)CONFIG_SPOOF_PING_BASE_LONGITUDE_MICRODEGREES / 1000000.0 +
+			   random_offset_degrees();
+
+	LOG_INF("Publishing spoofed position %.06f,%.06f", latitude, longitude);
+	location_publish(latitude, longitude, 0, 21.0);
+}
+
+void location_event_handler(const struct location_event_data *event_data)
+{
+	switch (event_data->id) {
+	case LOCATION_EVT_LOCATION:
+		location_engine_has_fix = true;
+
+		LOG_INF("Got location:\n");
+		printk("  method: %s\n", location_method_str(event_data->method));
+		printk("  latitude: %.06f\n", event_data->location.latitude);
+		printk("  longitude: %.06f\n", event_data->location.longitude);
+		printk("  accuracy: %.01f m\n", event_data->location.accuracy);
+		printk("  satellites tracked: %d \n", event_data->location.details.gnss.satellites_tracked);
+
+		location_publish(event_data->location.latitude,
+			event_data->location.longitude,
+			event_data->location.details.gnss.satellites_tracked,
+			event_data->location.accuracy);
 
 		if (event_data->location.datetime.valid) {
 			printk("  date: %04d-%02d-%02d\n",

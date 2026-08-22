@@ -74,7 +74,10 @@ void start_listening() {
 
 		// Two commands are supported over UDP. 
 		// We should keep these command strings small as possible for least data transfer.
-        if (strncmp(rx_data, "ping", recv_len) == 0) {
+        if (strncmp(rx_data, "spoof-ping", recv_len) == 0) {
+            LOG_INF("Dispatcher state changed to DISPATCHER_STATE_RESPOND_TO_SPOOF_PING\n");
+            changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_SPOOF_PING);
+        } else if (strncmp(rx_data, "ping", recv_len) == 0) {
             LOG_INF("Dispatcher state changed to DISPATCHER_STATE_PING_MODE\n");
             changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
         } else if(strncmp(rx_data, "lost", recv_len) == 0) {
