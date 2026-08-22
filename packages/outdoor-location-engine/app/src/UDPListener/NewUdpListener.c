@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
 #include "../Responder/Responder.h"
@@ -51,8 +52,21 @@ void start_listening() {
         // Note that the recv call is blocking until data is received.
         recv_len = zsock_recv(udp_socket, rx_data, sizeof(rx_data), 0);
         if (recv_len < 0) {
-            printk("Error: Unable to receive data\n");
-            break;
+            /* A dead socket must not kill the thread. Breaking out here ends
+             * start_listening(), so one transient error during a PDN drop left
+             * the collar deaf to every later command until it was rebooted. */
+            LOG_ERR("Error: Unable to receive data (%d)", errno);
+
+            if (errno == EAGAIN || errno == EINTR) {
+                continue;
+            }
+
+            LOG_WRN("Recreating UDP listener socket");
+            destroy_udp_listener();
+            if (create_udp_listener() != 0) {
+                k_sleep(K_SECONDS(5));
+            }
+            continue;
         }
 
         // Print the received data

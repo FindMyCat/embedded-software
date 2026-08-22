@@ -71,7 +71,7 @@ int mqttsn_initialize() {
 	client_initialized = true;
 
 	char *ip_str = getIpAddressFromHostname(CONFIG_FINDMYCAT_CLOUD_HOSTNAME);
-	LOG_DBG("Parsing MQTT host IP ", ip_str);
+	LOG_DBG("Parsing MQTT host IP %s", ip_str);
 	gateway.sin_family = AF_INET;
 	gateway.sin_port = htons(CONFIG_MQTT_SN_GATEWAY_PORT);
 	err = zsock_inet_pton(AF_INET, ip_str, &gateway.sin_addr);
@@ -80,14 +80,27 @@ int mqttsn_initialize() {
 
 	LOG_HEXDUMP_DBG(&gateway, sizeof(gateway), "gateway");
 
-	LOG_INF("Connecting to MQTT-SN server");
+	LOG_INF("Connecting to MQTT-SN gateway %s:%d as client %s, topic %s", ip_str,
+		CONFIG_MQTT_SN_GATEWAY_PORT, CONFIG_DEVICE_ID,
+		CONFIG_MQTT_SN_PUBLISH_TOPIC);
 
 	err = mqtt_sn_transport_udp_init(&tp, (struct sockaddr *)&gateway, sizeof((gateway)));
-	__ASSERT(err == 0, "mqtt_sn_transport_udp_init() failed %d", err);
+	if (err) {
+		LOG_ERR("Error: mqtt_sn_transport_udp_init() failed: %d", err);
+		return err;
+	}
 
 	err = mqtt_sn_client_init(&client, &client_id, &tp.tp, evt_cb, tx_buf, sizeof(tx_buf),
 				  rx_buf, sizeof(rx_buf));
-	__ASSERT(err == 0, "mqtt_sn_client_init() failed %d", err);
+	/* The UDP transport sets SO_REUSEADDR, which the offloaded socket stack on
+	 * this modem does not implement. The socket itself is already open and
+	 * usable, so carry on rather than failing the whole connection. */
+	if (err == ENOPROTOOPT || err == -ENOPROTOOPT) {
+		LOG_WRN("SO_REUSEADDR unsupported, continuing");
+	} else if (err) {
+		LOG_ERR("Error: mqtt_sn_client_init() failed: %d", err);
+		return err;
+	}
 
 	/* Zephyr 4.x sends to a registered gateway rather than to the transport
 	 * address, so a static gateway must be added explicitly. */
@@ -97,10 +110,15 @@ int mqttsn_initialize() {
 	};
 
 	err = mqtt_sn_add_gw(&client, CONFIG_MQTT_SN_GATEWAY_ID, gw_addr);
-	__ASSERT(err == 0, "mqtt_sn_add_gw() failed %d", err);
+	if (err) {
+		LOG_ERR("Error: mqtt_sn_add_gw() failed: %d", err);
+		return err;
+	}
 
 	err = mqtt_sn_connect(&client, false, true);
-	__ASSERT(err == 0, "mqtt_sn_connect() failed %d", err);
+	if (err) {
+		LOG_ERR("Error: mqtt_sn_connect() failed: %d", err);
+	}
 
 	return err;
 }
@@ -136,13 +154,18 @@ int mqttsn_publish(char *data_str) {
 	};
 
 	
-	LOG_INF("Publishing location: %s", data_str);
+	LOG_INF("Publishing to %s as client %s: %s", CONFIG_MQTT_SN_PUBLISH_TOPIC,
+		CONFIG_DEVICE_ID, data_str);
 
 	int err = mqtt_sn_publish(&client, MQTT_SN_QOS_0, &topic_p, false, &pubdata);
 	if (err < 0) {
-		LOG_ERR("failed: publish: %d", err);
+		LOG_ERR("Error: Publish to %s failed: %d", CONFIG_MQTT_SN_PUBLISH_TOPIC, err);
 		return err;
 	}
+
+	/* Queued only: the topic still has to be registered with the gateway
+	 * before the PUBLISH goes out, which needs mqtt_sn_input() pumping. */
+	LOG_INF("Publish queued for %s", CONFIG_MQTT_SN_PUBLISH_TOPIC);
 
 	return 0;
 }
@@ -151,8 +174,17 @@ int mqttsn_publish(char *data_str) {
  * @brief Function to disconnect from the MQTT-SN gateway.
  */
 int mqttsn_disconnect() {
+	/* Send the DISCONNECT before releasing the client: deinit destroys the
+	 * gateway list, and without a gateway there is nowhere to send it. The
+	 * gateway then keeps the session open and ignores our next CONNECT. */
+	int err = mqtt_sn_disconnect(&client);
+	if (err) {
+		LOG_ERR("Error: mqtt_sn_disconnect() failed: %d", err);
+	}
+
 	mqtt_sn_client_deinit(&client);
-	return mqtt_sn_disconnect(&client);
+
+	return err;
 }
 
 /**

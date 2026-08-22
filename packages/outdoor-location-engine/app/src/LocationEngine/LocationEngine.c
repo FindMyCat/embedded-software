@@ -11,6 +11,10 @@ LOG_MODULE_REGISTER(gnss, 4);
 
 static bool location_engine_has_fix = false;
 
+#define MQTT_SN_CONNECT_TIMEOUT_MS 10000
+#define MQTT_SN_CONNECT_POLL_MS 100
+#define MQTT_SN_FLUSH_MS 2000
+
 void location_event_handler(const struct location_event_data *event_data)
 {
 	switch (event_data->id) {
@@ -40,9 +44,17 @@ try_connecting_mqttsn:
 			LOG_INF("MQTT-SN not connected. Initialing connection.\n");
 			err = mqttsn_initialize();
 			connecting_retries += 1;
-			k_sleep(K_SECONDS(3));
+			/* CONNACK only lands if input keeps being pumped, so poll for it
+			 * rather than sleeping blind: a publish sent before the client is
+			 * connected is dropped on the floor. */
+			for (int waited_ms = 0;
+			     waited_ms < MQTT_SN_CONNECT_TIMEOUT_MS && !get_mqttsn_connection_status();
+			     waited_ms += MQTT_SN_CONNECT_POLL_MS) {
+				mqttsn_check_input();
+				k_sleep(K_MSEC(MQTT_SN_CONNECT_POLL_MS));
+			}
 		}
-		if(err) {
+		if(err || get_mqttsn_connection_status() == false) {
 			mqttsn_disconnect();
 			if (connecting_retries <= 3)
 			{
@@ -51,11 +63,19 @@ try_connecting_mqttsn:
 			} else {
 				LOG_ERR("MQTT-SN initialization failed Max Retries exceeded. Error: %d\n", err);
 			}
-		}		
+		}
 		else {
 			mqttsn_check_input();
 			mqttsn_publish(location_str);
-			mqttsn_check_input();
+			/* A publish to a topic name is held until the gateway answers the
+			 * REGISTER with a REGACK, so keep pumping input afterwards.
+			 * Returning straight away lets the caller disconnect
+			 * mid-registration and the position never leaves the device. */
+			for (int waited_ms = 0; waited_ms < MQTT_SN_FLUSH_MS;
+			     waited_ms += MQTT_SN_CONNECT_POLL_MS) {
+				mqttsn_check_input();
+				k_sleep(K_MSEC(MQTT_SN_CONNECT_POLL_MS));
+			}
 		}
 
 		if (event_data->location.datetime.valid) {
