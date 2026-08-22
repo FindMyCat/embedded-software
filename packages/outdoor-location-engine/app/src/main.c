@@ -34,7 +34,6 @@ static void date_time_evt_handler(const struct date_time_evt *evt)
 
 static void lte_event_handler(const struct lte_lc_evt *const evt)
 {
-	LOG_INF("************************************* LTE event: %d", evt->type);
 	switch (evt->type) {
 	case LTE_LC_EVT_NW_REG_STATUS:
 		if ((evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME) ||
@@ -44,6 +43,7 @@ static void lte_event_handler(const struct lte_lc_evt *const evt)
 		}
 		break;
 	default:
+		LOG_DBG("Unhandled LTE event %d", evt->type);
 		break;
 	}
 }

@@ -71,14 +71,11 @@ int mqttsn_initialize() {
 	client_initialized = true;
 
 	char *ip_str = getIpAddressFromHostname(CONFIG_FINDMYCAT_CLOUD_HOSTNAME);
-	LOG_DBG("Parsing MQTT host IP %s", ip_str);
 	gateway.sin_family = AF_INET;
 	gateway.sin_port = htons(CONFIG_MQTT_SN_GATEWAY_PORT);
 	err = zsock_inet_pton(AF_INET, ip_str, &gateway.sin_addr);
 
 	// // __ASSERT(err == 0, "zsock_inet_pton() failed %d", err);
-
-	LOG_HEXDUMP_DBG(&gateway, sizeof(gateway), "gateway");
 
 	LOG_INF("Connecting to MQTT-SN gateway %s:%d as client %s, topic %s", ip_str,
 		CONFIG_MQTT_SN_GATEWAY_PORT, CONFIG_DEVICE_ID,
