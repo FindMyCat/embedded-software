@@ -4,7 +4,7 @@
 BUILD_DIR ?= build
 GENERATOR ?= Ninja
 
-.PHONY: all configure build clean rebuild flash flash_softdevice flash_full erase recover help
+.PHONY: all configure build clean rebuild flash flash_softdevice flash_full erase recover logs flash-logs help
 
 all: build
 
@@ -38,6 +38,23 @@ erase: configure
 recover: configure
 	cmake --build $(BUILD_DIR) --target recover
 
+# JLinkExe holds the debug connection and serves RTT on localhost:19021, so it
+# is backgrounded here and torn down on exit, leaving the client in the
+# foreground.
+JLINK        ?= JLinkExe
+JLINK_DEVICE ?= nRF52833_xxAA
+RTT_SPEED    ?= 4000
+
+logs:
+	@set -m; \
+	( tail -f /dev/null | $(JLINK) -device $(JLINK_DEVICE) -if SWD -speed $(RTT_SPEED) -autoconnect 1 >/dev/null 2>&1 ) & \
+	SERVER_PGID=$$!; \
+	trap "kill -- -$$SERVER_PGID 2>/dev/null; true" EXIT INT TERM; \
+	sleep 2; \
+	JLinkRTTClient || true
+
+flash-logs: flash logs
+
 help:
 	@echo "Targets:"
 	@echo "  build (default)   - configure (if needed) and build"
@@ -48,6 +65,8 @@ help:
 	@echo "  flash_full        - recover + build + flash SoftDevice + app + reset"
 	@echo "  erase             - mass erase target"
 	@echo "  recover           - nrfutil device recover (mass erase + clear AP-protect)"
+	@echo "  logs              - stream RTT logs (JLinkExe + JLinkRTTClient)"
+	@echo "  flash-logs        - flash then stream RTT logs"
 	@echo ""
-	@echo "Variables: BUILD_DIR ($(BUILD_DIR)), GENERATOR ($(GENERATOR))"
+	@echo "Variables: BUILD_DIR ($(BUILD_DIR)), GENERATOR ($(GENERATOR)), JLINK_DEVICE ($(JLINK_DEVICE)), RTT_SPEED ($(RTT_SPEED))"
 	@echo "Forward CMake vars with -D, e.g.: cmake -B $(BUILD_DIR) -DSERIAL=683123456"

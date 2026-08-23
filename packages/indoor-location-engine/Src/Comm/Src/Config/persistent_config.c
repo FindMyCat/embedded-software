@@ -77,13 +77,16 @@ static void persistent_config_load(void) {
     /* push the restored config to the nRF9151 (raises CONFIG_RDY so it reads it) */
     i2c_nrf9151_publish_config(&cfg);
 
-    /* restore the BLE read-back value ([port_lo][port_hi][host]) for the app */
-    uint8_t wire[2 + sizeof(cfg.host)];
+    /* restore the BLE read-back value ([port_lo][port_hi][host_len][host][device_id]) */
+    uint8_t wire[3 + sizeof(cfg.host) + sizeof(cfg.device_id)];
     size_t host_len = strnlen(cfg.host, sizeof(cfg.host));
+    size_t id_len = strnlen(cfg.device_id, sizeof(cfg.device_id));
     wire[0] = (uint8_t)(cfg.port & 0xFF);
     wire[1] = (uint8_t)((cfg.port >> 8) & 0xFF);
-    memcpy(&wire[2], cfg.host, host_len);
-    app_ble_restore_persisted_config(wire, (uint16_t)(2 + host_len));
+    wire[2] = (uint8_t)host_len;
+    memcpy(&wire[3], cfg.host, host_len);
+    memcpy(&wire[3 + host_len], cfg.device_id, id_len);
+    app_ble_restore_persisted_config(wire, (uint16_t)(3 + host_len + id_len));
 
     NRF_LOG_INFO("loaded config from flash port=%u", cfg.port);
 }

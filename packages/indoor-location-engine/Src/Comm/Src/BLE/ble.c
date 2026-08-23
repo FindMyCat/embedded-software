@@ -420,31 +420,39 @@ static void qnis_data_handler(ble_qnis_evt_t * p_evt)
 
     if (p_evt->type == BLE_QNIS_EVT_CONFIG_DATA)
     {
-        /* Payload: [port_lo][port_hi][host UTF-8 ...]. Assemble fmc_config and
-         * push it to the nRF9151 (raises CONFIG_RDY, 91 reads it back). */
+        /* Payload: [port_lo][port_hi][host_len][host UTF-8][device_id UTF-8].
+         * Assemble fmc_config and push it to the nRF9151 (raises CONFIG_RDY,
+         * 91 reads it back). */
         const uint8_t *d = p_evt->params.rx_data.p_data;
         uint16_t len = p_evt->params.rx_data.length;
 
-        if (len >= 2)
+        if (len >= 3 && len >= 3 + d[2])
         {
             struct fmc_config cfg;
             memset(&cfg, 0, sizeof(cfg));
             cfg.port = (uint16_t)(d[0] | (d[1] << 8));
 
-            uint16_t host_len = len - 2;
+            uint16_t host_len = d[2];
             if (host_len > sizeof(cfg.host) - 1)
             {
                 host_len = sizeof(cfg.host) - 1;
             }
-            memcpy(cfg.host, &d[2], host_len);
+            memcpy(cfg.host, &d[3], host_len);
 
-            NRF_LOG_INFO("config rx over BLE: port=%u host_len=%u", cfg.port, host_len);
+            uint16_t id_len = len - 3 - d[2];
+            if (id_len > sizeof(cfg.device_id) - 1)
+            {
+                id_len = sizeof(cfg.device_id) - 1;
+            }
+            memcpy(cfg.device_id, &d[3 + d[2]], id_len);
+
+            NRF_LOG_INFO("config rx over BLE: port=%u host_len=%u id_len=%u", cfg.port, host_len, id_len);
             i2c_nrf9151_publish_config(&cfg);
             persistent_config_save(&cfg);
         }
         else
         {
-            NRF_LOG_ERROR("Error: config write too short (%u bytes)", len);
+            NRF_LOG_ERROR("Error: malformed config write (%u bytes)", len);
         }
     }
 }
