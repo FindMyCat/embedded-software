@@ -7,7 +7,7 @@
 #include "../LocationEngine/LocationEngine.h"
 #include "../Dispatcher/Dispatcher.h"
 
-LOG_MODULE_REGISTER(responder, 4);
+LOG_MODULE_REGISTER(responder, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 static struct k_timer periodic_timer;
 
@@ -30,6 +30,18 @@ void respond_to_ping(void) {
     k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));
     location_gnss_high_accuracy_get();
     k_sleep(K_SECONDS(30));
+    changeDispatcherState(DISPATCHER_STATE_IDLE);
+}
+
+/**
+ * @brief Answer a spoof ping with a made up position, skipping GNSS.
+ *
+ * The real ping path waits on a high accuracy fix and then sleeps 30 seconds.
+ * This one publishes immediately, so the cloud pipeline can be exercised
+ * without a sky view or the wait.
+ */
+void respond_to_spoof_ping(void) {
+    location_publish_spoofed();
     changeDispatcherState(DISPATCHER_STATE_IDLE);
 }
 

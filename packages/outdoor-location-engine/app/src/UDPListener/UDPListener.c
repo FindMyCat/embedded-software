@@ -6,7 +6,7 @@
 #define UDP_PORT 12345
 #define MAX_DATA_SIZE 256
 
-LOG_MODULE_REGISTER(udp_listener, 4);
+LOG_MODULE_REGISTER(udp_listener, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 
 void udp_listener_init() {
@@ -34,29 +34,28 @@ void udp_listener_init() {
         // Receive data on the UDP socket
         recv_len = recv(udp_socket, rx_data, sizeof(rx_data), 0);
         if (recv_len < 0) {
-            printk("Error: Unable to receive data\n");
+            LOG_ERR("Error: Unable to receive data");
             break;
         }
 
-        // Print the received data
-        printk("Received data: %.*s\n", (int)recv_len, rx_data);
+        LOG_INF("Received data: %.*s", (int)recv_len, rx_data);
 
 		// Two commands are supported over UDP. 
 		// We should keep these command strings small as possible for least data transfer.
         if (strncmp(rx_data, "ping", recv_len) == 0) {
-            LOG_INF("Dispatcher state changed to DISPATCHER_STATE_PING_MODE\n");
+            LOG_INF("Dispatcher state changed to DISPATCHER_STATE_PING_MODE");
             changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
         } else if(strncmp(rx_data, "lost", recv_len) == 0) {
-            LOG_INF("Dispatcher state changed to DISPATCHER_STATE_LOST_MODE\n");
+            LOG_INF("Dispatcher state changed to DISPATCHER_STATE_LOST_MODE");
             changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
         } else if (strncmp(rx_data, "active", recv_len) == 0) {
-			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_ACTIVE_MODE\n");
+			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_ACTIVE_MODE");
             changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
 		} else if (strncmp(rx_data, "idle", recv_len) == 0) {
-			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_IDLE\n");
+			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_IDLE");
             changeDispatcherState(DISPATCHER_STATE_IDLE);
 		} else {
-			LOG_ERR("Unknown command: %s\n", rx_data);
+			LOG_ERR("Unknown command: %s", rx_data);
 		}
     }
 

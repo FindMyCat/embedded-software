@@ -6,6 +6,7 @@
 void turn_on_active_mode();
 void turn_on_lost_mode();
 void respond_to_ping();
+void respond_to_spoof_ping();
 void stop_responding();
 
 

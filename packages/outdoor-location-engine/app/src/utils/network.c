@@ -2,7 +2,7 @@
 #include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(network_utils, 4);
+LOG_MODULE_REGISTER(network_utils, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 char* getIpAddressFromHostname(char* hostname) {
     struct zsock_addrinfo *res, *ai;
@@ -14,7 +14,7 @@ char* getIpAddressFromHostname(char* hostname) {
 
     ret = zsock_getaddrinfo(hostname, NULL, &hints, &res);
     if (ret) {
-        LOG_INF("Unable to resolve hostname, error: %d\n", ret);
+        LOG_INF("Unable to resolve hostname, error: %d", ret);
         return NULL;
     }
 
@@ -27,7 +27,7 @@ char* getIpAddressFromHostname(char* hostname) {
         }
 
         zsock_inet_ntop(ai->ai_family, &((struct sockaddr_in *)ai->ai_addr)->sin_addr, ip_str, INET_ADDRSTRLEN);
-        LOG_INF("IP Address for hostname %s: %s\n", hostname, ip_str);
+        LOG_INF("IP Address for hostname %s: %s", hostname, ip_str);
         break;
     }
     zsock_freeaddrinfo(res);

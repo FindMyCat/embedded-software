@@ -5,7 +5,7 @@
 #include <zephyr/logging/log.h>
 
 
-LOG_MODULE_REGISTER(sms_listener, 4);
+LOG_MODULE_REGISTER(sms_listener, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 /**
  * @brief Function to initialize SMS listener and register callback.
@@ -15,7 +15,7 @@ void sms_listener_init(void* smsCallback) {
 
 	handle = sms_register_listener(smsCallback, NULL);
 	if (handle) {
-		LOG_ERR("sms_register_listener returned err: %d\n", handle);
+		LOG_ERR("sms_register_listener returned err: %d", handle);
 		return;
 	}
 

@@ -1,9 +1,10 @@
+#include <errno.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/logging/log.h>
 #include "../Responder/Responder.h"
 #include "../Dispatcher/Dispatcher.h"
 
-LOG_MODULE_REGISTER(new_udp_listener, 4);
+LOG_MODULE_REGISTER(new_udp_listener, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 #define UDP_PORT 12345
 #define MAX_DATA_SIZE 256
@@ -51,29 +52,39 @@ void start_listening() {
         // Note that the recv call is blocking until data is received.
         recv_len = zsock_recv(udp_socket, rx_data, sizeof(rx_data), 0);
         if (recv_len < 0) {
-            printk("Error: Unable to receive data\n");
-            break;
+            /* A dead socket must not kill the thread. Breaking out here ends
+             * start_listening(), so one transient error during a PDN drop left
+             * the collar deaf to every later command until it was rebooted. */
+            LOG_ERR("Error: Unable to receive data (%d)", errno);
+
+            if (errno == EAGAIN || errno == EINTR) {
+                continue;
+            }
+
+            LOG_WRN("Recreating UDP listener socket");
+            destroy_udp_listener();
+            if (create_udp_listener() != 0) {
+                k_sleep(K_SECONDS(5));
+            }
+            continue;
         }
 
-        // Print the received data
-        printk("Received data: %.*s\n", (int)recv_len, rx_data);
+        LOG_INF("Command %s", rx_data);
 
-		// Two commands are supported over UDP. 
-		// We should keep these command strings small as possible for least data transfer.
-        if (strncmp(rx_data, "ping", recv_len) == 0) {
-            LOG_INF("Dispatcher state changed to DISPATCHER_STATE_PING_MODE\n");
+		// Commands are kept short so each one costs as little data as possible.
+		// The dispatcher logs the state it moves to, so no need to log it here.
+        if (strncmp(rx_data, "spoof-ping", recv_len) == 0) {
+            changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_SPOOF_PING);
+        } else if (strncmp(rx_data, "ping", recv_len) == 0) {
             changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
         } else if(strncmp(rx_data, "lost", recv_len) == 0) {
-            LOG_INF("Dispatcher state changed to DISPATCHER_STATE_LOST_MODE\n");
             changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
         } else if (strncmp(rx_data, "active", recv_len) == 0) {
-			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_ACTIVE_MODE\n");
             changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
 		} else if (strncmp(rx_data, "idle", recv_len) == 0) {
-			LOG_INF("Dispatcher state changed to DISPATCHER_STATE_IDLE\n");
             changeDispatcherState(DISPATCHER_STATE_IDLE);
 		} else {
-			LOG_ERR("Unknown command: %s\n", rx_data);
+			LOG_ERR("Error: Unknown command: %s", rx_data);
 		}
 
     }
