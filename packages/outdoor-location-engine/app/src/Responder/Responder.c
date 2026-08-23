@@ -13,7 +13,11 @@ static struct k_timer periodic_timer;
 
 void periodic_work_handler(struct k_timer *dummy)
 {
-    LOG_INF("Checking mqtt-sn input");
+    if (!get_mqttsn_connection_status()) {
+        return;
+    }
+
+    LOG_DBG("Checking mqtt-sn input");
     mqttsn_check_input();
 }
 
@@ -28,8 +32,10 @@ void respond_to_ping(void) {
     // connect mqttsn, get location, publish, disconnect.
     k_timer_init(&periodic_timer, periodic_work_handler, NULL);
     k_timer_start(&periodic_timer, K_SECONDS(2), K_SECONDS(CONFIG_MQTT_SN_REFRESH_PERIOD_SECONDS));
+    /* Blocks until the request ends, so a slow fix is waited out instead of
+     * being cancelled by a fixed timer. The publish already happened in the
+     * location event handler by the time this returns. */
     location_gnss_high_accuracy_get();
-    k_sleep(K_SECONDS(30));
     changeDispatcherState(DISPATCHER_STATE_IDLE);
 }
 

@@ -5,6 +5,16 @@
 
 #include <stdbool.h>
 
+/**
+ * @brief Use the device id the iOS app pushed over BLE as the client id.
+ *
+ * Traccar matches positions on this string, so it has to be the collar's own
+ * identity rather than the compile-time default.
+ *
+ * @return 0 if applied, -EINVAL if empty or unchanged.
+ */
+int mqttsn_set_client_id(const char *device_id);
+
 int mqttsn_initialize();
 int mqttsn_disconnect();
 int mqttsn_check_input();

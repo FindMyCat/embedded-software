@@ -200,10 +200,14 @@ static void nrf52_config_work_handler(struct k_work *work) {
   /* On a transient failure, retry while the data-ready line is still asserted:
    * the nRF52 holds it high until we ack, so a held-high line means "still
    * pending" and there is no fresh edge to re-trigger us. */
-  if (nrf52_read_config(&nrf52_config) != 0 &&
-      gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
-    k_work_reschedule(&nrf52_config_work, K_MSEC(100));
+  if (nrf52_read_config(&nrf52_config) != 0) {
+    if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
+      k_work_reschedule(&nrf52_config_work, K_MSEC(100));
+    }
+    return;
   }
+
+  mqttsn_set_client_id(nrf52_config.device_id);
 }
 
 /**
@@ -416,49 +420,9 @@ retry:
   }
 #endif
 
-#if defined(CONFIG_UDP_REACHABILITY_TEST)
-  LOG_INF("UDP reachability bench test");
-
-  while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
-    err = initializeLte();
-    if (!err) {
-      break;
-    }
-    LOG_ERR("Error: LTE connect failed (%d), retrying", err);
-    retry_count++;
-    k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
-  }
-
-  if (create_udp_listener() != 0) {
-    LOG_ERR("Error: UDP listener creation failed");
-    return -1;
-  }
-
-  start_udp_listener_thread();
-
-  /* One touch up front so the carrier has seen this path at least once, then
-   * silence: any ping that stops landing during the silent phase dates the
-   * idle timer. */
-  udp_listener_touch_uplink(
-      IS_ENABLED(CONFIG_UDP_REACHABILITY_TEST_TOUCH_FROM_LISTENER_PORT));
-
-#if CONFIG_UDP_REACHABILITY_TEST_TOUCH_INTERVAL_S > 0
-  k_sleep(K_SECONDS(CONFIG_UDP_REACHABILITY_TEST_SILENT_PHASE_S));
-
-  while (true) {
-    udp_listener_touch_uplink(
-        IS_ENABLED(CONFIG_UDP_REACHABILITY_TEST_TOUCH_FROM_LISTENER_PORT));
-    k_sleep(K_SECONDS(CONFIG_UDP_REACHABILITY_TEST_TOUCH_INTERVAL_S));
-  }
-#else
-  /* Silent run: the listener thread does the work, so this one never needs to
-   * wake again. Any periodic wake here would show up in the current trace. */
-  k_sleep(K_FOREVER);
-#endif
-#endif
-
+#if defined(CONFIG_WIFI_SCAN_LORA_TEST)
   /* WiFi scan hello world */
-#define WIFI_SCAN_LORA_ACCESS_POINTS 6
+#define WIFI_SCAN_LORA_ACCESS_POINTS CONFIG_WIFI_SCAN_LORA_TEST_ACCESS_POINTS
 
   wifi_scan_init();
   while (true) {
@@ -485,8 +449,9 @@ retry:
       rak3172_suspend();
     }
 
-    k_sleep(K_SECONDS(15));
+    k_sleep(K_SECONDS(CONFIG_WIFI_SCAN_LORA_TEST_INTERVAL_S));
   }
+#endif
 
   /* WiFi location hello world */
   // err = wifi_location_init();

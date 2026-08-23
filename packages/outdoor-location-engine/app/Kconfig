@@ -150,40 +150,22 @@ config LORA_RAK3172_INIT
 	  its log is not interleaved with AT traffic. LORA_CAD_RX_TEST needs
 	  this enabled.
 
-config UDP_REACHABILITY_TEST
-	bool "Carrier inbound-UDP idle timer bench test"
+config WIFI_SCAN_LORA_TEST
+	bool "WiFi scan to LoRa uplink bench test"
 	help
-	  Connects LTE, starts the UDP listener and then deliberately stays
-	  silent so the carrier idle timer can expire. Logs the age of the last
-	  uplink next to every inbound datagram, so Hologram Cloud Messaging
-	  pings sent from the iOS app can be correlated with uplink silence.
-	  After the silent phase it starts touching the uplink periodically to
-	  show whether inbound delivery recovers.
+	  Scans for access points, packs the strongest ones and sends them over
+	  LoRa on a loop instead of running the normal application flow. Needs
+	  LORA_RAK3172_INIT enabled.
 
-config UDP_REACHABILITY_TEST_SILENT_PHASE_S
-	int "Seconds to stay silent before the touch phase begins"
-	depends on UDP_REACHABILITY_TEST
-	default 600
+config WIFI_SCAN_LORA_TEST_ACCESS_POINTS
+	int "Access points packed into each LoRa frame"
+	depends on WIFI_SCAN_LORA_TEST
+	default 6
 
-config UDP_REACHABILITY_TEST_TOUCH_INTERVAL_S
-	int "Uplink touch interval during the touch phase (0 = never touch)"
-	depends on UDP_REACHABILITY_TEST
-	default 20
-	help
-	  Must be shorter than the carrier idle timer to hold the path open.
-	  Hologram documents 30 seconds in Open state and 60 in Ready state. Set
-	  to 0 to stay silent for the whole run, which dates how long inbound
-	  delivery survives with no uplink at all.
-
-config UDP_REACHABILITY_TEST_TOUCH_FROM_LISTENER_PORT
-	bool "Touch from the listener port rather than an ephemeral one"
-	depends on UDP_REACHABILITY_TEST
-	default y
-	help
-	  Distinguishes a per-flow carrier idle timer from a per-session one. If
-	  inbound only recovers with this enabled, the carrier tracks state per
-	  five-tuple. If an ephemeral port also restores it, the timer applies to
-	  the whole PDN session.
+config WIFI_SCAN_LORA_TEST_INTERVAL_S
+	int "Seconds between scans"
+	depends on WIFI_SCAN_LORA_TEST
+	default 15
 
 endmenu
 

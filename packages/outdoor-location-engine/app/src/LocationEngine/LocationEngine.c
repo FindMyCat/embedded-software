@@ -150,11 +150,23 @@ void location_event_handler(const struct location_event_data *event_data)
 		LOG_INF("Getting location assistance requested (P-GPS). Not doing anything.");
 		break;
 
+	case LOCATION_EVT_STARTED:
+		LOG_INF("Getting location by %s started", location_method_str(event_data->method));
+		return;
+
+	case LOCATION_EVT_FALLBACK:
+		LOG_INF("Getting location fell back to %s",
+			location_method_str(event_data->method));
+		return;
+
 	default:
 		LOG_INF("Getting location: Unknown event");
 		break;
 	}
 
+	/* Only the events that end a request release the waiter. STARTED and
+	 * FALLBACK arrive while the procedure is still running, and waking the
+	 * caller there makes it treat a request that has barely begun as done. */
 	k_sem_give(&location_event);
 }
 

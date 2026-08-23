@@ -14,18 +14,43 @@
 
 static APP_BMEM struct mqtt_sn_client client;
 static APP_BMEM struct mqtt_sn_transport_udp tp;
-/* TODO: take the client id from fmc_config.device_id, which the iOS app pushes
- * over BLE, instead of the compile-time CONFIG_DEVICE_ID. Every collar built
- * from this tree currently shares one identity, and Traccar matches incoming
- * positions on this string against a device uniqueId. */
+/* Defaults to the compile-time id so a bench board works with no nRF52
+ * attached, replaced by the device id the iOS app pushes over BLE. */
+static APP_BMEM char client_id_buf[37];
 static APP_BMEM struct mqtt_sn_data client_id = MQTT_SN_DATA_STRING_LITERAL(CONFIG_DEVICE_ID);
 
 static uint8_t tx_buf[CONFIG_MQTT_SN_BUFFER_SIZE];
 static uint8_t rx_buf[CONFIG_MQTT_SN_BUFFER_SIZE];
 
 static bool mqtt_sn_connected = false;
+/* mqtt_sn_client_deinit() memsets the client, so its transport and buffers are
+ * gone both before the first init and after every disconnect. Library calls in
+ * that window can only fail, so they are skipped rather than made. */
+static bool client_initialized;
 
 LOG_MODULE_REGISTER(mqttsn, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
+
+int mqttsn_set_client_id(const char *device_id)
+{
+	if (!device_id || !device_id[0] ||
+	    strncmp(client_id_buf, device_id, sizeof(client_id_buf)) == 0) {
+		return -EINVAL;
+	}
+
+	strncpy(client_id_buf, device_id, sizeof(client_id_buf) - 1);
+	client_id.data = (const uint8_t *)client_id_buf;
+	client_id.size = strlen(client_id_buf);
+
+	LOG_INF("Client id is now %s", client_id_buf);
+
+	/* The client is handed the id at init and the gateway binds it at CONNECT,
+	 * so a live session keeps the old identity until it is torn down. */
+	if (mqtt_sn_connected) {
+		mqttsn_disconnect();
+	}
+
+	return 0;
+}
 
 /**
  * @brief Callback function for MQTT-SN events.
@@ -62,7 +87,6 @@ void evt_cb(struct mqtt_sn_client *client, const struct mqtt_sn_evt *evt)
  * @brief Function to initialize MQTT-SN connection.
  */
 int mqttsn_initialize() {
-	static bool client_initialized;
 	int err;
 	struct sockaddr_in gateway = {0};
 
@@ -71,8 +95,8 @@ int mqttsn_initialize() {
 	 * reconnects, and add_gw then fails with "no free slot". */
 	if (client_initialized) {
 		mqtt_sn_client_deinit(&client);
+		client_initialized = false;
 	}
-	client_initialized = true;
 
 	char *ip_str = getIpAddressFromHostname(CONFIG_FINDMYCAT_CLOUD_HOSTNAME);
 	gateway.sin_family = AF_INET;
@@ -82,7 +106,7 @@ int mqttsn_initialize() {
 	// // __ASSERT(err == 0, "zsock_inet_pton() failed %d", err);
 
 	LOG_INF("Connecting to MQTT-SN gateway %s:%d as client %s, topic %s", ip_str,
-		CONFIG_MQTT_SN_GATEWAY_PORT, CONFIG_DEVICE_ID,
+		CONFIG_MQTT_SN_GATEWAY_PORT, client_id.data,
 		CONFIG_MQTT_SN_PUBLISH_TOPIC);
 
 	err = mqtt_sn_transport_udp_init(&tp, (struct sockaddr *)&gateway, sizeof((gateway)));
@@ -102,6 +126,8 @@ int mqttsn_initialize() {
 		LOG_ERR("Error: mqtt_sn_client_init() failed: %d", err);
 		return err;
 	}
+
+	client_initialized = true;
 
 	struct mqtt_sn_data gw_addr = {
 		.data = (const uint8_t *)&gateway,
@@ -126,6 +152,10 @@ int mqttsn_initialize() {
  * @brief Function to check for MQTT-SN input.
  */
 int mqttsn_check_input() {
+	if (!client_initialized) {
+		return 0;
+	}
+
 	int err = mqtt_sn_input(&client);
 	if (err < 0) {
 		LOG_ERR("failed: input: %d", err);
@@ -154,7 +184,7 @@ int mqttsn_publish(char *data_str) {
 
 	
 	LOG_INF("Publishing to %s as client %s: %s", CONFIG_MQTT_SN_PUBLISH_TOPIC,
-		CONFIG_DEVICE_ID, data_str);
+		client_id.data, data_str);
 
 	int err = mqtt_sn_publish(&client, MQTT_SN_QOS_0, &topic_p, false, &pubdata);
 	if (err < 0) {
@@ -182,6 +212,10 @@ int mqttsn_publish_test(void) {
  * @brief Function to disconnect from the MQTT-SN gateway.
  */
 int mqttsn_disconnect() {
+	if (!client_initialized) {
+		return 0;
+	}
+
 	/* Send the DISCONNECT before releasing the client: deinit destroys the
 	 * gateway list, and without a gateway there is nowhere to send it. The
 	 * gateway then keeps the session open and ignores our next CONNECT. */
@@ -191,6 +225,7 @@ int mqttsn_disconnect() {
 	}
 
 	mqtt_sn_client_deinit(&client);
+	client_initialized = false;
 
 	return err;
 }
