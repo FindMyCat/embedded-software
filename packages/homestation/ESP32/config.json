@@ -1,0 +1,22 @@
+{
+  "wifi": {
+    "ssid": "your-wifi-ssid",
+    "password": "your-wifi-password"
+  },
+  "mqtt": {
+    "broker": "your-mqtt-broker-hostname",
+    "port": 1883,
+    "topic": "/your-traccar-device-topic",
+    "client_id": "your-findmycat-device-imei"
+  },
+  "location": {
+    "latitude": 0.0,
+    "longitude": 0.0,
+    "accuracy": 5.00
+  },
+  "ble": {
+    "collar_name_prefix": "FMC",
+    "homestation_name": "FindMyCatHomeStation",
+    "presence_timeout_ms": 30000
+  }
+}
