@@ -32,8 +32,20 @@ target_sources(app PRIVATE src/mqtt/mqttsn.h)
 target_sources(app PRIVATE src/utils/network.c)
 target_sources(app PRIVATE src/utils/network.h)
 
+target_sources(app PRIVATE src/LTE/lte.c)
+target_sources(app PRIVATE src/LTE/lte.h)
+
 target_sources(app PRIVATE src/LoRa/rak3172.c)
 target_sources(app PRIVATE src/LoRa/rak3172.h)
+
+target_sources(app PRIVATE src/LoRa/lora_frame.c)
+target_sources(app PRIVATE src/LoRa/lora_frame.h)
+
+target_sources_ifdef(CONFIG_LORA_LINK app PRIVATE src/LoRa/lora_link.c)
+target_sources_ifdef(CONFIG_LORA_LINK app PRIVATE src/LoRa/lora_link.h)
+
+target_sources(app PRIVATE src/comm/transport.c)
+target_sources(app PRIVATE src/comm/transport.h)
 
 target_sources(app PRIVATE src/WiFi/wifi_location.c)
 target_sources(app PRIVATE src/WiFi/wifi_location.h)

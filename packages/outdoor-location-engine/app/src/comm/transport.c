@@ -1,0 +1,79 @@
+#include "transport.h"
+
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+
+#include "../FuelGauge/fuel_gauge.h"
+#include "../LoRa/lora_link.h"
+#include "../mqtt/mqttsn.h"
+
+LOG_MODULE_REGISTER(transport,
+                    CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
+
+#define POSITION_JSON_BYTES 100
+
+static uint8_t get_battery_percent(void) {
+  float state_of_charge;
+
+  if (fuel_gauge_get_state_of_charge(&state_of_charge) != 0) {
+    return UINT8_MAX;
+  }
+
+  if (state_of_charge < 0.f || state_of_charge > 100.f) {
+    return UINT8_MAX;
+  }
+
+  return (uint8_t)state_of_charge;
+}
+
+static uint16_t get_accuracy_decimetres(double accuracy_metres) {
+  double decimetres = accuracy_metres * 10.0;
+
+  if (accuracy_metres < 0.0 || decimetres >= (double)UINT16_MAX) {
+    return UINT16_MAX;
+  }
+
+  return (uint16_t)decimetres;
+}
+
+#if defined(CONFIG_LORA_LINK)
+static int publish_over_lora(const struct position_report *report) {
+  // encodes position_report into LORA frame
+  struct lora_frame_position position = {
+      .latitude_microdegrees = (int32_t)(report->latitude * 1000000.0),
+      .longitude_microdegrees = (int32_t)(report->longitude * 1000000.0),
+      .accuracy_decimetres = get_accuracy_decimetres(report->accuracy_metres),
+      .satellites = (uint8_t)report->satellites,
+      .battery_percent = get_battery_percent(),
+  };
+
+  return lora_link_send_position(&position);
+}
+#endif /* CONFIG_LORA_LINK */
+
+static int publish_over_cellular(const struct position_report *report) {
+  char json[POSITION_JSON_BYTES];
+
+  snprintk(json, sizeof(json), "{\"msg\": \"%.06f,%.06f,%d,%.02f,%d\"}",
+           report->latitude, report->longitude, report->satellites,
+           report->accuracy_metres, get_battery_percent());
+
+  return mqttsn_publish_with_session(CONFIG_MQTT_SN_LOCATION_TOPIC, json);
+}
+
+int transport_publish_position(const struct position_report *report) {
+#if defined(CONFIG_LORA_LINK)
+  if (lora_link_homestation_in_range()) {
+    int err = publish_over_lora(report);
+
+    if (err == 0) {
+      LOG_INF("Position sent over LoRa");
+      return 0;
+    }
+
+    LOG_WRN("LoRa send failed (%d), falling back to MQTT-SN", err);
+  }
+#endif
+
+  return publish_over_cellular(report);
+}

@@ -6,14 +6,11 @@
 #include <stdbool.h>
 
 /**
- * @brief Use the device id the iOS app pushed over BLE as the client id.
- *
- * Traccar matches positions on this string, so it has to be the collar's own
- * identity rather than the compile-time default.
+ * @brief Use the device id and hostname the iOS/Android app pushed over BLE.
  *
  * @return 0 if applied, -EINVAL if empty or unchanged.
  */
-int mqttsn_set_client_id(const char *device_id);
+int initialize_mqttsn_config(const char *device_id, const char *hostname);
 
 int mqttsn_initialize();
 int mqttsn_disconnect();
@@ -21,11 +18,21 @@ int mqttsn_check_input();
 int mqttsn_publish(char *data_str);
 
 /**
- * @brief Publish a fixed dummy position at 0,0.
+ * @brief Publish a payload to the given topic.
  *
- * Exercises the gateway, rule engine and Traccar without waiting for a GNSS
- * fix. The caller must already be connected and must keep calling
- * mqttsn_check_input() so replies are processed.
+ * @return 0 if queued, -ENOTCONN if no session is live, negative errno otherwise.
+ */
+int mqttsn_publish_topic(const char *topic, const char *data_str);
+
+/**
+ * @brief Publish a payload to the given topic, opening a session if needed.
+ *
+ * @return 0 if the message was queued, negative errno otherwise.
+ */
+int mqttsn_publish_with_session(const char *topic, const char *data_str);
+
+/**
+ * @brief Publish a fixed dummy position.
  *
  * @return 0 on success, negative errno otherwise.
  */

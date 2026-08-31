@@ -18,6 +18,9 @@ static const struct device *uart_dev = DEVICE_DT_GET(DT_ALIAS(lora_uart));
 static const struct gpio_dt_spec lora_reset =
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(lora_reset), gpios, {0});
 
+#define CADEVT_PREFIX "AT+CADEVT="
+#define CADEVT_PREFIX_LEN (sizeof(CADEVT_PREFIX) - 1)
+
 #define RX_RING_BUF_SIZE 256
 RING_BUF_DECLARE(rx_ring_buf, RX_RING_BUF_SIZE);
 static K_SEM_DEFINE(rx_sem, 0, RX_RING_BUF_SIZE);
@@ -47,7 +50,26 @@ static int rx_get_byte(uint8_t *c, int64_t remaining_ms) {
   return 0;
 }
 
+/* Drop whatever is still buffered from an earlier command. A read that timed
+ * out leaves its late reply behind, and the next command then reads that stale
+ * line instead of its own, misattributing every response after it. */
+static void rx_flush(void) {
+  unsigned int key = irq_lock();
+
+  ring_buf_reset(&rx_ring_buf);
+  k_sem_reset(&rx_sem);
+  irq_unlock(key);
+}
+
 void rak3172_send_at(const char *cmd) {
+  /* Under AT+LPM the module sleeps between commands and spends the first byte
+   * it receives on waking its UART. Spend a newline on that instead of the
+   * command, which would otherwise arrive truncated and be rejected as
+   * AT_COMMAND_NOT_FOUND. The newline's own OK is flushed below. */
+  uart_poll_out(uart_dev, '\n');
+  k_sleep(K_MSEC(10));
+
+  rx_flush();
   LOG_INF(">> %s", cmd);
   for (const char *s = cmd; *s; s++) {
     uart_poll_out(uart_dev, *s);
@@ -157,14 +179,6 @@ int rak3172_init(void) {
       continue;
     }
     k_sleep(K_MSEC(500));
-
-    LOG_INF("Enabling low power mode");
-    rak3172_send_at("AT+LPM=1");
-    rak3172_read_response(1000);
-
-    LOG_INF("Setting LPMLVL value");
-    rak3172_send_at("AT+LPMLVL=2");
-    rak3172_read_response(1000);
 
     LOG_INF("RAK3172 ready");
     return 0;
@@ -371,6 +385,36 @@ int rak3172_cad_rx_set_pin(uint32_t pin) {
   return err;
 }
 
+int rak3172_cad_rx_set_filter(const char *hex) {
+  char cmd[32];
+
+  snprintf(cmd, sizeof(cmd), "AT+CADFILT=%s", hex);
+  rak3172_send_at(cmd);
+
+  int err = rak3172_read_response(3000);
+
+  if (err != 0) {
+    LOG_ERR("Error: AT+CADFILT rejected (%d)", err);
+  }
+
+  return err;
+}
+
+int rak3172_cad_rx_set_presence(const char *hex) {
+  char cmd[32];
+
+  snprintf(cmd, sizeof(cmd), "AT+CADPRES=%s", hex);
+  rak3172_send_at(cmd);
+
+  int err = rak3172_read_response(3000);
+
+  if (err != 0) {
+    LOG_ERR("Error: AT+CADPRES rejected (%d)", err);
+  }
+
+  return err;
+}
+
 int rak3172_cad_rx_set_absence(uint32_t seconds) {
   char cmd[32];
 
@@ -387,8 +431,24 @@ int rak3172_cad_rx_set_absence(uint32_t seconds) {
 }
 
 int rak3172_cad_rx_event(void) {
+  char line[64];
+
   rak3172_send_at("AT+CADEVT=?");
-  return rak3172_read_response(3000);
+
+  if (rak3172_wait_event(CADEVT_PREFIX, line, sizeof(line), 3000) != 0) {
+    return -EIO;
+  }
+
+  const char *value = line + CADEVT_PREFIX_LEN;
+
+  if (strcmp(value, "ABSENT") == 0) {
+    return RAK3172_CAD_EVENT_ABSENT;
+  }
+  if (strcmp(value, "PKT") == 0) {
+    return RAK3172_CAD_EVENT_PACKET;
+  }
+
+  return RAK3172_CAD_EVENT_NONE;
 }
 
 int rak3172_reset_test(void) {

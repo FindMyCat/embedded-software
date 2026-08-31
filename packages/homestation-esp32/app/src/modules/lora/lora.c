@@ -7,6 +7,8 @@
 #include <zephyr/zbus/zbus.h>
 
 #include "message_channel.h"
+#include "lora.h"
+#include "lora_frame.h"
 #include "rak3172.h"
 #include "wifi_scan_frame.h"
 #if defined(CONFIG_WIFI_GEOLOCATION)
@@ -26,10 +28,9 @@ ZBUS_SUBSCRIBER_DEFINE(lora, CONFIG_LORA_MESSAGE_QUEUE_SIZE);
  * Body of a +EVT:RXP2P line, formatted by RUI3 as RSSI:SNR:payload-hex.
  * Kept free of anything slow so the caller can re-arm the receiver promptly.
  *
- * @return 0 if *out holds a decoded report, a negative errno otherwise.
+ * @return payload length in bytes, or a negative errno.
  */
-static int decode_rxp2p(char *body, struct wifi_scan_report *out) {
-  uint8_t payload[LORA_MAX_PAYLOAD_BYTES];
+static int unpack_rxp2p(char *body, uint8_t *payload, size_t payload_len) {
   char *snr = strchr(body, ':');
 
   if (!snr) {
@@ -46,7 +47,7 @@ static int decode_rxp2p(char *body, struct wifi_scan_report *out) {
   }
   *hex++ = '\0';
 
-  size_t len = hex2bin(hex, strlen(hex), payload, sizeof(payload));
+  size_t len = hex2bin(hex, strlen(hex), payload, payload_len);
 
   if (len == 0) {
     LOG_WRN("Undecodable RXP2P payload: %s", hex);
@@ -55,18 +56,7 @@ static int decode_rxp2p(char *body, struct wifi_scan_report *out) {
 
   LOG_INF("LoRa RX: %u bytes, RSSI %s dBm, SNR %s", (unsigned)len, body, snr);
 
-  if (!wifi_scan_frame_matches(payload, len)) {
-    LOG_HEXDUMP_INF(payload, len, "Unrecognised payload");
-    return -ENOMSG;
-  }
-
-  int err = wifi_scan_frame_decode(payload, len, out);
-
-  if (err == 0) {
-    wifi_scan_report_log(out);
-  }
-
-  return err;
+  return (int)len;
 }
 
 #if defined(CONFIG_WIFI_GEOLOCATION)
@@ -86,6 +76,94 @@ static void resolve_position(const struct wifi_scan_report *report) {
   }
 }
 #endif
+
+#if defined(CONFIG_LORA_PING)
+static uint32_t ping_counter;
+
+static void send_ping(void) {
+  uint8_t frame[LORA_FRAME_MAX_BYTES];
+  int len = lora_frame_encode_ping(frame, sizeof(frame),
+                                   CONFIG_LORA_PING_DEVICE_ID, ping_counter);
+
+  if (len < 0) {
+    LOG_ERR("Error: encoding ping failed (%d)", len);
+    return;
+  }
+
+  LOG_INF("Pinging %s, counter %u", CONFIG_LORA_PING_DEVICE_ID, ping_counter);
+
+  if (rak3172_send_payload(frame, (size_t)len) == 0) {
+    ping_counter++;
+  }
+
+  /* Transmitting drops the module out of receive; the collar needs a GNSS fix
+   * before it answers, so get back in before that lands. */
+  rak3172_start_rx();
+}
+
+#if defined(CONFIG_LORA_BEACON)
+static uint32_t beacon_counter;
+
+/* Keeps the collar's absence timer clear. Its module resets that on the CAD
+ * detection alone, so this never has to be decoded to do its job. */
+static void send_beacon(void) {
+  uint8_t frame[LORA_FRAME_MAX_BYTES];
+  int len = lora_frame_encode_beacon(frame, sizeof(frame),
+                                     CONFIG_LORA_PING_DEVICE_ID,
+                                     beacon_counter);
+
+  if (len < 0) {
+    LOG_ERR("Error: encoding beacon failed (%d)", len);
+    return;
+  }
+
+  LOG_INF("Beacon %u", beacon_counter);
+
+  if (rak3172_send_payload(frame, (size_t)len) == 0) {
+    beacon_counter++;
+  }
+
+  rak3172_start_rx();
+}
+#endif
+
+/* A %d.%06d pair loses the sign between -1 and 0 degrees, where the whole part
+ * is 0 and carries no minus of its own. */
+static void format_microdegrees(char *out, size_t out_len,
+                                int32_t microdegrees) {
+  int32_t whole = microdegrees / 1000000;
+  int32_t fraction = microdegrees % 1000000;
+
+  snprintf(out, out_len, "%s%d.%06d",
+           (microdegrees < 0 && whole == 0) ? "-" : "", whole,
+           fraction < 0 ? -fraction : fraction);
+}
+
+/* A position frame is the collar's answer to a ping. */
+static void handle_position(const struct lora_frame *frame) {
+  char latitude[16];
+  char longitude[16];
+
+  format_microdegrees(latitude, sizeof(latitude),
+                      frame->position.latitude_microdegrees);
+  format_microdegrees(longitude, sizeof(longitude),
+                      frame->position.longitude_microdegrees);
+
+  LOG_INF("Position from %s, counter %u: %s, %s", frame->device_id,
+          frame->counter, latitude, longitude);
+
+  if (frame->position.accuracy_decimetres != UINT16_MAX) {
+    LOG_INF("  accuracy %u.%u m, %u satellites",
+            frame->position.accuracy_decimetres / 10,
+            frame->position.accuracy_decimetres % 10,
+            frame->position.satellites);
+  }
+
+  if (frame->position.battery_percent != UINT8_MAX) {
+    LOG_INF("  battery %u%%", frame->position.battery_percent);
+  }
+}
+#endif /* CONFIG_LORA_PING */
 
 #if defined(CONFIG_LORA_CAD_TEST)
 static void lora_cad_test_beacon(void) {
@@ -113,6 +191,40 @@ static void lora_cad_test_beacon(void) {
 }
 #endif
 
+/* Routes one received payload. The frame magic and the WiFi scan type byte are
+ * distinct, so the first match wins without ambiguity. */
+static void handle_payload(const uint8_t *payload, size_t len) {
+#if defined(CONFIG_LORA_PING)
+  struct lora_frame frame;
+
+  if (lora_frame_decode(payload, len, &frame) == 0) {
+    if (frame.type == LORA_FRAME_TYPE_POSITION) {
+      handle_position(&frame);
+    } else {
+      LOG_DBG("Frame type %d ignored", frame.type);
+    }
+    return;
+  }
+#endif
+
+  if (!wifi_scan_frame_matches(payload, len)) {
+    LOG_HEXDUMP_INF(payload, len, "Unrecognised payload");
+    return;
+  }
+
+  struct wifi_scan_report report;
+
+  if (wifi_scan_frame_decode(payload, len, &report) != 0) {
+    return;
+  }
+
+  wifi_scan_report_log(&report);
+
+#if defined(CONFIG_WIFI_GEOLOCATION)
+  resolve_position(&report);
+#endif
+}
+
 static void lora_task(void) {
   int err = rak3172_init();
 
@@ -127,36 +239,54 @@ static void lora_task(void) {
   return;
 #endif
 
+#if defined(CONFIG_LORA_PING)
+  /* The collar's receiver is duty cycled, so the preamble has to outlast one
+   * of its sniff periods for anything to be heard at all. */
+  rak3172_set_preamble(CONFIG_LORA_PING_PREAMBLE);
+#endif
+
+#if defined(CONFIG_LORA_BEACON)
+  int64_t next_beacon = k_uptime_get();
+#endif
+
   rak3172_start_rx();
 
   char event[320];
 
   while (true) {
+#if defined(CONFIG_LORA_BEACON)
+    if (k_uptime_get() >= next_beacon) {
+      send_beacon();
+      next_beacon =
+          k_uptime_get() + CONFIG_LORA_BEACON_INTERVAL_S * MSEC_PER_SEC;
+    }
+#endif
+
     if (rak3172_read_event(event, sizeof(event), 100) != 0) {
       continue;
     }
 
     if (strncmp(event, EVT_RXP2P_PREFIX, strlen(EVT_RXP2P_PREFIX)) == 0) {
-      struct wifi_scan_report report;
-      bool decoded =
-          decode_rxp2p(event + strlen(EVT_RXP2P_PREFIX), &report) == 0;
+      uint8_t payload[LORA_MAX_PAYLOAD_BYTES];
+      int len = unpack_rxp2p(event + strlen(EVT_RXP2P_PREFIX), payload,
+                             sizeof(payload));
 
       /* Re-arm before anything slow: the module left receive mode when the
        * packet arrived, and stays deaf until this runs. */
       rak3172_start_rx();
 
-#if defined(CONFIG_WIFI_GEOLOCATION)
-      if (decoded) {
-        resolve_position(&report);
+      if (len > 0) {
+        handle_payload(payload, (size_t)len);
       }
-#else
-      ARG_UNUSED(decoded);
-#endif
     } else {
       LOG_INF("  << %s", event);
     }
   }
 }
 
+/* Started by lora_start() rather than at boot, so it does not contend with the
+ * WiFi bring-up. */
 K_THREAD_DEFINE(lora_task_id, CONFIG_LORA_THREAD_STACK_SIZE, lora_task, NULL,
-                NULL, NULL, 3, 0, 0);
+                NULL, NULL, 3, 0, K_TICKS_FOREVER);
+
+void lora_start(void) { k_thread_start(lora_task_id); }

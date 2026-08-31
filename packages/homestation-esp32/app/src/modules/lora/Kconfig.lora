@@ -28,6 +28,54 @@ config LORA_CAD_TEST_PERIOD_MS
 	depends on LORA_CAD_TEST
 	default 5000
 
+config LORA_BEACON
+	bool "Beacon presence to the collar over LoRa"
+	select LORA_PING
+	help
+	  Transmits on an interval so the collar's CAD sniffing keeps hearing
+	  something. The collar's module clears its absence timer on the
+	  detection alone and never has to decode the frame, so this is what
+	  keeps the collar's modem down while the cat is home.
+
+config LORA_BEACON_INTERVAL_S
+	int "Seconds between beacons"
+	depends on LORA_BEACON
+	default 30
+	help
+	  The collar's CONFIG_LORA_LINK_ABSENCE_S should be several of these.
+	  Single misses are normal from fading and collisions, and each one
+	  wakes the collar's modem for nothing.
+
+config LORA_PING
+	bool "Ping the collar over LoRa and decode its position reply"
+	help
+	  Sends a ping frame on an interval and stays in receive between them,
+	  so the collar can answer with a position without waking its modem.
+	  The collar must be running CONFIG_LORA_LINK with the CAD firmware.
+
+config LORA_PING_DEVICE_ID
+	string "Device id of the collar to ping"
+	depends on LORA_PING
+	default "nrf9160"
+	help
+	  Must match the collar's CONFIG_DEVICE_ID, or whatever the iOS app
+	  pushed over BLE. The collar drops frames addressed to anything else.
+
+config LORA_PING_INTERVAL_S
+	int "Seconds between pings"
+	depends on LORA_PING
+	default 300
+
+config LORA_PING_PREAMBLE
+	int "Ping preamble length in symbols"
+	depends on LORA_PING
+	default 512
+	help
+	  Must outlast the collar's CONFIG_LORA_LINK_CAD_INTERVAL_MS sniff
+	  period, or its duty-cycled receiver never sees the packet. 512
+	  symbols is about 525 ms at SF7/125 kHz, pairing with the 450 ms
+	  default on the collar.
+
 config LORA_TX_POWER_DBM
 	int "P2P transmit power in dBm (5-22)"
 	default 5

@@ -15,12 +15,13 @@
 #include "comm/nrf52_link.h"
 #include "Dispatcher/Dispatcher.h"
 #include "FuelGauge/fuel_gauge.h"
+#include "LoRa/lora_link.h"
 #include "LoRa/rak3172.h"
+#include "LTE/lte.h"
 #include "WiFi/wifi_location.h"
 #include "WiFi/wifi_scan.h"
 #include "LocationEngine/LocationEngine.h"
 #include "mqtt/mqttsn.h"
-#include "Responder/Responder.h"
 #include "UDPListener/NewUDPListener.h"
 
 LOG_MODULE_REGISTER(main, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
@@ -29,165 +30,76 @@ LOG_MODULE_REGISTER(main, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 #define POWER_MODE_COMMAND_PIN DT_ALIAS(gpiocus10)
 
 static const struct gpio_dt_spec power_mode_command_recv_pin =
-    GPIO_DT_SPEC_GET_OR(POWER_MODE_COMMAND_PIN, gpios, {0});
+	GPIO_DT_SPEC_GET_OR(POWER_MODE_COMMAND_PIN, gpios, {0});
 
-/* RAK3172 raises this line for a buffered packet or when the home station has
- * gone silent; AT+CADEVT says which. */
 static const struct gpio_dt_spec lora_wake_pin =
-    GPIO_DT_SPEC_GET_OR(DT_ALIAS(lora_wake), gpios, {0});
+	GPIO_DT_SPEC_GET_OR(DT_ALIAS(lora_wake), gpios, {0});
 
-/* nRF52 raises this line when the iOS app has pushed new config over BLE */
 #define NRF52_CONFIG_READY_PIN DT_ALIAS(nrf52_config_ready)
 static const struct gpio_dt_spec nrf52_config_ready_pin =
-    GPIO_DT_SPEC_GET_OR(NRF52_CONFIG_READY_PIN, gpios, {0});
+	GPIO_DT_SPEC_GET_OR(NRF52_CONFIG_READY_PIN, gpios, {0});
 
-static struct fmc_config nrf52_config;
-static struct k_work_delayable nrf52_config_work;
-static struct gpio_callback nrf52_config_cb_data;
-
-static K_SEM_DEFINE(lte_connected, 0, 1);
-
-static K_SEM_DEFINE(time_update_finished, 0, 1);
-
-static void date_time_evt_handler(const struct date_time_evt *evt) {
-  k_sem_give(&time_update_finished);
-}
-
-static void lte_event_handler(const struct lte_lc_evt *const evt) {
-  switch (evt->type) {
-  case LTE_LC_EVT_NW_REG_STATUS:
-    if ((evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME) ||
-        (evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_ROAMING)) {
-      LOG_INF("Connected to LTE");
-      k_sem_give(&lte_connected);
-    }
-    break;
-  /* Which power mode the network actually granted, and whether the modem is
-   * currently in RRC idle or connected. The carrier applies a shorter inbound
-   * idle timer in idle mode, so this is the state the reachability test needs
-   * alongside the uplink age. */
-  case LTE_LC_EVT_EDRX_UPDATE:
-    LOG_INF("eDRX granted: mode %d, interval %.2f s, PTW %.2f s",
-            evt->edrx_cfg.mode, (double)evt->edrx_cfg.edrx,
-            (double)evt->edrx_cfg.ptw);
-    break;
-  case LTE_LC_EVT_PSM_UPDATE:
-    LOG_INF("PSM granted: TAU %d s, active time %d s", evt->psm_cfg.tau,
-            evt->psm_cfg.active_time);
-    break;
-  case LTE_LC_EVT_RRC_UPDATE:
-    LOG_INF("RRC mode: %s", evt->rrc_mode == LTE_LC_RRC_MODE_CONNECTED
-                                ? "connected"
-                                : "idle");
-    break;
-  /* Whether this cell honours the release hints we set with SO_RAI. Without
-   * AS RAI the modem waits out the network's RRC inactivity timer instead. */
-  case LTE_LC_EVT_RAI_UPDATE:
-    LOG_DBG("RAI on cell 0x%08x: AS %s, CP %s", evt->rai_cfg.cell_id,
-            evt->rai_cfg.as_rai ? "yes" : "no",
-            evt->rai_cfg.cp_rai ? "yes" : "no");
-    break;
-  default:
-    LOG_DBG("Unhandled LTE event %d", evt->type);
-    break;
-  }
-}
-
-/**
- * @brief Initialize LTE and wait for connection.
- */
-static int initializeLte() {
-  int err;
-
-  if (IS_ENABLED(CONFIG_DATE_TIME)) {
-    /* Registering early for date_time event handler to avoid missing
-     * the first event after LTE is connected.
-     */
-    date_time_register_handler(date_time_evt_handler);
-  }
-
-  LOG_INF("Connecting to LTE...");
-
-  lte_lc_register_handler(lte_event_handler);
-
-  /* Enable PSM. */
-  /* Turn on LTE power saving features. Also,
-   * request power saving features before network registration. Some
-   * networks rejects timer updates after the device has registered to the
-   * LTE network.
-   */
-  lte_lc_psm_req(false);
-  /** enhanced Discontinuous Reception */
-
-  LOG_INF("Requesting EDRX mode");
-  // Todo: Turn on EDRX mode after development complete.
-  err = lte_lc_edrx_req(true);
-
-  if (err) {
-    LOG_INF("lte_lc_edrx_req, error: %d", err);
-  }
-
-  err = lte_lc_connect();
-
-  k_sem_take(&lte_connected, K_FOREVER);
-
-  return err;
-}
+static struct fmc_config fmc_config_nrf52;
+static struct k_work_delayable fmc_nrf52_config__work;
+static struct gpio_callback fmc_config_nrf52_cb_data;
 
 /**
  * @brief Initialize location services.
  *
  * DOES NOT call method to request location, only initializes the library.
  */
-static int initializeLocation() {
-  /* A-GPS/P-GPS needs to know the current time. */
-  if (IS_ENABLED(CONFIG_DATE_TIME)) {
-    LOG_INF("Waiting for current time");
+static int initialize_location_services()
+{
+    /* A-GPS/P-GPS needs to know the current time. */
+    if (IS_ENABLED(CONFIG_DATE_TIME)) {
+	LOG_INF("Waiting for current time");
 
-    /* Wait for an event from the Date Time library. */
-    k_sem_take(&time_update_finished, K_MINUTES(10));
+	/* Wait for an event from the Date Time library. */
+	lte_wait_for_time(K_MINUTES(10));
 
-    if (!date_time_is_valid()) {
-      LOG_INF("Failed to get current time. Continuing anyway.");
+	if (!date_time_is_valid()) {
+	    LOG_INF("Failed to get current time. Continuing anyway.");
+	}
     }
-  }
 
-  int err = location_init(location_event_handler);
-  if (err) {
-    LOG_INF("Initializing the Location library failed, error: %d", err);
-    return -1;
-  }
+    int err = location_init(location_event_handler);
+    if (err) {
+	LOG_INF("Initializing the Location library failed, error: %d", err);
+	return -1;
+    }
 
-  return err;
+    return err;
 }
 
-#define BUTTON_DEBOUNCE_TIME 50
-uint32_t last_button_press_time;
+#define POWER_MODE_COMMAND_DEBOUNCE_TIME 50
+uint32_t last_powermode_command_received_timestamp;
 /**
  * @brief Callback function for when the power mode command is received through
  * gpio interrupt.
  */
-static void power_mode_command_recieved() {
-  k_sleep(K_MSEC(100));
-  int power_mode_command = gpio_pin_get_dt(&power_mode_command_recv_pin);
-  uint32_t newPressTime = k_uptime_get_32();
+static void powermode_command_recieved__cb()
+{
+    k_sleep(K_MSEC(100));
+    int power_mode_command = gpio_pin_get_dt(&power_mode_command_recv_pin);
+    uint32_t command_recv_time = k_uptime_get_32();
 
-  if (k_uptime_get_32() - last_button_press_time < BUTTON_DEBOUNCE_TIME) {
-    return;
-  }
+    if (k_uptime_get_32() - last_powermode_command_received_timestamp <
+	POWER_MODE_COMMAND_DEBOUNCE_TIME) {
+	return;
+    }
 
-  if (power_mode_command == 0) {
-    LOG_INF("Power mode set to eDRX");
-    // lte_lc_psm_req(false);
-    lte_lc_edrx_req(true);
+    if (power_mode_command == 0) {
+	LOG_INF("Power mode set to eDRX");
+	lte_lc_psm_req(false);
+	lte_lc_edrx_req(true);
 
-  } else if (power_mode_command == 1) {
-    LOG_INF("Power mode set to PSM");
-    lte_lc_psm_req(true);
-    lte_lc_edrx_req(false);
-  }
+    } else if (power_mode_command == 1) {
+	LOG_INF("Power mode set to PSM");
+	lte_lc_psm_req(true);
+	lte_lc_edrx_req(false);
+    }
 
-  last_button_press_time = newPressTime;
+    last_powermode_command_received_timestamp = command_recv_time;
 }
 
 static struct gpio_callback pwr_mode_cb_data;
@@ -195,334 +107,285 @@ static struct gpio_callback pwr_mode_cb_data;
 /**
  * @brief Read the config the nRF52 published. Runs on the system workqueue.
  */
-static void nrf52_config_work_handler(struct k_work *work) {
-  ARG_UNUSED(work);
-  /* On a transient failure, retry while the data-ready line is still asserted:
-   * the nRF52 holds it high until we ack, so a held-high line means "still
-   * pending" and there is no fresh edge to re-trigger us. */
-  if (nrf52_read_config(&nrf52_config) != 0) {
-    if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
-      k_work_reschedule(&nrf52_config_work, K_MSEC(100));
+static void nrf52_config_work_handler(struct k_work *work)
+{
+    ARG_UNUSED(work);
+    /* On a transient failure, retry while the data-ready line is still asserted:
+     * the nRF52 holds it high until we ack, so a held-high line means "still
+     * pending" and there is no fresh edge to re-trigger us. */
+    if (nrf52_read_config(&fmc_config_nrf52) != 0) {
+	if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
+	    k_work_reschedule(&fmc_nrf52_config__work, K_MSEC(100));
+	}
+	return;
     }
-    return;
-  }
 
-  mqttsn_set_client_id(nrf52_config.device_id);
+    initialize_mqttsn_config(fmc_config_nrf52.device_id, fmc_config_nrf52.host);
+#if defined(CONFIG_LORA_LINK)
+    lora_link_set_device_id(fmc_config_nrf52.device_id);
+#endif
 }
 
 /**
  * @brief ISR for the nRF52 config-ready line; defers the i2c read to a workitem.
  */
-static void nrf52_config_ready_isr(const struct device *port,
-                                   struct gpio_callback *cb, uint32_t pins) {
-  ARG_UNUSED(port);
-  ARG_UNUSED(cb);
-  ARG_UNUSED(pins);
-  k_work_schedule(&nrf52_config_work, K_NO_WAIT);
+static void nrf52_config_ready_isr(const struct device *port, struct gpio_callback *cb,
+				   uint32_t pins)
+{
+    ARG_UNUSED(port);
+    ARG_UNUSED(cb);
+    ARG_UNUSED(pins);
+    k_work_schedule(&fmc_nrf52_config__work, K_NO_WAIT);
 }
 
 /**
  * @brief Application entry point.
  */
-int main(void) {
+int main(void)
+{
 
-  LOG_INF("*******************************");
-  LOG_INF("Welcome to FindMyCat v2.1");
-  LOG_INF("*******************************");
+    LOG_INF("*******************************");
+    LOG_INF("Welcome to FindMyCat v3.0 Preview");
+    LOG_INF("*******************************");
 
 retry:
-  if (!device_is_ready(power_mode_command_recv_pin.port)) {
-    LOG_ERR("Error: Device %s is not ready",
-            power_mode_command_recv_pin.port->name);
-    goto retry;
-  }
-
-  int err;
-  int retry_count = 0;
-
-  err = nrf_modem_lib_init();
-  if (err) {
-    LOG_ERR("Error: Failed to initialize modem library, error: %d", err);
-    return -1;
-  }
-  lte_lc_power_off();
-  err = gpio_pin_configure_dt(&power_mode_command_recv_pin,
-                              GPIO_INPUT | GPIO_PULL_DOWN);
-  if (err != 0) {
-    LOG_ERR("Error %d: failed to configure %s pin %d", err,
-            power_mode_command_recv_pin.port->name,
-            power_mode_command_recv_pin.pin);
-    goto retry;
-  }
-
-  err = gpio_pin_interrupt_configure_dt(&power_mode_command_recv_pin,
-                                        GPIO_INT_EDGE_BOTH);
-  if (err != 0) {
-    LOG_ERR("Error %d: failed to configure interrupt on %s pin %d", err,
-            power_mode_command_recv_pin.port->name,
-            power_mode_command_recv_pin.pin);
-    return -1;
-  }
-
-  gpio_init_callback(&pwr_mode_cb_data, power_mode_command_recieved,
-                     BIT(power_mode_command_recv_pin.pin));
-  gpio_add_callback(power_mode_command_recv_pin.port, &pwr_mode_cb_data);
-
-  /* nRF52 config-ready line: 52 raises it when the iOS app pushes new config */
-  if (device_is_ready(nrf52_config_ready_pin.port)) {
-    k_work_init_delayable(&nrf52_config_work, nrf52_config_work_handler);
-    gpio_pin_configure_dt(&nrf52_config_ready_pin, GPIO_INPUT);
-    gpio_pin_interrupt_configure_dt(&nrf52_config_ready_pin,
-                                    GPIO_INT_EDGE_TO_ACTIVE);
-    gpio_init_callback(&nrf52_config_cb_data, nrf52_config_ready_isr,
-                       BIT(nrf52_config_ready_pin.pin));
-    gpio_add_callback(nrf52_config_ready_pin.port, &nrf52_config_cb_data);
-    /* config may already be pending from before we armed the interrupt */
-    if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
-      k_work_schedule(&nrf52_config_work, K_NO_WAIT);
+    if (!device_is_ready(power_mode_command_recv_pin.port)) {
+	LOG_ERR("Error: Device %s is not ready", power_mode_command_recv_pin.port->name);
+	goto retry;
     }
-  } else {
-    LOG_ERR("Error: nRF52 config-ready pin not ready");
-  }
 
-  /* nPM1300 fuel gauge hello world */
-  err = fuel_gauge_start();
-  if (err != 0) {
-    LOG_ERR("Error: Fuel gauge start failed (%d)", err);
-  }
+    int err;
+    int retry_count = 0;
 
-  /* I2C link bench test: stream dummy battery frames to the nRF52 at 0x42
-   * (no nPM1300 needed). Remove once the link is verified. */
-  // while (true) {
-  //   fuel_gauge_send_test_frame();
-  //   k_sleep(K_SECONDS(2));
-  // }
+    err = nrf_modem_lib_init();
+    if (err) {
+	LOG_ERR("Error: Failed to initialize modem library, error: %d", err);
+	return -1;
+    }
+    lte_lc_power_off();
+    err = gpio_pin_configure_dt(&power_mode_command_recv_pin, GPIO_INPUT | GPIO_PULL_DOWN);
+    if (err != 0) {
+	LOG_ERR("Error %d: failed to configure %s pin %d", err,
+		power_mode_command_recv_pin.port->name, power_mode_command_recv_pin.pin);
+	goto retry;
+    }
 
-  /* RAK3172 hello world — send AT and print raw response */
+    err = gpio_pin_interrupt_configure_dt(&power_mode_command_recv_pin, GPIO_INT_EDGE_BOTH);
+    if (err != 0) {
+	LOG_ERR("Error %d: failed to configure interrupt on %s pin %d", err,
+		power_mode_command_recv_pin.port->name, power_mode_command_recv_pin.pin);
+	return -1;
+    }
+
+    gpio_init_callback(&pwr_mode_cb_data, powermode_command_recieved__cb,
+		       BIT(power_mode_command_recv_pin.pin));
+    gpio_add_callback(power_mode_command_recv_pin.port, &pwr_mode_cb_data);
+
+    /* nRF52 config-ready line: 52 sets to HIGH it when the iOS app pushes new config */
+    if (device_is_ready(nrf52_config_ready_pin.port)) {
+	k_work_init_delayable(&fmc_nrf52_config__work, nrf52_config_work_handler);
+	gpio_pin_configure_dt(&nrf52_config_ready_pin, GPIO_INPUT);
+	gpio_pin_interrupt_configure_dt(&nrf52_config_ready_pin, GPIO_INT_EDGE_TO_ACTIVE);
+	gpio_init_callback(&fmc_config_nrf52_cb_data, nrf52_config_ready_isr,
+			   BIT(nrf52_config_ready_pin.pin));
+	gpio_add_callback(nrf52_config_ready_pin.port, &fmc_config_nrf52_cb_data);
+	/* config may already be pending from before we armed the interrupt */
+	if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
+	    k_work_schedule(&fmc_nrf52_config__work, K_NO_WAIT);
+	}
+    } else {
+	LOG_ERR("Error: nRF52 config-ready pin not ready");
+    }
+
+    /* nPM1300 fuel gauge hello world */
+    err = fuel_gauge_start();
+    if (err != 0) {
+	LOG_ERR("Error: Fuel gauge start failed (%d)", err);
+    }
 
 #if defined(CONFIG_LORA_RAK3172_INIT)
-  err = rak3172_init();
-  if (err != 0) {
-    LOG_ERR("Error: RAK3172 init failed (%d), continuing without LoRa", err);
-  }
+    err = rak3172_init();
+    if (err != 0) {
+	LOG_ERR("Error: RAK3172 init failed (%d), continuing without LoRa", err);
+    }
 #endif
 
-  // rak3172_print_version_info();
-
-  // while (true) {
-  //   rak3172_resume();
-  //   rak3172_send_message("hi");
-  //   rak3172_suspend();
-  //   k_sleep(K_SECONDS(5));
-  // }
+#if defined(CONFIG_LORA_LINK)
+    err = lora_link_start();
+    if (err != 0) {
+	LOG_ERR("Error: LoRa link start failed (%d), pings arrive over LTE only", err);
+    }
+#endif
 
 #if defined(CONFIG_LORA_CAD_RX_TEST)
-  LOG_INF("CAD receive bench test");
+    LOG_INF("CAD receive bench test");
 
 #if defined(CONFIG_LORA_CAD_RX_TEST_RESET_FIRST)
-  rak3172_reset_test();
-  rak3172_init();
+    rak3172_reset_test();
+    rak3172_init();
 #endif
 
 #if !defined(CONFIG_LORA_CAD_RX_TEST_LOW_POWER)
-  /* Low power mode gates the UART; keep the module awake so AT stays reliable
-   * while the sniff loop is being brought up. */
-  rak3172_send_at("AT+LPM=0");
-  rak3172_read_response(1000);
+    /* Low power mode gates the UART; keep the module awake so AT stays reliable
+     * while the sniff loop is being brought up. */
+    rak3172_send_at("AT+LPM=0");
+    rak3172_read_response(1000);
 #endif
-
-  if (gpio_is_ready_dt(&lora_wake_pin)) {
-    gpio_pin_configure_dt(&lora_wake_pin, GPIO_INPUT);
-  } else {
-    LOG_WRN("RAK3172 wake line not wired; watching UART events only");
-  }
-
-  if (rak3172_cad_rx_configure(CONFIG_LORA_CAD_RX_TEST_SYMBOLS,
-                               CONFIG_LORA_CAD_RX_TEST_DET_PEAK,
-                               CONFIG_LORA_CAD_RX_TEST_DET_MIN,
-                               CONFIG_LORA_CAD_RX_TEST_INTERVAL_MS) != 0 ||
-      rak3172_cad_rx_set_pin(CONFIG_LORA_CAD_RX_TEST_WAKE_PIN) != 0 ||
-      rak3172_cad_rx_set_absence(CONFIG_LORA_CAD_RX_TEST_ABSENCE_S) != 0 ||
-      rak3172_cad_rx_start() != 0) {
-    LOG_ERR("Error: CAD receive test setup failed");
-  }
-
-  char cad_event[160];
-  int64_t next_stats = k_uptime_get();
-  int wake_level = -1;
-
-  while (true) {
-    if (rak3172_wait_event("+EVT:CAD", cad_event, sizeof(cad_event), 1000) ==
-        0) {
-      LOG_INF("CAD event: %s", cad_event);
-      if (strncmp(cad_event, "+EVT:CADRX:", 11) == 0) {
-        rak3172_cad_rx_read();
-      }
-    }
 
     if (gpio_is_ready_dt(&lora_wake_pin)) {
-      int level = gpio_pin_get_dt(&lora_wake_pin);
-
-      if (level >= 0 && level != wake_level) {
-        wake_level = level;
-        LOG_INF("RAK3172 wake line %s", level ? "asserted" : "clear");
-        if (level) {
-          rak3172_cad_rx_event();
-        }
-      }
+	gpio_pin_configure_dt(&lora_wake_pin, GPIO_INPUT);
+    } else {
+	LOG_WRN("RAK3172 wake line not wired; watching UART events only");
     }
+
+    if (rak3172_cad_rx_configure(CONFIG_LORA_CAD_RX_TEST_SYMBOLS, CONFIG_LORA_CAD_RX_TEST_DET_PEAK,
+				 CONFIG_LORA_CAD_RX_TEST_DET_MIN,
+				 CONFIG_LORA_CAD_RX_TEST_INTERVAL_MS) != 0 ||
+	rak3172_cad_rx_set_pin(CONFIG_LORA_CAD_RX_TEST_WAKE_PIN) != 0 ||
+	rak3172_cad_rx_set_absence(CONFIG_LORA_CAD_RX_TEST_ABSENCE_S) != 0 ||
+	rak3172_cad_rx_start() != 0) {
+	LOG_ERR("Error: CAD receive test setup failed");
+    }
+
+    char cad_event[160];
+    int64_t next_stats = k_uptime_get();
+    int wake_level = -1;
+
+    while (true) {
+	if (rak3172_wait_event("+EVT:CAD", cad_event, sizeof(cad_event), 1000) == 0) {
+	    LOG_INF("CAD event: %s", cad_event);
+	    if (strncmp(cad_event, "+EVT:CADRX:", 11) == 0) {
+		rak3172_cad_rx_read();
+	    }
+	}
+
+	if (gpio_is_ready_dt(&lora_wake_pin)) {
+	    int level = gpio_pin_get_dt(&lora_wake_pin);
+
+	    if (level >= 0 && level != wake_level) {
+		wake_level = level;
+		LOG_INF("RAK3172 wake line %s", level ? "asserted" : "clear");
+		if (level) {
+		    rak3172_cad_rx_event();
+		}
+	    }
+	}
 
 #if !defined(CONFIG_LORA_CAD_RX_TEST_LOW_POWER)
-    if (k_uptime_get() >= next_stats) {
-      rak3172_cad_rx_stats();
-      next_stats = k_uptime_get() + 10000;
-    }
+	if (k_uptime_get() >= next_stats) {
+	    rak3172_cad_rx_stats();
+	    next_stats = k_uptime_get() + 10000;
+	}
 #endif
-  }
-#endif
-
-#if defined(CONFIG_MQTTSN_PUBLISH_TEST)
-  LOG_INF("MQTT-SN publish bench test");
-
-  while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
-    err = initializeLte();
-    if (!err) {
-      break;
     }
-    LOG_ERR("Error: LTE connect failed (%d), retrying", err);
-    retry_count++;
-    k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
-  }
-
-  int64_t next_publish = 0;
-
-  while (true) {
-    mqttsn_check_input();
-
-    if (!get_mqttsn_connection_status()) {
-      LOG_INF("MQTT-SN not connected. Initialising connection.");
-      err = mqttsn_initialize();
-      if (err) {
-        LOG_ERR("Error: MQTT-SN initialization failed (%d)", err);
-        mqttsn_disconnect();
-        k_sleep(K_SECONDS(5));
-      }
-    } else if (k_uptime_get() >= next_publish) {
-      err = mqttsn_publish_test();
-      if (err) {
-        LOG_ERR("Error: MQTT-SN test publish failed (%d)", err);
-      }
-      next_publish =
-          k_uptime_get() + CONFIG_MQTTSN_PUBLISH_TEST_INTERVAL_S * MSEC_PER_SEC;
-    }
-
-    k_sleep(K_MSEC(500));
-  }
 #endif
 
 #if defined(CONFIG_WIFI_SCAN_LORA_TEST)
-  /* WiFi scan hello world */
+    /* WiFi scan hello world */
 #define WIFI_SCAN_LORA_ACCESS_POINTS CONFIG_WIFI_SCAN_LORA_TEST_ACCESS_POINTS
 
-  wifi_scan_init();
-  while (true) {
-    struct wifi_scan_frame frame;
+    wifi_scan_init();
+    while (true) {
+	struct wifi_scan_frame frame;
 
-    wifi_scan_start();
-    wifi_scan_stop();
+	wifi_scan_start();
+	wifi_scan_stop();
 
-    err = wifi_scan_pack_strongest_access_points(&frame,
-                                                 WIFI_SCAN_LORA_ACCESS_POINTS);
-    if (err) {
-      LOG_ERR("Error: packing scan results failed (%d)", err);
-    } else if (frame.bytes[1] == 0) {
-      LOG_WRN("No usable access points to send");
-    } else {
-      LOG_INF("Sending %u access points over LoRa (%u bytes)", frame.bytes[1],
-              (unsigned)frame.len);
+	err = wifi_scan_pack_strongest_access_points(&frame, WIFI_SCAN_LORA_ACCESS_POINTS);
+	if (err) {
+	    LOG_ERR("Error: packing scan results failed (%d)", err);
+	} else if (frame.bytes[1] == 0) {
+	    LOG_WRN("No usable access points to send");
+	} else {
+	    LOG_INF("Sending %u access points over LoRa (%u bytes)", frame.bytes[1],
+		    (unsigned)frame.len);
 
-      rak3172_resume();
-      err = rak3172_send_payload(frame.bytes, frame.len);
-      if (err) {
-        LOG_ERR("Error: LoRa send failed (%d)", err);
-      }
-      rak3172_suspend();
+	    rak3172_resume();
+	    err = rak3172_send_payload(frame.bytes, frame.len);
+	    if (err) {
+		LOG_ERR("Error: LoRa send failed (%d)", err);
+	    }
+	    rak3172_suspend();
+	}
+
+	k_sleep(K_SECONDS(CONFIG_WIFI_SCAN_LORA_TEST_INTERVAL_S));
     }
-
-    k_sleep(K_SECONDS(CONFIG_WIFI_SCAN_LORA_TEST_INTERVAL_S));
-  }
 #endif
 
-  /* WiFi location hello world */
-  // err = wifi_location_init();
-  // if (err) {
-  //   LOG_ERR("Error: WiFi location init failed (%d)", err);
-  // } else {
-  //   wifi_location_get();
-  // }
+    // Connect to LTE network with retries if necessary.
+    while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
+	err = lte_connect();
 
-  // Connect to LTE network with retries if necessary.
-  while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
-    err = initializeLte();
-
-    if (err) {
-      LOG_INF("Failed to connect to LTE with error: %d", err);
-      retry_count++;
-      k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
-    } else {
-      break;
+	if (err) {
+	    LOG_INF("Failed to connect to LTE with error: %d", err);
+	    retry_count++;
+	    k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
+	} else {
+	    break;
+	}
     }
-  }
 
-  if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
-    LOG_ERR("Max retry limit reached for connecting to LTE, program exiting.");
-    return -1;
-  }
-
-  retry_count = 0;
-  // Initialize location services with retries if necessary.
-  while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
-    err = initializeLocation();
-
-    if (err) {
-      LOG_INF("Failed to initialize location services with error: %d", err);
-      retry_count++;
-      k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
-    } else {
-      break;
+    if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
+	LOG_ERR("Max retry limit reached for connecting to LTE, program exiting.");
+	return -1;
     }
-  }
 
-  if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
-    LOG_ERR("Max retry limit reached for initializing location services, "
-            "program exiting.");
-    return -1;
-  }
+    retry_count = 0;
+    // Initialize location services with retries if necessary.
+    while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
+	err = initialize_location_services();
 
-  retry_count = 0;
-  // Initialize UDP listener with retries (using the same retry count as
-  // location services)
-  while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
-    err = create_udp_listener();
-
-    if (err) {
-      LOG_INF("Failed to create UDP Listener with error: %d", err);
-      destroy_udp_listener();
-      retry_count++;
-      k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
-    } else {
-      LOG_INF("Created UDP Listener.");
-      break;
+	if (err) {
+	    LOG_INF("Failed to initialize location services with error: %d", err);
+	    retry_count++;
+	    k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
+	} else {
+	    break;
+	}
     }
-  }
 
-  // Start the UDP listener thread.
-  start_udp_listener_thread();
-//
-  while (true) {
-    LOG_INF("Main thread is running.");
-    k_sleep(K_MSEC(4000));
-  }
+    if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
+	LOG_ERR("Max retry limit reached for initializing location services, "
+		"program exiting.");
+	return -1;
+    }
 
-  return 0;
+    retry_count = 0;
+    // Initialize UDP listener with retries (using the same retry count as
+    // location services)
+    while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
+	err = create_udp_listener();
+
+	if (err) {
+	    LOG_INF("Failed to create UDP Listener with error: %d", err);
+	    destroy_udp_listener();
+	    retry_count++;
+	    k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
+	} else {
+	    LOG_INF("Created UDP Listener.");
+	    break;
+	}
+    }
+
+    // Start the UDP listener thread.
+    start_udp_listener_thread();
+    //
+    int tick = 0;
+
+    while (true) {
+#if defined(CONFIG_LORA_LINK)
+	LOG_INF("Main thread is running. Home station %s",
+		lora_link_homestation_in_range() ? "in range" : "out of range");
+
+	/* Every 8th tick, so the counters land about once per beacon. */
+	if (++tick % 8 == 0) {
+	    lora_link_log_stats();
+	}
+#else
+	LOG_INF("Main thread is running.");
+#endif
+	k_sleep(K_MSEC(4000));
+    }
+
+    return 0;
 }

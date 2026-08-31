@@ -29,6 +29,8 @@ static const struct device *charger = DEVICE_DT_GET(DT_NODELABEL(npm1300_charger
 static const struct device *nrf52_i2c = DEVICE_DT_GET(NRF52_I2C_NODE);
 
 static int64_t ref_time;
+/* Negative until the first sample lands, so "no gauge" is not read as empty. */
+static float last_state_of_charge = -1.f;
 
 static const struct battery_model battery_model = {
 #include "battery_model.inc"
@@ -162,6 +164,7 @@ static int fuel_gauge_sample(void)
     delta = (float)k_uptime_delta(&ref_time) / 1000.f;
 
     soc = nrf_fuel_gauge_process(voltage, -current, temp, delta, NULL);
+    last_state_of_charge = soc;
     tte = nrf_fuel_gauge_tte_get();
     ttf = nrf_fuel_gauge_ttf_get();
 
@@ -233,6 +236,16 @@ int fuel_gauge_start(void)
 
     started = true;
     LOG_INF("nPM1300 fuel gauge started");
+    return 0;
+}
+
+int fuel_gauge_get_state_of_charge(float *state_of_charge)
+{
+    if (last_state_of_charge < 0.f) {
+        return -EAGAIN;
+    }
+
+    *state_of_charge = last_state_of_charge;
     return 0;
 }
 

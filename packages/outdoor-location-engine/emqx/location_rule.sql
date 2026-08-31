@@ -5,7 +5,7 @@ SELECT
   nth(4, split(payload.msg, ',')) as accuracy,
   clientid
 FROM
-  "/location"
+  "/secret-topic"
 
 
 -- HTTP Request config

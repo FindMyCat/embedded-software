@@ -1,6 +1,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+#include "lora.h"
 #include "wifi_station.h"
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
@@ -15,6 +16,8 @@ int main(void)
 		LOG_ERR("Error: WiFi station connect failed (%d), geolocation "
 			"lookups will be skipped", err);
 	}
+
+	lora_start();
 
 	return 0;
 }

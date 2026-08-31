@@ -8,6 +8,8 @@ int rak3172_init(void);
 void rak3172_send_at(const char *cmd);
 void rak3172_read_response(int timeout_ms);
 int rak3172_send_message(const char *msg);
+/* Binary-safe form of rak3172_send_message, for binary frames. */
+int rak3172_send_payload(const uint8_t *payload, size_t len);
 void rak3172_suspend(void);
 void rak3172_resume(void);
 void rak3172_print_version_info(void);

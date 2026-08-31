@@ -42,7 +42,25 @@ static int rx_get_byte(uint8_t *c, int64_t remaining_ms) {
   return 0;
 }
 
+/* Drop whatever is still buffered from an earlier command. A read that timed
+ * out, or an event that arrived on its own, otherwise gets read as the next
+ * command's reply and misattributes every response after it. */
+static void rx_flush(void) {
+  unsigned int key = irq_lock();
+
+  ring_buf_reset(&rx_ring_buf);
+  k_sem_reset(&rx_sem);
+  irq_unlock(key);
+}
+
 void rak3172_send_at(const char *cmd) {
+  /* The module spends the first byte it receives on waking its UART, so spend
+   * a newline on that rather than the command, which would otherwise arrive
+   * truncated and be rejected as AT_COMMAND_NOT_FOUND. */
+  uart_poll_out(uart_dev, '\n');
+  k_sleep(K_MSEC(10));
+
+  rx_flush();
   LOG_INF(">> %s", cmd);
   for (const char *s = cmd; *s; s++) {
     uart_poll_out(uart_dev, *s);
@@ -142,21 +160,34 @@ int rak3172_init(void) {
 }
 
 int rak3172_send_message(const char *msg) {
+  return rak3172_send_payload((const uint8_t *)msg, strlen(msg));
+}
+
+int rak3172_send_payload(const uint8_t *payload, size_t len) {
   char cmd[272] = "AT+PSEND=";
   char *hex = cmd + strlen("AT+PSEND=");
-  int len = strlen(msg);
 
-  if (len > 127) {
-    LOG_ERR("Error: message too long (%d bytes, max 127)", len);
+  if (len == 0 || len > 127) {
+    LOG_ERR("Error: payload of %u bytes, max 127", (unsigned)len);
     return -EINVAL;
   }
 
-  for (int i = 0; i < len; i++) {
-    snprintf(&hex[i * 2], 3, "%02X", (uint8_t)msg[i]);
+  for (size_t i = 0; i < len; i++) {
+    snprintf(&hex[i * 2], 3, "%02X", payload[i]);
   }
 
   rak3172_send_at("AT+PRECV=0");
   rak3172_read_response(1000);
+
+  /* A brownout reboot mid-transmit comes back on AT+P2P's preamble of 8, which
+   * is far too short for the collar's duty-cycled receiver. Re-applied per
+   * transmit rather than trusting it to persist; the module rejects AT+PPL
+   * while P2P RX is on, so it has to follow AT+PRECV=0. */
+  if (configured_preamble != 0) {
+    rak3172_set_preamble(configured_preamble);
+  }
+
+  /* The radio needs a moment to settle before it will accept a transmit. */
   k_sleep(K_MSEC(50));
 
   rak3172_send_at(cmd);

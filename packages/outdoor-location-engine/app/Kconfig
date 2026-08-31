@@ -1,5 +1,6 @@
-menu "Find My Cat main configuration"
+menu "FindMyCat Build Time Configuration options"
 
+#### LTE
 config LTE_CONNECT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry LTE connection"
 	default 20
@@ -9,7 +10,7 @@ config LTE_CONNECT_MAX_RETRIES
 	default 4
 
 config FINDMYCAT_CLOUD_HOSTNAME
-	string "Hostname of the FindMyCat Cloud"
+	string "Default Hostname of the FindMyCat Cloud, this can be overriden using the iOS/Android App"
 
 config MQTT_SN_GATEWAY_ID
 	int "Id of the MQTT-SN gateway"
@@ -24,9 +25,18 @@ config MQTT_SN_BUFFER_SIZE
 	int "Size of the TX and RX buffers"
 	default 255
 
-config MQTT_SN_PUBLISH_TOPIC
-	string "MQTT Topic to publish to"
+config MQTT_SN_LOCATION_TOPIC
+	string "MQTT Topic positions are published to"
 	default "/location"
+
+config MQTT_SN_STATUS_TOPIC
+	string "MQTT Topic device status is published to"
+	default "/status"
+	help
+	  Every command the collar executes reports its outcome here, whether it
+	  succeeded or not, so the cloud can tell a finished round trip from a
+	  collar that never answered. Kept apart from MQTT_SN_LOCATION_TOPIC so
+	  the position feed Traccar consumes carries positions only.
 
 config MQTT_SN_REFRESH_PERIOD_SECONDS
 	int "MQTT-SN refresh period in seconds"
@@ -149,6 +159,58 @@ config LORA_RAK3172_INIT
 	  to keep LoRa entirely out of a run, so a bench test starts faster and
 	  its log is not interleaved with AT traffic. LORA_CAD_RX_TEST needs
 	  this enabled.
+
+config LORA_LINK
+	bool "Answer pings over LoRa from the home station"
+	select LORA_RAK3172_INIT
+	help
+	  Sniffs for a ping from the home station with duty-cycled CAD and answers
+	  with a position over LoRa, so the modem stays in PSM for the whole
+	  exchange. Needs the CAD firmware on the RAK3172. The SMS and UDP
+	  listeners stay active, and a position falls back to MQTT-SN whenever the
+	  home station is out of range.
+
+config LORA_LINK_CAD_SYMBOLS
+	int "CAD symbol count index (0=1, 1=2, 2=4, 3=8, 4=16)"
+	depends on LORA_LINK
+	default 1
+
+config LORA_LINK_CAD_DET_PEAK
+	int "CAD detection peak threshold"
+	depends on LORA_LINK
+	default 22
+
+config LORA_LINK_CAD_DET_MIN
+	int "CAD detection minimum"
+	depends on LORA_LINK
+	default 10
+
+config LORA_LINK_CAD_INTERVAL_MS
+	int "Sniff interval in milliseconds"
+	depends on LORA_LINK
+	default 450
+	help
+	  The home station's preamble must outlast this. 450 ms pairs with the
+	  512-symbol preamble the home station sends.
+
+config LORA_LINK_CAD_PIN
+	int "RUI3 pin number the RAK3172 raises when a packet is buffered"
+	depends on LORA_LINK
+	default 9
+	help
+	  RUI3 numbering is port * 16 + pin, so PA9 is 9 and PB5 is 21. Reaches the
+	  nRF9151 on the lora-wake alias.
+
+config LORA_LINK_ABSENCE_S
+	int "Seconds without a CAD detection before the home station counts as absent"
+	depends on LORA_LINK
+	default 35
+	help
+	  The module tracks this itself and raises the wake line when it expires,
+	  so the host learns the home station went away without listening for it.
+	  Any detection clears it, decoded or not. Set it to several beacon
+	  periods: single misses are normal from fading and collisions, and a
+	  false alarm wakes the host for nothing.
 
 config WIFI_SCAN_LORA_TEST
 	bool "WiFi scan to LoRa uplink bench test"
