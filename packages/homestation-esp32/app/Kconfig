@@ -1,5 +1,6 @@
 menu "Homestation ESP32"
 
+rsource "src/modules/ble/Kconfig.ble"
 rsource "src/modules/trigger/Kconfig.trigger"
 rsource "src/modules/lora/Kconfig.lora"
 rsource "src/modules/wifi/Kconfig.wifi"

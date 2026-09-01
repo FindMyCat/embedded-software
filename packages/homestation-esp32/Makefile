@@ -1,8 +1,11 @@
-BOARD  := esp32_devkitc_wroom/esp32/procpu
+BOARD  := esp32_devkitc/esp32/procpu
 VENV   := .venv
-PYTHON := python3
+# Zephyr's build scripts call pathlib relative_to(walk_up=True), which is 3.12+.
+PYTHON := python3.12
 WEST   := $(VENV)/bin/west
 PIP    := $(VENV)/bin/pip
+
+export PATH := $(CURDIR)/$(VENV)/bin:$(PATH)
 
 .PHONY: setup build flash logs clean
 
@@ -14,7 +17,8 @@ $(VENV):
 setup: $(VENV)
 	$(WEST) init -l manifest
 	$(WEST) update
-	$(PIP) install -r zephyr/scripts/requirements.txt
+	$(PIP) install -r zephyr/scripts/requirements-base.txt
+	$(PIP) install "esptool>=5.0.2"
 	$(WEST) blobs fetch hal_espressif
 	$(WEST) sdk install
 	$(WEST) zephyr-export

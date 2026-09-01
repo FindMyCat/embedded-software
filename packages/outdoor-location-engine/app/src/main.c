@@ -10,6 +10,7 @@
 #include <zephyr/logging/log.h>
 
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/atomic.h>
 
 // Application specific imports
 #include "comm/nrf52_link.h"
@@ -73,6 +74,17 @@ static int initialize_location_services()
 
 #define POWER_MODE_COMMAND_DEBOUNCE_TIME 50
 uint32_t last_powermode_command_received_timestamp;
+
+static atomic_t homestation_in_ble_range = ATOMIC_INIT(0);
+
+static void set_homestation_in_ble_range(bool in_range)
+{
+    atomic_set(&homestation_in_ble_range, in_range ? 1 : 0);
+
+#if defined(CONFIG_LORA_LINK)
+    lora_link_set_enabled(!in_range);
+#endif
+}
 /**
  * @brief Callback function for when the power mode command is received through
  * gpio interrupt.
@@ -98,6 +110,8 @@ static void powermode_command_recieved__cb()
 	lte_lc_psm_req(true);
 	lte_lc_edrx_req(false);
     }
+
+    set_homestation_in_ble_range(power_mode_command == 1);
 
     last_powermode_command_received_timestamp = command_recv_time;
 }
@@ -129,8 +143,7 @@ static void nrf52_config_work_handler(struct k_work *work)
 /**
  * @brief ISR for the nRF52 config-ready line; defers the i2c read to a workitem.
  */
-static void nrf52_config_ready_isr(const struct device *port, struct gpio_callback *cb,
-				   uint32_t pins)
+static void nrf52_config_ready_isr(const struct device *port, struct gpio_callback *cb, uint32_t pins)
 {
     ARG_UNUSED(port);
     ARG_UNUSED(cb);
@@ -209,6 +222,8 @@ retry:
 	LOG_ERR("Error: RAK3172 init failed (%d), continuing without LoRa", err);
     }
 #endif
+
+    set_homestation_in_ble_range(gpio_pin_get_dt(&power_mode_command_recv_pin) == 1);
 
 #if defined(CONFIG_LORA_LINK)
     err = lora_link_start();
@@ -374,8 +389,11 @@ retry:
 
     while (true) {
 #if defined(CONFIG_LORA_LINK)
+	bool home = atomic_get(&homestation_in_ble_range) != 0 ||
+		    lora_link_homestation_in_range();
+
 	LOG_INF("Main thread is running. Home station %s",
-		lora_link_homestation_in_range() ? "in range" : "out of range");
+		home ? "in range" : "out of range");
 
 	/* Every 8th tick, so the counters land about once per beacon. */
 	if (++tick % 8 == 0) {

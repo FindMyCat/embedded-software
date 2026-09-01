@@ -19,9 +19,7 @@ static uint16_t configured_preamble;
 static void uart_irq_cb(const struct device *dev, void *user_data) {
   ARG_UNUSED(user_data);
 
-  if (!uart_irq_update(dev)) {
-    return;
-  }
+  uart_irq_update(dev);
 
   while (uart_irq_rx_ready(dev)) {
     uint8_t c;
@@ -284,6 +282,13 @@ void rak3172_start_rx(void) {
 
   rak3172_send_at("AT+PRECV=65535");
   rak3172_read_response(3000);
+}
+
+void rak3172_stop_rx(void) {
+  LOG_INF("Leaving continuous RX mode");
+
+  rak3172_send_at("AT+PRECV=0");
+  rak3172_read_response(1000);
 }
 
 /* Callers must pass the same buffer every time: a line that is still

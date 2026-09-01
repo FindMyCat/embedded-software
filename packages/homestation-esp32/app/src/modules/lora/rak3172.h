@@ -15,6 +15,7 @@ void rak3172_resume(void);
 void rak3172_print_version_info(void);
 void rak3172_set_preamble(uint16_t symbols);
 void rak3172_start_rx(void);
+void rak3172_stop_rx(void);
 int rak3172_read_event(char *buf, size_t buf_len, int timeout_ms);
 
 #endif /* RAK3172_H */

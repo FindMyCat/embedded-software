@@ -16,7 +16,7 @@ static struct net_mgmt_event_callback ipv4_cb;
 static bool ready;
 
 static void wifi_event_handler(struct net_mgmt_event_callback *cb,
-                               uint32_t event, struct net_if *iface) {
+                               uint64_t event, struct net_if *iface) {
   ARG_UNUSED(iface);
 
   if (event == NET_EVENT_WIFI_CONNECT_RESULT) {
@@ -34,7 +34,7 @@ static void wifi_event_handler(struct net_mgmt_event_callback *cb,
 }
 
 static void ipv4_event_handler(struct net_mgmt_event_callback *cb,
-                               uint32_t event, struct net_if *iface) {
+                               uint64_t event, struct net_if *iface) {
   ARG_UNUSED(cb);
   ARG_UNUSED(iface);
 

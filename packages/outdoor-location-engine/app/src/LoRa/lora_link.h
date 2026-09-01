@@ -10,9 +10,10 @@ int lora_link_start(void);
 /* Identity carried in outgoing frames. Defaults to CONFIG_DEVICE_ID; */
 void lora_link_set_device_id(const char *device_id);
 
-/* True while the module still hears the home station. Driven by the module's
- * own absence timer, not by counting decoded pings here. */
+/* True while the module still hears the home station.*/ 
 bool lora_link_homestation_in_range(void);
+
+void lora_link_set_enabled(bool enabled);
 
 /* Logs the module's sniffs:detects:packets counters. */
 void lora_link_log_stats(void);

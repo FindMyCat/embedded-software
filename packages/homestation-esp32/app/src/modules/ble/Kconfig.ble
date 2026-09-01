@@ -1,0 +1,35 @@
+menu "BLE scanner"
+
+config BLE_SCANNER
+	bool "Detect the tag from its BLE advertisements"
+	depends on BT_OBSERVER
+	help
+	  Scans passively and matches the FMC magic in the tag's manufacturer
+	  data, which is where it identifies itself and reports its battery.
+	  This is the short-range half of the presence picture; the LoRa link is
+	  the long-range half.
+
+config BLE_SCANNER_ABSENCE_S
+	int "Seconds without an advertisement before the tag counts as gone"
+	depends on BLE_SCANNER
+	default 30
+	help
+	  Several advertising intervals, so a few lost packets do not read as
+	  the tag having left.
+
+module = BLE_SCANNER
+module-str = BLE scanner
+source "subsys/logging/Kconfig.template.log_config"
+
+config BLE_BEACON
+	bool "Advertise as homestation over BLE so the collar can tell it is home"
+	depends on BT_BROADCASTER
+	help
+	  The collar scans for BT_DEVICE_NAME and uses the result to choose
+	  between PSM and eDRX.
+
+module = BLE_BEACON
+module-str = BLE beacon
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu # BLE scanner

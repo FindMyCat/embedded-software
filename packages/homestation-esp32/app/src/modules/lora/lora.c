@@ -8,6 +8,9 @@
 
 #include "message_channel.h"
 #include "lora.h"
+#if defined(CONFIG_BLE_SCANNER)
+#include "ble_scanner.h"
+#endif
 #include "lora_frame.h"
 #include "rak3172.h"
 #include "wifi_scan_frame.h"
@@ -249,11 +252,41 @@ static void lora_task(void) {
   int64_t next_beacon = k_uptime_get();
 #endif
 
-  rak3172_start_rx();
-
   char event[320];
+  bool radio_on = false;
 
   while (true) {
+#if defined(CONFIG_BLE_SCANNER)
+    if (ble_scanner_tag_in_range()) {
+      if (radio_on) {
+        LOG_INF("Tag in BLE range, pausing LoRa; back after %d s without an "
+                "advertisement",
+                CONFIG_BLE_SCANNER_ABSENCE_S);
+        rak3172_stop_rx();
+        radio_on = false;
+      }
+
+      k_sleep(K_MSEC(500));
+      continue;
+    }
+#endif
+
+    if (!radio_on) {
+#if defined(CONFIG_BLE_SCANNER)
+      LOG_INF("No tag advertisement for %d s, starting LoRa receive",
+              CONFIG_BLE_SCANNER_ABSENCE_S);
+#else
+      LOG_INF("Starting LoRa receive");
+#endif
+      rak3172_start_rx();
+      radio_on = true;
+#if defined(CONFIG_LORA_BEACON)
+      /* Beacon immediately: the collar has been hearing nothing and its
+       * absence timer is already running. */
+      next_beacon = k_uptime_get();
+#endif
+    }
+
 #if defined(CONFIG_LORA_BEACON)
     if (k_uptime_get() >= next_beacon) {
       send_beacon();
@@ -284,8 +317,6 @@ static void lora_task(void) {
   }
 }
 
-/* Started by lora_start() rather than at boot, so it does not contend with the
- * WiFi bring-up. */
 K_THREAD_DEFINE(lora_task_id, CONFIG_LORA_THREAD_STACK_SIZE, lora_task, NULL,
                 NULL, NULL, 3, 0, K_TICKS_FOREVER);
 
