@@ -1,8 +1,12 @@
 menu "Homestation ESP32"
 
+config DEVICE_ID
+	string "The FindMyCat Device ID this Homestation belongs to"
+
 rsource "src/modules/ble/Kconfig.ble"
 rsource "src/modules/trigger/Kconfig.trigger"
 rsource "src/modules/lora/Kconfig.lora"
+rsource "src/modules/mqtt/Kconfig.mqtt"
 rsource "src/modules/wifi/Kconfig.wifi"
 rsource "src/modules/error/Kconfig.error"
 

@@ -1,0 +1,72 @@
+menu "MQTT publisher"
+
+config MQTT_PUBLISHER
+	bool "Report the station's own position while the tag is in BLE range"
+	depends on MQTT_LIB && NET_TCP
+	help
+	  The tag being within BLE range places it at the station, so the
+	  station publishes its own coordinates on the tag's behalf.
+
+if MQTT_PUBLISHER
+
+config MQTT_PUBLISHER_BROKER_HOST
+	string "Broker address"
+	help
+	  This needs to be the IP address instead of the DNS due to the RAM constraints of ESP32
+
+config MQTT_PUBLISHER_BROKER_PORT
+	int "Broker port"
+	default 8883 if MQTT_PUBLISHER_TLS
+	default 1883
+
+config MQTT_PUBLISHER_TLS
+	bool "Connect to the broker over TLS"
+	depends on MQTT_LIB_TLS && TLS_CREDENTIALS
+	help
+	  Without this the position and the device identity cross the network in
+	  the clear, and anyone who learns the client id can publish positions
+	  as this station. Needs the broker's CA certificate in
+	  ca_certificate.h.
+
+config MQTT_PUBLISHER_SEC_TAG
+	int "Security tag the CA certificate is registered under"
+	depends on MQTT_PUBLISHER_TLS
+	default 955
+	help
+	  Any value not used by another credential on this device.
+
+config MQTT_PUBLISHER_LOCATION_TOPIC
+	string "Topic to publish positions to"
+	help
+	  Must match the topic the location rule reads.
+
+config MQTT_PUBLISHER_HOME_LATITUDE
+	string "Station latitude, in decimal degrees"
+	help
+	  Published verbatim, so it has to be in the form the rule expects.
+
+config MQTT_PUBLISHER_HOME_LONGITUDE
+	string "Station longitude, in decimal degrees"
+
+config MQTT_PUBLISHER_HOME_ACCURACY_M
+	int "Accuracy to report, in metres"
+	default 15
+	help
+	  How far the tag can be from the station and still be heard over BLE,
+	  which is the real uncertainty in this position.
+
+config MQTT_PUBLISHER_INTERVAL_S
+	int "Seconds between reports while the tag stays in range"
+	default 30
+
+config MQTT_PUBLISHER_THREAD_STACK_SIZE
+	int "Publisher thread stack size"
+	default 4096
+
+module = MQTT_PUBLISHER
+module-str = MQTT publisher
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # MQTT_PUBLISHER
+
+endmenu # MQTT publisher

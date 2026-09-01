@@ -53,14 +53,6 @@ config LORA_PING
 	  so the collar can answer with a position without waking its modem.
 	  The collar must be running CONFIG_LORA_LINK with the CAD firmware.
 
-config LORA_PING_DEVICE_ID
-	string "Device id of the collar to ping"
-	depends on LORA_PING
-	default "nrf9160"
-	help
-	  Must match the collar's CONFIG_DEVICE_ID, or whatever the iOS app
-	  pushed over BLE. The collar drops frames addressed to anything else.
-
 config LORA_PING_INTERVAL_S
 	int "Seconds between pings"
 	depends on LORA_PING

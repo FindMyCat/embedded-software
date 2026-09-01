@@ -86,14 +86,14 @@ static uint32_t ping_counter;
 static void send_ping(void) {
   uint8_t frame[LORA_FRAME_MAX_BYTES];
   int len = lora_frame_encode_ping(frame, sizeof(frame),
-                                   CONFIG_LORA_PING_DEVICE_ID, ping_counter);
+                                   CONFIG_DEVICE_ID, ping_counter);
 
   if (len < 0) {
     LOG_ERR("Error: encoding ping failed (%d)", len);
     return;
   }
 
-  LOG_INF("Pinging %s, counter %u", CONFIG_LORA_PING_DEVICE_ID, ping_counter);
+  LOG_INF("Pinging %s, counter %u", CONFIG_DEVICE_ID, ping_counter);
 
   if (rak3172_send_payload(frame, (size_t)len) == 0) {
     ping_counter++;
@@ -112,7 +112,7 @@ static uint32_t beacon_counter;
 static void send_beacon(void) {
   uint8_t frame[LORA_FRAME_MAX_BYTES];
   int len = lora_frame_encode_beacon(frame, sizeof(frame),
-                                     CONFIG_LORA_PING_DEVICE_ID,
+                                     CONFIG_DEVICE_ID,
                                      beacon_counter);
 
   if (len < 0) {

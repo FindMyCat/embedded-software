@@ -9,6 +9,9 @@
 #if defined(CONFIG_BLE_BEACON)
 #include "ble_beacon.h"
 #endif
+#if defined(CONFIG_MQTT_PUBLISHER)
+#include "mqtt_publisher.h"
+#endif
 #if defined(CONFIG_ESP32_SW_COEXIST_ENABLE)
 #include <private/esp_coexist_internal.h>
 #endif
@@ -38,6 +41,10 @@ int main(void)
 	/* After the scanner, which is what calls bt_enable(). */
 #if defined(CONFIG_BLE_BEACON)
 	ble_beacon_start();
+#endif
+
+#if defined(CONFIG_MQTT_PUBLISHER)
+	mqtt_publisher_start();
 #endif
 
 	lora_start();
