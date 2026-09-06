@@ -39,6 +39,8 @@ static uint8_t rx_buf[CONFIG_MQTT_SN_BUFFER_SIZE];
 static bool mqtt_sn_connected = false;
 static bool client_initialized;
 
+static K_MUTEX_DEFINE(session_lock);
+
 LOG_MODULE_REGISTER(mqttsn, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 int initialize_mqttsn_config(const char *device_id, const char *hostname)
@@ -229,7 +231,7 @@ int mqttsn_publish(char *data_str)
  *
  * @return 0 if the message was queued, negative errno otherwise.
  */
-int mqttsn_publish_with_session(const char *topic, const char *data_str)
+static int publish_with_session_locked(const char *topic, const char *data_str)
 {
     int err = 0;
 
@@ -284,6 +286,24 @@ int mqttsn_publish_with_session(const char *topic, const char *data_str)
     return 0;
 }
 
+#define SESSION_LOCK_TIMEOUT_MS                                                                    \
+    (((MQTT_SN_CONNECT_RETRIES + 1) * MQTT_SN_CONNECT_TIMEOUT_MS) + MQTT_SN_FLUSH_MS +             \
+     MQTT_SN_CONNECT_TIMEOUT_MS)
+
+int mqttsn_publish_with_session(const char *topic, const char *data_str)
+{
+    if (k_mutex_lock(&session_lock, K_MSEC(SESSION_LOCK_TIMEOUT_MS)) != 0) {
+	LOG_ERR("Error: another publish still holds the session, dropping %s", topic);
+	return -EBUSY;
+    }
+
+    int err = publish_with_session_locked(topic, data_str);
+
+    k_mutex_unlock(&session_lock);
+
+    return err;
+}
+
 int mqttsn_publish_test(void)
 {
     char payload[100];
@@ -291,7 +311,7 @@ int mqttsn_publish_test(void)
     snprintk(payload, sizeof(payload), "{\"msg\": \"%.06f,%.06f,%d,%.02f,%d\"}", 0.0, 0.0, 8, 21.0,
 	     85);
 
-    return mqttsn_publish(payload);
+    return mqttsn_publish_with_session(CONFIG_MQTT_SN_LOCATION_TOPIC, payload);
 }
 
 /**
