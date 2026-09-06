@@ -56,5 +56,10 @@ target_sources(app PRIVATE src/WiFi/wifi_scan.h)
 target_sources(app PRIVATE src/FuelGauge/fuel_gauge.c)
 target_sources(app PRIVATE src/FuelGauge/fuel_gauge.h)
 
+target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/Diagnostics/diagnostics.c)
+target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/Diagnostics/diagnostics.h)
+target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/FuelGauge/diagnostics.c)
+target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/FuelGauge/diagnostics.h)
+
 target_sources(app PRIVATE src/comm/nrf52_link.c)
 target_sources(app PRIVATE src/comm/nrf52_link.h)

@@ -96,6 +96,14 @@
             ngpios = <5>;
         };
 
+        npm1300_leds: leds {
+            compatible = "nordic,npm1300-led";
+            status = "okay";
+            nordic,led0-mode = "host";
+            nordic,led1-mode = "host";
+            nordic,led2-mode = "host";
+        };
+
         regulators {
             compatible = "nordic,npm1300-regulator";
             status = "okay";

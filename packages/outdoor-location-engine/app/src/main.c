@@ -14,6 +14,7 @@
 
 // Application specific imports
 #include "comm/nrf52_link.h"
+#include "Diagnostics/diagnostics.h"
 #include "Dispatcher/Dispatcher.h"
 #include "FuelGauge/fuel_gauge.h"
 #include "LoRa/lora_link.h"
@@ -209,6 +210,10 @@ retry:
     } else {
 	LOG_ERR("Error: nRF52 config-ready pin not ready");
     }
+
+#if defined(CONFIG_FINDMYCAT_DIAGNOSTICS)
+    diagnostics_run();
+#endif
 
     /* nPM1300 fuel gauge hello world */
     err = fuel_gauge_start();

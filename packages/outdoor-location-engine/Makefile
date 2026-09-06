@@ -7,7 +7,7 @@ JLINK        := /Applications/SEGGER/JLink_V834
 NCS   := nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) --
 LOCAL := $(if $(wildcard app/local.conf),;local.conf)
 
-.PHONY: setup build build-dev build-prod build-dev-t91x build-prod-t91x build-dev-9151dk build-prod-9151dk flash logs flash-logs clean
+.PHONY: setup build build-dev build-prod build-dev-t91x build-prod-t91x build-dev-9151dk build-prod-9151dk flash recover modem-fw-info modem-fw-flash logs flash-logs clean
 
 setup:
 	west init -l manifest
@@ -35,9 +35,11 @@ build-prod-9151dk:
 
 RUNNER      ?= jlink
 JLINK_SPEED ?= 1000
-
+# A factory or APPROTECT-locked part refuses SWD until it is mass erased. The
+# jlink runner has no --recover, so unlock out of band and retry once.
 flash:
-	nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) -- west -v flash --runner $(RUNNER) --speed $(JLINK_SPEED)
+	$(NCS) west -v flash --runner $(RUNNER) --speed $(JLINK_SPEED) \
+		|| { $(MAKE) recover && $(NCS) west -v flash --runner $(RUNNER) --speed $(JLINK_SPEED); }
 
 # JLinkExe holds the debug connection and serves RTT on localhost:19021, so it
 # is backgrounded here and torn down on exit, leaving the client in the
@@ -54,7 +56,18 @@ logs:
 	$(JLINK)/JLinkRTTClient || true
 
 recover:
-	west flash --recover
+	nrfutil device recover --traits jlink
+
+# Modem firmware version lives outside the application image, so a bad or
+# missing one shows up as an early modem crash rather than a build failure.
+modem-fw-info:
+	nrfutil device device-info --traits jlink
+
+MODEM_FW ?= $(lastword $(sort $(wildcard modem-fw/mfw_nrf91x1_*.zip)))
+
+modem-fw-flash:
+	@test -n "$(MODEM_FW)" || { echo "no modem-fw/mfw_nrf91x1_*.zip found"; exit 1; }
+	nrfutil device program --firmware $(MODEM_FW) --traits jlink
 clean:
 	rm -rf build
 

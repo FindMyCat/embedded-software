@@ -1,5 +1,9 @@
 menu "FindMyCat Build Time Configuration options"
 
+config FINDMYCAT_DIAGNOSTICS
+	bool "Log a hardware self-test at boot time"
+	select LED
+
 #### LTE
 config LTE_CONNECT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry LTE connection"
