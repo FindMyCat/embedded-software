@@ -162,20 +162,26 @@ int main(void)
     LOG_INF("Welcome to FindMyCat v3.0 Preview");
     LOG_INF("*******************************");
 
+    int err;
+    int retry_count = 0;
+
+    /* Ahead of the diagnostics below, which ask the modem about the SIM. */
+    err = nrf_modem_lib_init();
+    if (err) {
+	LOG_ERR("Error: Failed to initialize modem library, error: %d", err);
+	return -1;
+    }
+
+#if defined(CONFIG_FINDMYCAT_DIAGNOSTICS)
+    diagnostics_run();
+#endif
+
 retry:
     if (!device_is_ready(power_mode_command_recv_pin.port)) {
 	LOG_ERR("Error: Device %s is not ready", power_mode_command_recv_pin.port->name);
 	goto retry;
     }
 
-    int err;
-    int retry_count = 0;
-
-    err = nrf_modem_lib_init();
-    if (err) {
-	LOG_ERR("Error: Failed to initialize modem library, error: %d", err);
-	return -1;
-    }
     lte_lc_power_off();
     err = gpio_pin_configure_dt(&power_mode_command_recv_pin, GPIO_INPUT | GPIO_PULL_DOWN);
     if (err != 0) {
@@ -210,10 +216,6 @@ retry:
     } else {
 	LOG_ERR("Error: nRF52 config-ready pin not ready");
     }
-
-#if defined(CONFIG_FINDMYCAT_DIAGNOSTICS)
-    diagnostics_run();
-#endif
 
     /* nPM1300 fuel gauge hello world */
     err = fuel_gauge_start();

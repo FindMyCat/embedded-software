@@ -60,6 +60,10 @@ target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/Diagnostics/di
 target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/Diagnostics/diagnostics.h)
 target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/FuelGauge/diagnostics.c)
 target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/FuelGauge/diagnostics.h)
+target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/LTE/diagnostics.c)
+target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/LTE/diagnostics.h)
+target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/mqtt/diagnostics.c)
+target_sources_ifdef(CONFIG_FINDMYCAT_DIAGNOSTICS app PRIVATE src/mqtt/diagnostics.h)
 
 target_sources(app PRIVATE src/comm/nrf52_link.c)
 target_sources(app PRIVATE src/comm/nrf52_link.h)
