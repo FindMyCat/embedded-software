@@ -1,5 +1,6 @@
 #include "diagnostics.h"
 
+#include <errno.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/led.h>
 #include <zephyr/drivers/sensor.h>
@@ -99,7 +100,7 @@ static void blink_leds(void)
 #endif
 }
 
-void fuel_gauge_diagnostics(void)
+int fuel_gauge_diagnostics(void)
 {
     struct sensor_value value;
     float voltage, current, temp;
@@ -109,13 +110,13 @@ void fuel_gauge_diagnostics(void)
 
     if (!device_is_ready(charger)) {
         LOG_ERR("  FAIL charger device not ready; the PMIC never answered on I2C");
-        return;
+        return -ENODEV;
     }
 
     ret = sensor_sample_fetch(charger);
     if (ret < 0) {
         LOG_ERR("  FAIL sample fetch (%d); check SDA/SCL and that the PMIC is powered", ret);
-        return;
+        return ret;
     }
     LOG_INF("  PASS PMIC answers on I2C");
 
@@ -148,4 +149,6 @@ void fuel_gauge_diagnostics(void)
 
     report_charge_input();
     blink_leds();
+
+    return 0;
 }

@@ -1,5 +1,6 @@
 #include "transport.h"
 
+#include <errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
@@ -61,9 +62,21 @@ static int publish_over_cellular(const struct position_report *report) {
   return mqttsn_publish_with_session(CONFIG_MQTT_SN_LOCATION_TOPIC, json);
 }
 
-int transport_publish_position(const struct position_report *report) {
+int transport_publish_position_via(const struct position_report *report,
+                                   enum transport_path path) {
 #if defined(CONFIG_LORA_LINK)
-  if (lora_link_homestation_in_range()) {
+  if (path == TRANSPORT_PATH_LORA) {
+    int err = publish_over_lora(report);
+
+    if (err == 0) {
+      LOG_INF("Position sent over LoRa");
+    }
+
+    /* No fallback: the caller asked for this link specifically. */
+    return err;
+  }
+
+  if (path == TRANSPORT_PATH_AUTO && lora_link_homestation_in_range()) {
     int err = publish_over_lora(report);
 
     if (err == 0) {
@@ -73,7 +86,16 @@ int transport_publish_position(const struct position_report *report) {
 
     LOG_WRN("LoRa send failed (%d), falling back to MQTT-SN", err);
   }
+#else
+  if (path == TRANSPORT_PATH_LORA) {
+    LOG_ERR("Error: LoRa asked for but CONFIG_LORA_LINK is off");
+    return -ENOTSUP;
+  }
 #endif
 
   return publish_over_cellular(report);
+}
+
+int transport_publish_position(const struct position_report *report) {
+  return transport_publish_position_via(report, TRANSPORT_PATH_AUTO);
 }

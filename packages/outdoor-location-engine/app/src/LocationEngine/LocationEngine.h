@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "../comm/transport.h"
+
 /**
  * @brief How the last finished location request ended.
  */
@@ -28,8 +30,10 @@ struct location_result {
  */
 const struct location_result *location_last_result(void);
 
-void location_publish(double latitude, double longitude, int satellites, double accuracy);
-void location_publish_spoofed(void);
+int location_ensure_init(void);
+
+int location_publish(double latitude, double longitude, int satellites, double accuracy);
+int location_publish_spoofed(enum transport_path path);
 void location_default_get(void);
 void location_gnss_low_accuracy_get(void);
 void location_gnss_high_accuracy_get(void);

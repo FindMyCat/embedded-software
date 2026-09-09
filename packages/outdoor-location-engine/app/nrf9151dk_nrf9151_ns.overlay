@@ -2,7 +2,7 @@
  * FindMyCat NRF9151 custom board (U3B) / nRF9151 DK with hand-wired companions.
  *
  *   SERIAL0  uart0  console
- *   SERIAL1  uart1  RAK3172 LoRa     TX=P0.23  RX=P0.24
+ *   SERIAL1  uart1  RAK3172 LoRa     TX=P0.24  RX=P0.23
  *   SERIAL2  i2c2   nPM1300 PMIC     SDA=P0.09 SCL=P0.08  (addr 0x6b, Thingy-matched)
  *                   shared bus: also reaches the nRF52/DWM at 0x42 (see
  *                   src/comm/nrf52_link.h); that peer has no DT node.
@@ -21,14 +21,14 @@
     /* RAK3172 LoRa on uart1 */
     uart1_rak_default: uart1_rak_default {
         group1 {
-            psels = <NRF_PSEL(UART_TX, 0, 23)>,
-                    <NRF_PSEL(UART_RX, 0, 24)>;
+            psels = <NRF_PSEL(UART_TX, 0, 24)>,
+                    <NRF_PSEL(UART_RX, 0, 23)>;
         };
     };
     uart1_rak_sleep: uart1_rak_sleep {
         group1 {
-            psels = <NRF_PSEL(UART_TX, 0, 23)>,
-                    <NRF_PSEL(UART_RX, 0, 24)>;
+            psels = <NRF_PSEL(UART_TX, 0, 24)>,
+                    <NRF_PSEL(UART_RX, 0, 23)>;
             low-power-enable;
         };
     };
@@ -187,11 +187,7 @@
             label = "nRF52 config ready";
         };
         lora_reset: lora_reset {
-            /* TODO: (sahas) active high only suits the dev board, which drives a
-             * FET gate that pulls the module's active-low NRST down against a
-             * 10k pull-up. U3B wires NRST directly, so switch back to
-             * GPIO_ACTIVE_LOW there or the module sits held in reset. */
-            gpios = <&gpio0 25 GPIO_ACTIVE_HIGH>;
+            gpios = <&gpio0 25 GPIO_ACTIVE_LOW>;
             label = "RAK3172 reset";
         };
         lora_wake: lora_wake {

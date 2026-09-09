@@ -5,6 +5,11 @@ config FINDMYCAT_DIAGNOSTICS
 	select LED
 
 #### LTE
+
+module = FINDMYCAT_LTE
+module-str = LTE
+source "subsys/logging/Kconfig.template.log_config"
+
 config LTE_CONNECT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry LTE connection"
 	default 20
@@ -66,21 +71,8 @@ config LOST_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 	int "Location refresh period in seconds for Lost Mode"
 	default 30
 
-config MQTTSN_PUBLISH_TEST
-	bool "MQTT-SN publish bench test"
-	help
-	  Connect LTE and publish a dummy position at 0,0 on a loop instead of
-	  continuing to the rest of the application. Proves the gateway, rule
-	  engine and Traccar without waiting for a GNSS fix.
-
-config MQTTSN_PUBLISH_TEST_INTERVAL_S
-	int "Seconds between test publishes"
-	depends on MQTTSN_PUBLISH_TEST
-	default 30
-
 config LORA_CAD_RX_TEST
 	bool "CAD receive bench test"
-	select LORA_RAK3172_INIT
 	help
 	  Run the duty-cycled CAD receive loop and log packets instead of
 	  continuing to the rest of the application. Requires the CAD firmware
@@ -155,18 +147,8 @@ config SPOOF_PING_JITTER_MICRODEGREES
 	  base point, so repeated pings move on the map rather than stacking.
 	  1000 is about 100 metres.
 
-config LORA_RAK3172_INIT
-	bool "Bring up the RAK3172 at boot"
-	default y
-	help
-	  Opens the UART and runs the module through its init sequence. Turn off
-	  to keep LoRa entirely out of a run, so a bench test starts faster and
-	  its log is not interleaved with AT traffic. LORA_CAD_RX_TEST needs
-	  this enabled.
-
 config LORA_LINK
 	bool "Answer pings over LoRa from the home station"
-	select LORA_RAK3172_INIT
 	help
 	  Sniffs for a ping from the home station with duty-cycled CAD and answers
 	  with a position over LoRa, so the modem stays in PSM for the whole
@@ -220,8 +202,7 @@ config WIFI_SCAN_LORA_TEST
 	bool "WiFi scan to LoRa uplink bench test"
 	help
 	  Scans for access points, packs the strongest ones and sends them over
-	  LoRa on a loop instead of running the normal application flow. Needs
-	  LORA_RAK3172_INIT enabled.
+	  LoRa on a loop instead of running the normal application flow.
 
 config WIFI_SCAN_LORA_TEST_ACCESS_POINTS
 	int "Access points packed into each LoRa frame"

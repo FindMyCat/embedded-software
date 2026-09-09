@@ -21,8 +21,8 @@ static struct location_result last_result = {
 /**
  * @brief Publish a location using the transport layer.
  */
-void location_publish(double latitude, double longitude, int satellites,
-                      double accuracy) {
+int location_publish(double latitude, double longitude, int satellites,
+                     double accuracy) {
   const struct position_report report = {
       .latitude = latitude,
       .longitude = longitude,
@@ -35,6 +35,8 @@ void location_publish(double latitude, double longitude, int satellites,
   if (err) {
     LOG_ERR("Error: publishing the position failed (%d)", err);
   }
+
+  return err;
 }
 
 /**
@@ -56,7 +58,7 @@ static double random_offset_degrees(void) {
  * satellites, which no real fix does, so a spoofed point stays identifiable
  * once it reaches the cloud.
  */
-void location_publish_spoofed(void) {
+int location_publish_spoofed(enum transport_path path) {
   double latitude =
       (double)CONFIG_SPOOF_PING_BASE_LATITUDE_MICRODEGREES / 1000000.0 +
       random_offset_degrees();
@@ -64,8 +66,25 @@ void location_publish_spoofed(void) {
       (double)CONFIG_SPOOF_PING_BASE_LONGITUDE_MICRODEGREES / 1000000.0 +
       random_offset_degrees();
 
-  LOG_INF("Publishing spoofed position %.06f,%.06f", latitude, longitude);
-  location_publish(latitude, longitude, 0, 21.0);
+  LOG_INF("Publishing spoofed position %.06f,%.06f over %s", latitude, longitude,
+          path == TRANSPORT_PATH_LORA        ? "LoRa"
+          : path == TRANSPORT_PATH_CELLULAR  ? "MQTT-SN"
+                                             : "whichever link is available");
+
+  const struct position_report report = {
+      .latitude = latitude,
+      .longitude = longitude,
+      .accuracy_metres = 21.0,
+      .satellites = 0,
+  };
+
+  int err = transport_publish_position_via(&report, path);
+
+  if (err) {
+    LOG_ERR("Error: publishing the spoofed position failed (%d)", err);
+  }
+
+  return err;
 }
 
 /**
@@ -79,6 +98,22 @@ static void record_result_for_status(const char *reason,
   last_result.satellites = satellites;
   last_result.elapsed_ms = elapsed_ms;
   last_result.has_fix = (strcmp(reason, "fix") == 0);
+}
+
+int location_ensure_init(void) {
+  static bool initialized;
+
+  if (initialized) {
+    return 0;
+  }
+
+  int err = location_init(location_event_handler);
+
+  if (err == 0) {
+    initialized = true;
+  }
+
+  return err;
 }
 
 const struct location_result *location_last_result(void) {

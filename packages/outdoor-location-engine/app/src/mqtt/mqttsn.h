@@ -15,7 +15,6 @@ int initialize_mqttsn_config(const char *device_id, const char *hostname);
 int mqttsn_initialize();
 int mqttsn_disconnect();
 int mqttsn_check_input();
-int mqttsn_publish(char *data_str);
 
 /**
  * @brief Publish a payload to the given topic.
@@ -30,13 +29,6 @@ int mqttsn_publish_topic(const char *topic, const char *data_str);
  * @return 0 if the message was queued, negative errno otherwise.
  */
 int mqttsn_publish_with_session(const char *topic, const char *data_str);
-
-/**
- * @brief Publish a fixed dummy position.
- *
- * @return 0 on success, negative errno otherwise.
- */
-int mqttsn_publish_test(void);
 
 bool get_mqttsn_connection_status();
 #endif

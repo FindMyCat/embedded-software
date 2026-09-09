@@ -64,7 +64,7 @@ static int initialize_location_services()
 	}
     }
 
-    int err = location_init(location_event_handler);
+    int err = location_ensure_init();
     if (err) {
 	LOG_INF("Initializing the Location library failed, error: %d", err);
 	return -1;
@@ -172,6 +172,11 @@ int main(void)
 	return -1;
     }
 
+    err = rak3172_init();
+    if (err != 0) {
+	LOG_ERR("Error: RAK3172 init failed (%d), continuing without LoRa", err);
+    }
+
 #if defined(CONFIG_FINDMYCAT_DIAGNOSTICS)
     diagnostics_run();
 #endif
@@ -222,13 +227,6 @@ retry:
     if (err != 0) {
 	LOG_ERR("Error: Fuel gauge start failed (%d)", err);
     }
-
-#if defined(CONFIG_LORA_RAK3172_INIT)
-    err = rak3172_init();
-    if (err != 0) {
-	LOG_ERR("Error: RAK3172 init failed (%d), continuing without LoRa", err);
-    }
-#endif
 
     set_homestation_in_ble_range(gpio_pin_get_dt(&power_mode_command_recv_pin) == 1);
 
@@ -333,6 +331,13 @@ retry:
 	k_sleep(K_SECONDS(CONFIG_WIFI_SCAN_LORA_TEST_INTERVAL_S));
     }
 #endif
+
+    /* Stop here while chasing the restarts. Everything below keys a radio: LTE
+     * attach, then GNSS, then a UDP listener holding the modem up. Leaving the
+     * board booted and idle means a reset that still happens cannot be blamed
+     * on transmit current. Delete this return to put the application back. */
+    LOG_WRN("Stopping before network bring-up");
+    return 0;
 
     // Connect to LTE network with retries if necessary.
     while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {

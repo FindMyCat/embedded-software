@@ -90,7 +90,7 @@ void respond_to_ping(void) {
  * @brief Answer a spoof ping with a made up position, skipping GNSS.
  */
 void respond_to_spoof_ping(void) {
-  location_publish_spoofed();
+  location_publish_spoofed(TRANSPORT_PATH_AUTO);
   changeDispatcherState(DISPATCHER_STATE_IDLE);
 }
 

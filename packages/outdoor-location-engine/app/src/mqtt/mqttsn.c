@@ -216,11 +216,6 @@ int mqttsn_publish_topic(const char *topic, const char *data_str)
     return 0;
 }
 
-int mqttsn_publish(char *data_str)
-{
-    return mqttsn_publish_topic(CONFIG_MQTT_SN_LOCATION_TOPIC, data_str);
-}
-
 /**
  * @brief Publish one message, bringing up a gateway session if none is live.
  *
@@ -302,16 +297,6 @@ int mqttsn_publish_with_session(const char *topic, const char *data_str)
     k_mutex_unlock(&session_lock);
 
     return err;
-}
-
-int mqttsn_publish_test(void)
-{
-    char payload[100];
-
-    snprintk(payload, sizeof(payload), "{\"msg\": \"%.06f,%.06f,%d,%.02f,%d\"}", 0.0, 0.0, 8, 21.0,
-	     85);
-
-    return mqttsn_publish_with_session(CONFIG_MQTT_SN_LOCATION_TOPIC, payload);
 }
 
 /**
