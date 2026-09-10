@@ -140,6 +140,7 @@
 #define APP_ADV_INTERVAL_FAST               320                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 200 ms). */
 #define APP_ADV_INTERVAL_SLOW               3200                                    /**< The advertising interval (in units of 0.625 ms. This value corresponds to 1s). */
 #define APP_ADV_DURATION                    0                                       /**< The advertising duration in units of 10 milliseconds. 0 is to never stop. */
+#define APP_TX_POWER_DBM                    0                                       /**< Advertising and connection TX power. 8 is the part maximum and costs about twice the radio current for range the collar never needs. */
 
 #define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(25, UNIT_1_25_MS)         /**< Minimum acceptable connection interval (0.4 seconds). */
 #define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(250, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.65 second). */
@@ -700,7 +701,7 @@ static void on_ble_peripheral_evt(ble_evt_t const * p_ble_evt)
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
             APP_ERROR_CHECK(err_code);
-            err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, 8);
+            err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, APP_TX_POWER_DBM);
             APP_ERROR_CHECK(err_code);
             nrf_ble_scan_stop();
             break;
@@ -955,7 +956,7 @@ static void advertising_init(void)
 
     ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 
-    err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, 8);
+    err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, APP_TX_POWER_DBM);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -1065,5 +1066,3 @@ void ble_init(char * gap_name)
     // Create a FreeRTOS task for the BLE stack.
     
 }
-
-

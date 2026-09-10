@@ -444,6 +444,13 @@ const app_definition_t helpers_fira_niq[] __attribute__((section(".known_apps"))
  */
 void ResumeUwbTasks(void)
 {
+    /* uwb_init() leaves dw NULL when the probe found no chip. Registering the
+     * ranging app then runs the UWB tasks against a dead SPI. */
+    if (hal_uwb.uwbs == NULL || hal_uwb.uwbs->dw == NULL)
+    {
+        return;
+    }
+
     const app_definition_t *app_ptr = &helpers_fira_niq[0];
     EventManagerRegisterApp(&app_ptr);
 }

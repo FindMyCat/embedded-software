@@ -143,6 +143,63 @@ int main(void) {
     }
     NRF_APPROTECT->DISABLE = APPROTECT_DISABLE_DISABLE_SwDisable;
 
+/* Floor-current measurement hold. Set to 1 to park every pin the board can leak
+ * through and enter System OFF, so the PPK reads the static floor of the indoor
+ * rails. Off, main continues into the normal application init below. Pins are
+ * from the IndoorLocation schematic, UWB and BLE sheets. */
+#define INDOOR_FLOOR_CURRENT_HOLD 0
+
+#if INDOOR_FLOOR_CURRENT_HOLD
+    nrf_delay_ms(5000); /* SWD reattach window before the chip stops answering */
+
+    /* Hold DW3000 RSTn asserted. Released, the chip free-runs in IDLE_RC at
+     * milliamps because nothing here runs uwb_init() to deep-sleep it. Driving
+     * this pin low is the reset function; only driving it high is forbidden.
+     * nRF52 System OFF retains output levels, so it stays held. */
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 8));
+    nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(0, 8));
+    /* IRQ and MISO: buffer disconnected with a pull-down. nrf_gpio_cfg_input()
+     * would leave the buffer connected, and PIN_CNF survives System OFF, so a
+     * floating pin sits at mid-rail and draws shoot-through for good. With no
+     * DWM3000 fitted there is nothing external holding either line. */
+    nrf_gpio_cfg(NRF_GPIO_PIN_MAP(0, 17), NRF_GPIO_PIN_DIR_INPUT,
+		 NRF_GPIO_PIN_INPUT_DISCONNECT, NRF_GPIO_PIN_PULLDOWN,
+		 NRF_GPIO_PIN_S0S1, NRF_GPIO_PIN_NOSENSE);
+    nrf_gpio_cfg(NRF_GPIO_PIN_MAP(0, 22), NRF_GPIO_PIN_DIR_INPUT,
+		 NRF_GPIO_PIN_INPUT_DISCONNECT, NRF_GPIO_PIN_PULLDOWN,
+		 NRF_GPIO_PIN_S0S1, NRF_GPIO_PIN_NOSENSE);
+
+    /* WAKEUP and CS both wake the DW3000 out of sleep if they float, and
+     * neither has an external pull. Drive them to the inactive level. */
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 19));
+    nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(0, 19));
+    nrf_gpio_pin_set(NRF_GPIO_PIN_MAP(0, 20));
+    nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(0, 20));
+
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 21)); /* SPI MOSI */
+    nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(0, 21));
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 23)); /* SPI SCK */
+    nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(0, 23));
+
+    /* Q2 gate on the buzzer FET. A floating gate partially conducts off VSYS. */
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 27));
+    nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(0, 27));
+
+    /* J10 lines into the nRF9151. Both are inputs over there, so drive them low
+     * rather than leaving the far side floating. */
+    nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 5)); /* config ready */
+    nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(0, 5));
+    /* P0.16 is LED4 on the nRF52833 DK and the LEDs are active low, so driving
+     * it costs milliamps there. Restore for the indoor board. */
+    /* nrf_gpio_pin_clear(NRF_GPIO_PIN_MAP(0, 16)); */ /* NRF_91_CELL_MODE */
+    /* nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(0, 16)); */
+
+    /* I2C SDA P0.26 and SCL P0.04 stay Hi-Z: the outdoor board has 10k pull-ups
+     * on both, so driving either low would cost 330uA per line. */
+
+    NRF_POWER->SYSTEMOFF = 1;
+    for (;;) {}
+#endif /* INDOOR_FLOOR_CURRENT_HOLD */
 
     // Initialize modules.
     clock_init();
@@ -180,7 +237,7 @@ int main(void) {
     EventManagerInit();
     BoardInit();
     if (uwb_init() != DWT_SUCCESS) {
-        APP_ERROR_HANDLER(NRF_ERROR_RESOURCES);
+        diag_printf("UWB probe failed, continuing without ranging\r\n");
     }
     DefaultTaskInit();
    
