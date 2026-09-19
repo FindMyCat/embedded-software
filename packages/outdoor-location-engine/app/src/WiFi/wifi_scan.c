@@ -6,18 +6,18 @@
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/wifi_mgmt.h>
+#include <zephyr/pm/device.h>
 #include <zephyr/sys/byteorder.h>
 
-LOG_MODULE_REGISTER(wifi_scan, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
+LOG_MODULE_REGISTER(wifi_scan,
+                    CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 static K_SEM_DEFINE(scan_done, 0, 1);
 static struct net_mgmt_event_callback wifi_cb;
 
-static struct wifi_access_point seen[WIFI_SCAN_MAX_ACCESS_POINTS];
-static size_t seen_count;
+static struct wifi_access_point access_points_seen[WIFI_SCAN_MAX_ACCESS_POINTS];
+static size_t access_points_seen_count;
 
-/* Randomised BSSIDs are phone hotspots that move, and _nomap networks have
- * opted out of geolocation databases. Both hurt more than they help. */
 static bool is_access_point_useful(const struct wifi_scan_result *result) {
   if (result->mac_length != 6 || (result->mac[0] & 0x02)) {
     return false;
@@ -29,35 +29,33 @@ static bool is_access_point_useful(const struct wifi_scan_result *result) {
 }
 
 static void record_access_point(const struct wifi_scan_result *result) {
-  for (size_t i = 0; i < seen_count; i++) {
-    if (memcmp(seen[i].bssid, result->mac, 6) == 0) {
-      seen[i].rssi = MAX(seen[i].rssi, (int8_t)result->rssi);
+  for (size_t i = 0; i < access_points_seen_count; i++) {
+    if (memcmp(access_points_seen[i].bssid, result->mac, 6) == 0) {
+      access_points_seen[i].rssi = MAX(access_points_seen[i].rssi, (int8_t)result->rssi);
       return;
     }
   }
 
-  size_t slot = seen_count;
+  size_t slot = access_points_seen_count;
 
-  if (seen_count == ARRAY_SIZE(seen)) {
-    /* Table is full, so evict the weakest entry rather than dropping a
-     * newcomer that may well be stronger than something already held. */
+  if (access_points_seen_count == ARRAY_SIZE(access_points_seen)) {
     slot = 0;
 
-    for (size_t i = 1; i < seen_count; i++) {
-      if (seen[i].rssi < seen[slot].rssi) {
+    for (size_t i = 1; i < access_points_seen_count; i++) {
+      if (access_points_seen[i].rssi < access_points_seen[slot].rssi) {
         slot = i;
       }
     }
 
-    if (result->rssi <= seen[slot].rssi) {
+    if (result->rssi <= access_points_seen[slot].rssi) {
       return;
     }
   } else {
-    seen_count++;
+    access_points_seen_count++;
   }
 
-  memcpy(seen[slot].bssid, result->mac, 6);
-  seen[slot].rssi = (int8_t)result->rssi;
+  memcpy(access_points_seen[slot].bssid, result->mac, 6);
+  access_points_seen[slot].rssi = (int8_t)result->rssi;
 }
 
 int wifi_scan_get_strongest_access_points(struct wifi_access_point *out,
@@ -68,9 +66,9 @@ int wifi_scan_get_strongest_access_points(struct wifi_access_point *out,
     return -EINVAL;
   }
 
-  memcpy(ranked, seen, seen_count * sizeof(ranked[0]));
+  memcpy(ranked, access_points_seen, access_points_seen_count * sizeof(ranked[0]));
 
-  for (size_t i = 1; i < seen_count; i++) {
+  for (size_t i = 1; i < access_points_seen_count; i++) {
     struct wifi_access_point key = ranked[i];
     size_t j = i;
 
@@ -81,7 +79,7 @@ int wifi_scan_get_strongest_access_points(struct wifi_access_point *out,
     ranked[j] = key;
   }
 
-  size_t count = MIN(max_access_points, seen_count);
+  size_t count = MIN(max_access_points, access_points_seen_count);
 
   memcpy(out, ranked, count * sizeof(out[0]));
   return (int)count;
@@ -171,7 +169,7 @@ int wifi_scan_start(void) {
 
   LOG_INF("Starting WiFi scan...");
 
-  seen_count = 0;
+  access_points_seen_count = 0;
 
   err = net_mgmt(NET_REQUEST_WIFI_SCAN, iface, &params, sizeof(params));
   if (err) {
@@ -185,23 +183,49 @@ int wifi_scan_start(void) {
 
 int wifi_scan_stop(void) {
   struct net_if *iface = net_if_get_first_wifi();
+  int err = 0;
+
+  /* Best effort: a failure here must not skip the power cut below, or the
+   * nRF7002 stays supplied and burns a few hundred microamps forever. */
   if (!iface) {
     LOG_ERR("Error: no WiFi interface found");
-    return -ENODEV;
-  }
-
-  int err = net_if_down(iface);
-  if (err && err != -EALREADY) {
-    LOG_ERR("Error: net_if_down failed (%d)", err);
-    return err;
+    err = -ENODEV;
+  } else {
+    err = net_if_down(iface);
+    if (err == -EALREADY) {
+      err = 0;
+    } else if (err) {
+      LOG_ERR("Error: net_if_down failed (%d)", err);
+    }
   }
 
   const struct device *gpio0 = DEVICE_DT_GET(DT_NODELABEL(gpio0));
   if (device_is_ready(gpio0)) {
     gpio_pin_configure(gpio0, 27, GPIO_OUTPUT_LOW);
     gpio_pin_configure(gpio0, 28, GPIO_OUTPUT_LOW);
+  } else {
+    LOG_ERR("Error: gpio0 not ready, nRF7002 left powered");
+    err = err ? err : -ENODEV;
   }
 
-  LOG_INF("WiFi interface down, nRF7002 powered off");
-  return 0;
+  const struct device *spi = DEVICE_DT_GET(DT_NODELABEL(spi3));
+  if (device_is_ready(spi)) {
+    int suspend = pm_device_action_run(spi, PM_DEVICE_ACTION_SUSPEND);
+
+    if (suspend != 0 && suspend != -EALREADY) {
+      LOG_ERR("Error: spi3 suspend failed (%d)", suspend);
+      err = err ? err : suspend;
+    }
+  }
+
+  if (device_is_ready(gpio0)) {
+    gpio_pin_configure(gpio0, 17, GPIO_DISCONNECTED);
+    gpio_pin_configure(gpio0, 16, GPIO_DISCONNECTED);
+    gpio_pin_configure(gpio0, 13, GPIO_DISCONNECTED);
+    gpio_pin_configure(gpio0, 14, GPIO_DISCONNECTED);
+    gpio_pin_configure(gpio0, 15, GPIO_DISCONNECTED);
+  }
+
+  LOG_INF("nRF7002 powered off (interface teardown %d)", err);
+  return err;
 }

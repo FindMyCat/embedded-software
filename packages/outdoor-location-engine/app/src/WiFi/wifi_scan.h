@@ -23,33 +23,19 @@ struct wifi_access_point {
     int8_t rssi;
 };
 
-int wifi_scan_init(void);
-int wifi_scan_start(void);
-int wifi_scan_stop(void);
-
-/**
- * @brief Copy the strongest access points from the last scan, RSSI descending.
- *
- * Randomised BSSIDs and _nomap networks are excluded.
- *
- * @return Number of access points written, or a negative errno.
- */
 struct wifi_scan_frame {
     uint8_t bytes[WIFI_SCAN_PACKED_LENGTH(WIFI_SCAN_MAX_ACCESS_POINTS)];
     size_t len;
 };
 
+int wifi_scan_init(void);
+int wifi_scan_start(void);
+int wifi_scan_stop(void);
+
+
 int wifi_scan_get_strongest_access_points(struct wifi_access_point *out,
                                           size_t max_access_points);
 
-/**
- * @brief Pack the strongest access points into a binary frame, little endian.
- *
- * u8 message type, u8 count, u32 uptime seconds, then per access point a
- * 6 byte BSSID and an int8 RSSI. Six access points fit a LoRa SF12 frame.
- *
- * @return 0 on success, or a negative errno.
- */
 int wifi_scan_pack_strongest_access_points(struct wifi_scan_frame *out,
                                            size_t max_access_points);
 
