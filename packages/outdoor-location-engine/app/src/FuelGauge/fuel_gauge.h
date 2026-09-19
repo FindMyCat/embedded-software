@@ -1,25 +1,23 @@
 #ifndef FUEL_GAUGE_H
 #define FUEL_GAUGE_H
 
-/**
- * Initialise the on-board nPM1300 fuel gauge  and start a
- * background thread that periodically reads V/I/T and prints SoC.
- *
- * @return 0 on success, negative errno otherwise.
- */
+#include <zephyr/drivers/sensor/npm13xx_charger.h>
+static const struct device *npm1300__charger = DEVICE_DT_GET(DT_NODELABEL(npm1300_charger));
+
+/* nPM1300 CHARGER.BCHGCHARGESTATUS bitmasks */
+#define NPM13XX_CHG_STATUS_BATTDETECTED_MASK BIT(0)
+#define NPM13XX_CHG_STATUS_COMPLETE_MASK     BIT(1)
+#define NPM13XX_CHG_STATUS_TRICKLE_MASK      BIT(2)
+#define NPM13XX_CHG_STATUS_CC_MASK           BIT(3)
+#define NPM13XX_CHG_STATUS_CV_MASK           BIT(4)
+#define NPM13XX_CHG_STATUS_RECHARGE_MASK     BIT(5)
+
+int fuel_gauge_read_sensors(float *voltage, float *current, float *temp,
+                            int32_t *chg_status);
+
 int fuel_gauge_start(void);
-
-/**
- * Last state of charge in percent, or -EAGAIN if never sampled.
- */
+int fuel_gauge_sample_and_push(void);
 int fuel_gauge_get_state_of_charge(float *state_of_charge);
-
-/**
- * Send one frame of dummy battery values over the nRF52 I2C link (0x42),
- * without needing the nPM1300. For bench-testing the i2c link on the DK.
- *
- * @return 0 on success, negative errno otherwise.
- */
 int fuel_gauge_send_test_frame(void);
 
 #endif /* FUEL_GAUGE_H */
