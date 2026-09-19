@@ -13,8 +13,6 @@ static K_SEM_DEFINE(lte_connected, 0, 1);
 
 static K_SEM_DEFINE(time_update_finished, 0, 1);
 
-/* Last eDRX config published to /status, so the same values are not republished
- * when the network drops and re-triggers them. */
 static struct lte_lc_edrx_cfg published_edrx;
 static struct lte_lc_edrx_cfg pending_edrx;
 
@@ -40,10 +38,6 @@ static void lte_event_handler(const struct lte_lc_evt *const evt) {
       k_sem_give(&lte_connected);
     }
     break;
-  /* Which power mode the network actually granted, and whether the modem is
-   * currently in RRC idle or connected. The carrier applies a shorter inbound
-   * idle timer in idle mode, so this is the state the reachability test needs
-   * alongside the uplink age. */
   case LTE_LC_EVT_EDRX_UPDATE:
     LOG_INF("eDRX granted: mode %d, interval %.2f s, PTW %.2f s",
             evt->edrx_cfg.mode, (double)evt->edrx_cfg.edrx,
@@ -64,8 +58,6 @@ static void lte_event_handler(const struct lte_lc_evt *const evt) {
                                 ? "connected"
                                 : "idle");
     break;
-  /* Whether this cell honours the release hints we set with SO_RAI. Without
-   * AS RAI the modem waits out the network's RRC inactivity timer instead. */
   case LTE_LC_EVT_RAI_UPDATE:
     LOG_DBG("RAI on cell 0x%08x: AS %s, CP %s", evt->rai_cfg.cell_id,
             evt->rai_cfg.as_rai ? "yes" : "no",
@@ -98,7 +90,6 @@ int lte_connect(void) {
    * LTE network.
    */
   lte_lc_psm_req(false);
-  /** enhanced Discontinuous Reception */
 
   LOG_INF("Requesting EDRX mode");
   // Todo: Turn on EDRX mode after development complete.
