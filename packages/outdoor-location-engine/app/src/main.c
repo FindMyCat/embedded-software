@@ -22,7 +22,7 @@
 #include "LoRa/lora_link.h"
 #include "LoRa/rak3172.h"
 #include "LocationEngine/LocationEngine.h"
-#include "UDPListener/NewUDPListener.h"
+#include "UDPListener/UDPListener.h"
 #include "WiFi/wifi_location.h"
 #include "WiFi/wifi_scan.h"
 #include "comm/nrf52_link.h"
@@ -228,7 +228,7 @@ retry:
     gpio_init_callback(&fmc_config_nrf52_cb_data, nrf52_config_ready_isr,
                        BIT(nrf52_config_ready_pin.pin));
     gpio_add_callback(nrf52_config_ready_pin.port, &fmc_config_nrf52_cb_data);
-    /* config may already be pending from before we armed the interrupt */
+
     if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
       k_work_schedule(&fmc_nrf52_config__work, K_NO_WAIT);
     }
@@ -327,7 +327,6 @@ retry:
     LOG_INF("Main thread is running. Home station %s",
             home ? "in range" : "out of range");
 
-    /* Every 8th tick, so the counters land about once per beacon. */
     if (++tick % 8 == 0) {
       lora_link_log_stats();
     }
