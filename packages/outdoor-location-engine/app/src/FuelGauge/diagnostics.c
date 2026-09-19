@@ -1,6 +1,5 @@
 #include "diagnostics.h"
 
-#include <errno.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/led.h>
 #include <zephyr/drivers/sensor.h>

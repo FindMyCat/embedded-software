@@ -92,7 +92,7 @@ int lte_connect(void) {
   lte_lc_psm_req(false);
 
   LOG_INF("Requesting EDRX mode");
-  // Todo: Turn on EDRX mode after development complete.
+
   err = lte_lc_edrx_req(true);
 
   if (err) {
