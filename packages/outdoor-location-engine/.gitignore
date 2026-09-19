@@ -6,10 +6,9 @@
 /build*/
 /nrf9160-dk*/
 
-# device id, broker hostname and topic
 app/local.conf
 
-# West workspace and NCS SDK (populated by make setup, not committed)
+# West workspace and NCS SDK
 .west/
 nrf/
 zephyr/
@@ -25,5 +24,3 @@ test/
 src/.DS_Store
 .DS_Store
 
-/overlay-nrf9160dk.conf
-/overlay-findmycat-device.conf

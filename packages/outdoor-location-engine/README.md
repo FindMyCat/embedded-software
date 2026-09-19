@@ -1,6 +1,6 @@
 # FindMyCat - Outdoor Location Engine
 
-Hardware: nrf9160-DK
+Hardware: FindMyCat V3 Custom Board.
 
 Software Architecture:
 
