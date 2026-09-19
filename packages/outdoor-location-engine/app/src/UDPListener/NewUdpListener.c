@@ -1,10 +1,11 @@
-#include <errno.h>
-#include <zephyr/net/socket.h>
-#include <zephyr/logging/log.h>
-#include "../Dispatcher/Dispatcher.h"
 #include "NewUdpListener.h"
+#include "../Dispatcher/Dispatcher.h"
+#include <errno.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/net/socket.h>
 
-LOG_MODULE_REGISTER(new_udp_listener, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
+LOG_MODULE_REGISTER(new_udp_listener,
+                    CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 #define UDP_PORT 12345
 #define MAX_DATA_SIZE 256
@@ -21,105 +22,95 @@ K_THREAD_STACK_DEFINE(udp_listener_stack_area, UDP_LISTENER_STACK_SIZE);
 struct k_thread udp_listener_thread_data;
 k_tid_t udp_thread_id;
 
-/* Block until a datagram or an error arrives. A timeout here would wake the
- * CPU on every expiry for nothing, which is visible in a current trace. */
 #define RECEIVE_POLL_TIMEOUT_MS -1
 
 static uint32_t inbound_datagram_count;
 
 int create_udp_listener() {
-    LOG_INF("Creating UDP Data Receiver(IPv4)");
+  LOG_INF("Creating UDP Data Receiver(IPv4)");
 
-    // Create a UDP socket
-    udp_socket = zsock_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (udp_socket < 0) {
-        LOG_ERR("Error: Unable to create UDP socket");
-        return -1;
-    }
+  // Create a UDP socket
+  udp_socket = zsock_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (udp_socket < 0) {
+    LOG_ERR("Error: Unable to create UDP socket");
+    return -1;
+  }
 
-    // Bind the socket to the UDP_PORT
-    memset(&my_addr, 0, sizeof(my_addr));
-    my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(UDP_PORT);
-    zsock_bind(udp_socket, (struct sockaddr *)&my_addr, sizeof(my_addr));
+  // Bind the socket to the UDP_PORT
+  memset(&my_addr, 0, sizeof(my_addr));
+  my_addr.sin_family = AF_INET;
+  my_addr.sin_port = htons(UDP_PORT);
+  zsock_bind(udp_socket, (struct sockaddr *)&my_addr, sizeof(my_addr));
 
-    return 0;
+  return 0;
 }
 
-int destroy_udp_listener() {
-    return zsock_close(udp_socket);
-}
+int destroy_udp_listener() { return zsock_close(udp_socket); }
 
 void start_listening() {
-    while (true) {
-        struct zsock_pollfd poll_descriptor = {
-            .fd = udp_socket,
-            .events = ZSOCK_POLLIN,
-        };
+  while (true) {
+    struct zsock_pollfd poll_descriptor = {
+        .fd = udp_socket,
+        .events = ZSOCK_POLLIN,
+    };
 
-        int ready = zsock_poll(&poll_descriptor, 1, RECEIVE_POLL_TIMEOUT_MS);
-        if (ready < 0) {
-            LOG_ERR("Error: Poll on UDP socket failed (%d)", errno);
-            k_sleep(K_SECONDS(1));
-            continue;
-        }
-
-        if (ready == 0) {
-            continue;
-        }
-
-        // Receive data on the UDP socket
-        // Note that the recv call is blocking until data is received.
-        recv_len = zsock_recv(udp_socket, rx_data, sizeof(rx_data) - 1, 0);
-        if (recv_len < 0) {
-            /* A dead socket must not kill the thread: the listener has to
-             * survive the PDN drops that happen away from the home station. */
-            LOG_ERR("Error: Unable to receive data (%d)", errno);
-
-            if (errno == EAGAIN || errno == EINTR) {
-                continue;
-            }
-
-            LOG_WRN("Recreating UDP listener socket");
-            destroy_udp_listener();
-            if (create_udp_listener() != 0) {
-                k_sleep(K_SECONDS(5));
-            }
-            continue;
-        }
-
-        rx_data[recv_len] = '\0';
-        inbound_datagram_count++;
-
-        LOG_INF("Command %s, datagram %u", rx_data, inbound_datagram_count);
-
-		// Commands are kept short so each one costs as little data as possible.
-		// The dispatcher logs the state it moves to, so no need to log it here.
-        if (strncmp(rx_data, "spoof-ping", recv_len) == 0) {
-            changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_SPOOF_PING);
-        } else if (strncmp(rx_data, "ping", recv_len) == 0) {
-            changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
-        } else if(strncmp(rx_data, "lost", recv_len) == 0) {
-            changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
-        } else if (strncmp(rx_data, "active", recv_len) == 0) {
-            changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
-		} else if (strncmp(rx_data, "idle", recv_len) == 0) {
-            changeDispatcherState(DISPATCHER_STATE_IDLE);
-		} else {
-			LOG_ERR("Error: Unknown command: %s", rx_data);
-		}
-
+    int ready = zsock_poll(&poll_descriptor, 1, RECEIVE_POLL_TIMEOUT_MS);
+    if (ready < 0) {
+      LOG_ERR("Error: Poll on UDP socket failed (%d)", errno);
+      k_sleep(K_SECONDS(1));
+      continue;
     }
+
+    if (ready == 0) {
+      continue;
+    }
+
+    // Receive data on the UDP socket
+    // Note that the recv call is blocking until data is received.
+    recv_len = zsock_recv(udp_socket, rx_data, sizeof(rx_data) - 1, 0);
+    if (recv_len < 0) {
+      LOG_ERR("Error: Unable to receive data (%d)", errno);
+
+      if (errno == EAGAIN || errno == EINTR) {
+        continue;
+      }
+
+      LOG_WRN("Recreating UDP listener socket");
+      destroy_udp_listener();
+      if (create_udp_listener() != 0) {
+        k_sleep(K_SECONDS(5));
+      }
+      continue;
+    }
+
+    rx_data[recv_len] = '\0';
+    inbound_datagram_count++;
+
+    LOG_INF("Command %s, datagram %u", rx_data, inbound_datagram_count);
+
+    // Commands are kept short so each one costs as little data as possible.
+    // The dispatcher logs the state it moves to, so no need to log it here.
+    if (strncmp(rx_data, "spoof-ping", recv_len) == 0) {
+      changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_SPOOF_PING);
+    } else if (strncmp(rx_data, "ping", recv_len) == 0) {
+      changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
+    } else if (strncmp(rx_data, "lost", recv_len) == 0) {
+      changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
+    } else if (strncmp(rx_data, "active", recv_len) == 0) {
+      changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
+    } else if (strncmp(rx_data, "idle", recv_len) == 0) {
+      changeDispatcherState(DISPATCHER_STATE_IDLE);
+    } else {
+      LOG_ERR("Error: Unknown command: %s", rx_data);
+    }
+  }
 }
 
 void start_udp_listener_thread() {
-    udp_thread_id = k_thread_create(&udp_listener_thread_data, udp_listener_stack_area,
-                                 K_THREAD_STACK_SIZEOF(udp_listener_stack_area),
-                                 start_listening,
-                                 NULL, NULL, NULL,
-                                 UDP_LISTENER_THREAD_PRIORITY, 0, K_NO_WAIT);
+  udp_thread_id = k_thread_create(
+      &udp_listener_thread_data, udp_listener_stack_area,
+      K_THREAD_STACK_SIZEOF(udp_listener_stack_area), start_listening, NULL,
+      NULL, NULL, UDP_LISTENER_THREAD_PRIORITY, 0, K_NO_WAIT);
 }
 
-void stop_udp_listener_thread() {
-    k_thread_abort(udp_thread_id);
-}
+void stop_udp_listener_thread() { k_thread_abort(udp_thread_id); }

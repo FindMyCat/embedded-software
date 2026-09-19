@@ -39,9 +39,6 @@ int location_publish(double latitude, double longitude, int satellites,
   return err;
 }
 
-/**
- * @brief Jitter in degrees, up to plus or minus the configured radius.
- */
 static double random_offset_degrees(void) {
   uint32_t span = (uint32_t)CONFIG_SPOOF_PING_JITTER_MICRODEGREES * 2 + 1;
   int32_t offset = (int32_t)(sys_rand32_get() % span) -
@@ -52,11 +49,6 @@ static double random_offset_degrees(void) {
 
 /**
  * @brief Publish a made up position near the configured base point.
- *
- * Exercises the gateway, rule engine and Traccar without waiting for a GNSS
- * fix, so a spoof ping answers in seconds rather than minutes. Reports zero
- * satellites, which no real fix does, so a spoofed point stays identifiable
- * once it reaches the cloud.
  */
 int location_publish_spoofed(enum transport_path path) {
   double latitude =
@@ -66,10 +58,11 @@ int location_publish_spoofed(enum transport_path path) {
       (double)CONFIG_SPOOF_PING_BASE_LONGITUDE_MICRODEGREES / 1000000.0 +
       random_offset_degrees();
 
-  LOG_INF("Publishing spoofed position %.06f,%.06f over %s", latitude, longitude,
-          path == TRANSPORT_PATH_LORA        ? "LoRa"
-          : path == TRANSPORT_PATH_CELLULAR  ? "MQTT-SN"
-                                             : "whichever link is available");
+  LOG_INF("Publishing spoofed position %.06f,%.06f over %s", latitude,
+          longitude,
+          path == TRANSPORT_PATH_LORA       ? "LoRa"
+          : path == TRANSPORT_PATH_CELLULAR ? "MQTT-SN"
+                                            : "whichever link is available");
 
   const struct position_report report = {
       .latitude = latitude,
@@ -87,9 +80,6 @@ int location_publish_spoofed(enum transport_path path) {
   return err;
 }
 
-/**
- * @brief Record how a request ended, for the status the command publishes.
- */
 static void record_result_for_status(const char *reason,
                                      enum location_method method,
                                      uint8_t satellites, uint32_t elapsed_ms) {
@@ -193,9 +183,6 @@ void location_event_handler(const struct location_event_data *event_data) {
     break;
   }
 
-  /* Only the events that end a request release the waiter. STARTED and
-   * FALLBACK arrive while the procedure is still running, and waking the
-   * caller there makes it treat a request that has barely begun as done. */
   k_sem_give(&location_event);
 }
 
@@ -284,7 +271,9 @@ void location_gnss_high_accuracy_get(void) {
 
   location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
 
-  // // TODO: (sahas) high accuracy may not get a fix all the time, this may need to be configurable build time or even run time. Device accepts config over ble already, perhaps set it there? 
+  // // TODO: (sahas) high accuracy may not get a fix all the time, this may
+  // need to be configurable build time or even run time. Device accepts config
+  // over ble already, perhaps set it there?
   config.methods[0].gnss.accuracy = LOCATION_ACCURACY_HIGH;
 
   LOG_INF("Requesting high accuracy GNSS location...");

@@ -4,8 +4,8 @@
 
 #include "../Dispatcher/Dispatcher.h"
 #include "../FuelGauge/fuel_gauge.h"
-#include "../LocationEngine/LocationEngine.h"
 #include "../LoRa/lora_link.h"
+#include "../LocationEngine/LocationEngine.h"
 #include "../mqtt/mqttsn.h"
 
 LOG_MODULE_REGISTER(responder,
@@ -32,8 +32,8 @@ void publish_command_status_to_device_status_topic(const char *command,
       "s\","
       "\"satellites\":%u,\"elapsed_s\":%u,\"battery\":%.01f,\"uptime_s\":%lld}",
       command, status, reason, location_method_str(result->method),
-      result->satellites, result->elapsed_ms / 1000U, (double)state_of_charge,
-      k_uptime_get() / MSEC_PER_SEC);
+      result->num_satellites, result->elapsed_ms / 1000U,
+      (double)state_of_charge, k_uptime_get() / MSEC_PER_SEC);
 
   int err = mqttsn_publish_with_session(CONFIG_MQTT_SN_STATUS_TOPIC, payload);
   if (err) {
@@ -70,9 +70,6 @@ void respond_to_ping(void) {
 
   if (!result->has_fix) {
 #if defined(CONFIG_LORA_LINK)
-    /* A ping heard over LoRa is answered over LoRa. The wire format carries
-     * positions only, so a failed fix has nothing to send and must not drag the
-     * modem up to report it. */
     if (lora_link_homestation_in_range()) {
       LOG_WRN("No fix to answer the ping with (%s)", result->reason);
       changeDispatcherState(DISPATCHER_STATE_IDLE);
