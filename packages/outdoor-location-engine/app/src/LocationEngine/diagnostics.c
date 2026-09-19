@@ -24,13 +24,13 @@ int location_diagnostics(void) {
 
   if (!result->has_fix) {
     LOG_WRN("  no fix: %s after %u ms, %u satellites tracked", result->reason,
-            result->elapsed_ms, result->satellites);
+            result->elapsed_ms, result->num_satellites);
     LOG_WRN("  expected indoors; needs a clear view of the sky");
     return -ETIMEDOUT;
   }
 
   LOG_INF("  PASS fix in %u ms, %u satellites", result->elapsed_ms,
-          result->satellites);
+          result->num_satellites);
 
   return 0;
 }
