@@ -186,7 +186,7 @@ int main(void) {
 
 #if defined(CONFIG_FINDMYCAT_DIAGNOSTICS) &&                                   \
     !defined(CONFIG_FINDMYCAT_LOW_POWER_HOLD)
-  diagnostics_run();
+  onboard_diagnostics_run();
 #endif
 
 retry:

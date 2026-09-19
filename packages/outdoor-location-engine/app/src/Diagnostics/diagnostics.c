@@ -120,7 +120,7 @@ void print_diagnostics_summary(void) {
   }
 }
 
-void diagnostics_run(void) {
+void onboard_diagnostics_run(void) {
   bool modem_failed = false;
 
   result_count = 0;
