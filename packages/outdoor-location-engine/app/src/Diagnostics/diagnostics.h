@@ -8,4 +8,9 @@
  */
 void diagnostics_run(void);
 
+/**
+ * Bring every radio down and return to measure the floor current of the FindMyCat PCB
+ */
+void diagnostics_low_power_hold(void);
+
 #endif /* DIAGNOSTICS_H */

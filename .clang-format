@@ -103,7 +103,7 @@ InsertBraces: true
 InsertNewlineAtEOF: true
 SpaceBeforeInheritanceColon: False
 SpaceBeforeParens: ControlStatementsExceptControlMacros
-SortIncludes: Never
+SortIncludes: Always
 UseTab: ForContinuationAndIndentation
 WhitespaceSensitiveMacros:
   - COND_CODE_0

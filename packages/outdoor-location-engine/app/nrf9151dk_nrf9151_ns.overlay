@@ -67,6 +67,13 @@
     };
 };
 
+/* The console is on RTT in dev and compiled out in prod, so nothing drives
+ * uart0 either way. Left enabled its UARTE still holds HFCLK, which costs a few
+ * hundred microamps. Re-enable alongside AT_HOST_LIBRARY, which needs it. */
+&uart0 {
+    status = "disabled";
+};
+
 &uart1 {
     status = "okay";
     current-speed = <115200>;
@@ -113,6 +120,7 @@
                 regulator-max-microvolt = <3300000>;
                 regulator-boot-on;
             };
+
         };
 
         npm1300_charger: charger {
@@ -129,7 +137,10 @@
             thermistor-hot-millidegrees = <45000>;
             thermistor-ohms = <10000>;
             thermistor-beta = <3435>;
-            charging-enable;
+            /* MEASUREMENT: restore before shipping, the cell will not charge
+             * without it. Off so the charger stops measuring the battery on a
+             * timer while the floor current is being read. */
+            /* charging-enable; */
         };
     };
 };

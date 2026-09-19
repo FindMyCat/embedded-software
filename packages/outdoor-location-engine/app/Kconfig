@@ -1,15 +1,22 @@
 menu "FindMyCat Build Time Configuration options"
 
 config FINDMYCAT_DIAGNOSTICS
-	bool "Log a hardware self-test at boot time"
+	bool "Print self diagnostics for each major feature/component."
 	select LED
 
-#### LTE
+config FINDMYCAT_LOW_POWER_HOLD
+	bool "Holds the firmware at the lowest power, this can be used to verify current leaks in the hardware."
+	select FINDMYCAT_DIAGNOSTICS
+
+
+config FINDMYCAT_CLOUD_HOSTNAME
+	string "Default Hostname of the FindMyCat Cloud, this can be overriden using the iOS/Android App"
 
 module = FINDMYCAT_LTE
 module-str = LTE
 source "subsys/logging/Kconfig.template.log_config"
 
+# LTE
 config LTE_CONNECT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry LTE connection"
 	default 20
@@ -18,9 +25,7 @@ config LTE_CONNECT_MAX_RETRIES
 	int "Max retry attempts for LTE connection"
 	default 4
 
-config FINDMYCAT_CLOUD_HOSTNAME
-	string "Default Hostname of the FindMyCat Cloud, this can be overriden using the iOS/Android App"
-
+# MQTT-SN
 config MQTT_SN_GATEWAY_ID
 	int "Id of the MQTT-SN gateway"
 	default 1
@@ -41,16 +46,12 @@ config MQTT_SN_LOCATION_TOPIC
 config MQTT_SN_STATUS_TOPIC
 	string "MQTT Topic device status is published to"
 	default "/status"
-	help
-	  Every command the collar executes reports its outcome here, whether it
-	  succeeded or not, so the cloud can tell a finished round trip from a
-	  collar that never answered. Kept apart from MQTT_SN_LOCATION_TOPIC so
-	  the position feed Traccar consumes carries positions only.
 
 config MQTT_SN_REFRESH_PERIOD_SECONDS
 	int "MQTT-SN refresh period in seconds"
 	default 60
 
+# Location Services.
 config LOCATION_SERVICES_INIT_MAX_RETRIES
 	int "Max retry attempts for location services initialization"
 	default 4
@@ -58,10 +59,6 @@ config LOCATION_SERVICES_INIT_MAX_RETRIES
 config LOCATION_SERVICES_INIT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry location services initialization"
 	default 20
-
-config DEVICE_ID
-	string "Device ID"
-	default "nrf9160"
 
 config ACTIVE_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 	int "Location refresh period in seconds for Active Mode"
@@ -71,69 +68,9 @@ config LOST_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 	int "Location refresh period in seconds for Lost Mode"
 	default 30
 
-config LORA_CAD_RX_TEST
-	bool "CAD receive bench test"
-	help
-	  Run the duty-cycled CAD receive loop and log packets instead of
-	  continuing to the rest of the application. Requires the CAD firmware
-	  on the RAK3172.
-
-config LORA_CAD_RX_TEST_SYMBOLS
-	int "CAD symbol count index (0=1, 1=2, 2=4, 3=8, 4=16)"
-	depends on LORA_CAD_RX_TEST
-	default 1
-
-config LORA_CAD_RX_TEST_DET_PEAK
-	int "CAD detection peak threshold"
-	depends on LORA_CAD_RX_TEST
-	default 22
-
-config LORA_CAD_RX_TEST_DET_MIN
-	int "CAD detection minimum"
-	depends on LORA_CAD_RX_TEST
-	default 10
-
-config LORA_CAD_RX_TEST_INTERVAL_MS
-	int "Sniff interval in milliseconds"
-	depends on LORA_CAD_RX_TEST
-	default 450
-
-config LORA_CAD_RX_TEST_LOW_POWER
-	bool "Leave the RAK3172 in low power mode during the test"
-	depends on LORA_CAD_RX_TEST
-	help
-	  Keeps AT+LPM=1 and stops polling AT+CADSTAT, so the module can sleep
-	  between sniffs. Required for a meaningful current measurement, at the
-	  cost of sluggish AT responses and no periodic counters.
-
-config LORA_CAD_RX_TEST_WAKE_PIN
-	int "RUI3 pin number the RAK3172 drives as the wake line"
-	depends on LORA_CAD_RX_TEST
-	default 9
-	help
-	  RUI3 numbering is port * 16 + pin, so PA9 is 9 and PB5 is 21. Reaches
-	  the nRF9151 on the lora-wake alias. 4294967295 leaves the pin unused.
-
-config LORA_CAD_RX_TEST_ABSENCE_S
-	int "Seconds without a detection before the wake line asserts (0 = off)"
-	depends on LORA_CAD_RX_TEST
-	default 30
-
-config LORA_CAD_RX_TEST_RESET_FIRST
-	bool "Pulse the reset line before starting, to prove it works"
-	depends on LORA_CAD_RX_TEST
-	help
-	  Asserts the reset GPIO and checks the module reports PIN in its reset
-	  flags. Answers whether the reset line alone can recover a wedged module
-	  or whether a power switch is needed.
-
 config SPOOF_PING_BASE_LATITUDE_MICRODEGREES
 	int "Latitude a test ping reports, in millionths of a degree"
 	default 37423021
-	help
-	  A test ping publishes a position near this point instead of waiting for
-	  a GNSS fix, so the gateway, rule engine and Traccar can be exercised in
-	  seconds. 37423021 is 37.423021.
 
 config SPOOF_PING_BASE_LONGITUDE_MICRODEGREES
 	int "Longitude a test ping reports, in millionths of a degree"
@@ -142,19 +79,10 @@ config SPOOF_PING_BASE_LONGITUDE_MICRODEGREES
 config SPOOF_PING_JITTER_MICRODEGREES
 	int "Random spread applied to a test ping position"
 	default 1000
-	help
-	  Each test ping lands within this many millionths of a degree of the
-	  base point, so repeated pings move on the map rather than stacking.
-	  1000 is about 100 metres.
 
+# LORA
 config LORA_LINK
 	bool "Answer pings over LoRa from the home station"
-	help
-	  Sniffs for a ping from the home station with duty-cycled CAD and answers
-	  with a position over LoRa, so the modem stays in PSM for the whole
-	  exchange. Needs the CAD firmware on the RAK3172. The SMS and UDP
-	  listeners stay active, and a position falls back to MQTT-SN whenever the
-	  home station is out of range.
 
 config LORA_LINK_CAD_SYMBOLS
 	int "CAD symbol count index (0=1, 1=2, 2=4, 3=8, 4=16)"
@@ -175,44 +103,16 @@ config LORA_LINK_CAD_INTERVAL_MS
 	int "Sniff interval in milliseconds"
 	depends on LORA_LINK
 	default 450
-	help
-	  The home station's preamble must outlast this. 450 ms pairs with the
-	  512-symbol preamble the home station sends.
 
 config LORA_LINK_CAD_PIN
 	int "RUI3 pin number the RAK3172 raises when a packet is buffered"
 	depends on LORA_LINK
 	default 9
-	help
-	  RUI3 numbering is port * 16 + pin, so PA9 is 9 and PB5 is 21. Reaches the
-	  nRF9151 on the lora-wake alias.
 
 config LORA_LINK_ABSENCE_S
 	int "Seconds without a CAD detection before the home station counts as absent"
 	depends on LORA_LINK
 	default 35
-	help
-	  The module tracks this itself and raises the wake line when it expires,
-	  so the host learns the home station went away without listening for it.
-	  Any detection clears it, decoded or not. Set it to several beacon
-	  periods: single misses are normal from fading and collisions, and a
-	  false alarm wakes the host for nothing.
-
-config WIFI_SCAN_LORA_TEST
-	bool "WiFi scan to LoRa uplink bench test"
-	help
-	  Scans for access points, packs the strongest ones and sends them over
-	  LoRa on a loop instead of running the normal application flow.
-
-config WIFI_SCAN_LORA_TEST_ACCESS_POINTS
-	int "Access points packed into each LoRa frame"
-	depends on WIFI_SCAN_LORA_TEST
-	default 6
-
-config WIFI_SCAN_LORA_TEST_INTERVAL_S
-	int "Seconds between scans"
-	depends on WIFI_SCAN_LORA_TEST
-	default 15
 
 endmenu
 

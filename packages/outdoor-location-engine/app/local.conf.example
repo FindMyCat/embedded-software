@@ -1,5 +1,3 @@
 # Copy to local.conf and fill in. local.conf is gitignored.
-# The topic is the only thing protecting the gateway, since MQTT-SN has no auth.
-CONFIG_DEVICE_ID="your-device-id"
 CONFIG_FINDMYCAT_CLOUD_HOSTNAME="your-broker-host"
 CONFIG_MQTT_SN_LOCATION_TOPIC="/your-topic"
