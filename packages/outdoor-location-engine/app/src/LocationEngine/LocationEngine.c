@@ -95,7 +95,7 @@ static void record_result_for_status(const char *reason,
                                      uint8_t satellites, uint32_t elapsed_ms) {
   last_result.reason = reason;
   last_result.method = method;
-  last_result.satellites = satellites;
+  last_result.num_satellites = satellites;
   last_result.elapsed_ms = elapsed_ms;
   last_result.has_fix = (strcmp(reason, "fix") == 0);
 }
@@ -157,7 +157,7 @@ void location_event_handler(const struct location_event_data *event_data) {
                              event_data->error.details.gnss.satellites_tracked,
                              event_data->error.details.elapsed_time_method);
     LOG_ERR("Getting location timed out after %u ms, %u satellites tracked",
-            last_result.elapsed_ms, last_result.satellites);
+            last_result.elapsed_ms, last_result.num_satellites);
     break;
 
   case LOCATION_EVT_ERROR:

@@ -9,25 +9,15 @@
 
 #include "../comm/transport.h"
 
-/**
- * @brief How the last finished location request ended.
- */
 struct location_result {
-	/** True only when a position was obtained. */
 	bool has_fix;
 	/** "fix", "timeout", "error", "rejected", "unknown" or "none". */
 	const char *reason;
-	/** Method that produced the outcome. */
 	enum location_method method;
-	/** Satellites tracked when the request ended. */
-	uint8_t satellites;
-	/** Time the method spent on the request. */
+	uint8_t num_satellites;
 	uint32_t elapsed_ms;
 };
 
-/**
- * @brief Outcome of the last finished request, for status reporting.
- */
 const struct location_result *location_last_result(void);
 
 int location_ensure_init(void);
