@@ -33,6 +33,10 @@
 
 #define LORA_FRAME_FLAG_MAC BIT(0)
 
+/* Test heartbeat, collar to station: this one byte and nothing else. Distinct
+ * from the frame magic and the WiFi scan type byte. */
+#define LORA_HEARTBEAT_BYTE 0xFDU
+
 enum lora_frame_type {
 	LORA_FRAME_TYPE_PING = 1,
 	LORA_FRAME_TYPE_POSITION = 2,

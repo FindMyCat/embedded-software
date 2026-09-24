@@ -241,6 +241,12 @@ static void handle_position(const struct lora_frame *frame) {
 static void handle_payload(const uint8_t *payload, size_t len) {
   struct lora_frame frame;
 
+  if (len == 1 && payload[0] == LORA_HEARTBEAT_BYTE) {
+    LOG_INF("Collar heartbeat");
+    mark_collar_heard();
+    return;
+  }
+
   if (lora_frame_decode(payload, len, &frame) == 0) {
     mark_collar_heard();
 

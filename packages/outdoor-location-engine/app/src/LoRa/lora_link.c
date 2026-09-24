@@ -187,9 +187,8 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
 
         rak3172_uart_claim();
         rak3172_cad_rx_stop();
-        rak3172_uart_release();
-
         sniffing = false;
+        rak3172_uart_release();
       }
 
       continue;
@@ -200,6 +199,7 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
 
       rak3172_uart_claim();
       int err = start_cad_sniffing();
+      sniffing = err == 0;
       rak3172_uart_release();
 
       if (err != 0) {
@@ -207,7 +207,6 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
         continue;
       }
 
-      sniffing = true;
       homestation_absent = true;
       continue;
     }
@@ -307,26 +306,45 @@ void lora_link_set_enabled(bool enabled) {
 }
 
 /* CAD sniffing owns the radio: stop it to transmit, restart it after or the
- * collar goes deaf. */
+ * collar goes deaf. Only restart if it was running; the link may be disabled. */
 static int send_payload_around_cad(const uint8_t *payload, size_t len) {
   rak3172_uart_claim();
 
   /* Under AT+LPM the module spends the next command's first byte on waking, so
-   * it arrives truncated. start_cad_sniffing() restores low power. */
+   * it arrives truncated. Low power is restored below. */
   rak3172_low_power(false);
 
   rak3172_cad_rx_stop();
 
   int err = rak3172_send_payload(payload, len);
 
-  if (start_cad_sniffing() != 0) {
+  if (!sniffing) {
+    rak3172_low_power(true);
+  } else if (start_cad_sniffing() != 0) {
     LOG_ERR("Error: could not resume CAD sniffing after transmit");
+    sniffing = false;
   }
 
   rak3172_uart_release();
 
   return err;
 }
+
+/* Only while the link is on; in BLE range the station has paused LoRa. */
+static void heartbeat_handler(struct k_work *work) {
+  if (atomic_get(&link_enabled) != 0) {
+    static const uint8_t beat = LORA_HEARTBEAT_BYTE;
+
+    if (send_payload_around_cad(&beat, sizeof(beat)) != 0) {
+      LOG_WRN("Heartbeat transmit failed");
+    }
+  }
+
+  k_work_reschedule(k_work_delayable_from_work(work),
+                    K_SECONDS(CONFIG_LORA_LINK_HEARTBEAT_S));
+}
+
+static K_WORK_DELAYABLE_DEFINE(heartbeat_work, heartbeat_handler);
 
 int lora_link_send_position(const struct lora_frame_position *position) {
   uint8_t frame[LORA_FRAME_MAX_BYTES];
@@ -405,13 +423,22 @@ int lora_link_start(void) {
 
     sniffing = true;
   } else {
-    LOG_INF("LoRa Link disabled, leaving the LoRa radio down");
+    /* An nRF reset leaves the module running; AT+NWM=0 only restarts it on a
+     * mode change, so a previous boot's sniffing would carry on. */
+    LOG_INF("LoRa Link disabled, stopping any CAD left from a previous boot");
+    rak3172_uart_claim();
+    rak3172_cad_rx_stop();
+    rak3172_uart_release();
   }
 
   k_thread_create(&receive_thread, receive_stack,
                   K_THREAD_STACK_SIZEOF(receive_stack), receive_loop, NULL,
                   NULL, NULL, RECEIVE_THREAD_PRIORITY, 0, K_NO_WAIT);
   k_thread_name_set(&receive_thread, "lora_link");
+
+  if (CONFIG_LORA_LINK_HEARTBEAT_S > 0) {
+    k_work_reschedule(&heartbeat_work, K_SECONDS(CONFIG_LORA_LINK_HEARTBEAT_S));
+  }
 
   LOG_INF("LoRa link listening as %s", device_id);
   return 0;
