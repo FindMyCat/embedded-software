@@ -29,6 +29,8 @@ int rak3172_cad_rx_stats(void);
 int rak3172_cad_rx_set_pin(uint32_t pin);
 int rak3172_cad_rx_set_absence(uint32_t seconds);
 int rak3172_cad_rx_set_duty(uint32_t burst_ms, uint32_t period_ms);
+/* Module-sent uplink at a CAD burst start every period_s; 0 turns it off. */
+int rak3172_set_heartbeat(uint32_t period_s, const char *hex);
 
 int rak3172_cad_rx_set_filter(const char *hex);
 int rak3172_cad_rx_set_presence(const char *hex);

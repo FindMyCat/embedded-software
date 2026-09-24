@@ -238,8 +238,17 @@ static void handle_position(const struct lora_frame *frame) {
 
 /* Routes one received payload. The frame magic and the WiFi scan type byte are
  * distinct, so the first match wins without ambiguity. */
+/* Sent by the collar's module on its own (AT+HBEAT), not a framed message. */
+#define COLLAR_HEARTBEAT_BYTE 0xFD
+
 static void handle_payload(const uint8_t *payload, size_t len) {
   struct lora_frame frame;
+
+  if (len == 1 && payload[0] == COLLAR_HEARTBEAT_BYTE) {
+    LOG_INF("Collar heartbeat");
+    mark_collar_heard();
+    return;
+  }
 
   if (lora_frame_decode(payload, len, &frame) == 0) {
     mark_collar_heard();
@@ -306,7 +315,8 @@ static void lora_task(void) {
   while (true) {
     locate_tick();
 
-    bool pause_for_ble = ble_scanner_tag_in_range();
+    bool pause_for_ble = IS_ENABLED(CONFIG_LORA_PAUSE_FOR_BLE) &&
+                         ble_scanner_tag_in_range();
 
     /* A locate request outranks the pause: BLE range is not a position. */
     pause_for_ble = pause_for_ble && locate_state == LOCATE_IDLE;

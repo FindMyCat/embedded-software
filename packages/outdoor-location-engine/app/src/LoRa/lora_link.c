@@ -31,6 +31,8 @@ LOG_MODULE_REGISTER(lora_link,
 
 #define PING_FILTER_HEX "FC0101"
 #define PRESENCE_FILTER_HEX "FC01"
+/* Lone byte the station counts as the collar being in LoRa range. */
+#define HEARTBEAT_HEX "FD"
 
 /* Covers gathering a position and sending it, so a ping arriving mid-answer is
  * acked rather than answered twice. */
@@ -98,6 +100,12 @@ static int start_cad_sniffing(void) {
       rak3172_cad_rx_set_duty(CAD_BURST_MS, CAD_BURST_PERIOD_MS) != 0 ||
       rak3172_cad_rx_start() != 0) {
     err = -EIO;
+  }
+
+  /* Best effort: older module firmware lacks AT+HBEAT, and CAD works without
+   * it. The module sends it on its own, so the nRF stays asleep. */
+  if (err == 0) {
+    (void)rak3172_set_heartbeat(CONFIG_LORA_LINK_HEARTBEAT_S, HEARTBEAT_HEX);
   }
 
   rak3172_low_power(true);

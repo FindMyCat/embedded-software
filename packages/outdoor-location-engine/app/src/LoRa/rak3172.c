@@ -481,6 +481,25 @@ int rak3172_cad_rx_set_absence(uint32_t seconds) {
 
 /* The module owns the schedule; only the wake line brings the nRF up.
  * burst_ms of 0 sniffs continuously. */
+int rak3172_set_heartbeat(uint32_t period_s, const char *hex) {
+  char cmd[64];
+
+  if (period_s == 0) {
+    snprintf(cmd, sizeof(cmd), "AT+HBEAT=0");
+  } else {
+    snprintf(cmd, sizeof(cmd), "AT+HBEAT=%u:%s", period_s, hex);
+  }
+  rak3172_send_at(cmd);
+
+  int err = rak3172_read_response(3000);
+
+  if (err != 0) {
+    LOG_WRN("AT+HBEAT rejected (%d); is the heartbeat firmware flashed?", err);
+  }
+
+  return err;
+}
+
 int rak3172_cad_rx_set_duty(uint32_t burst_ms, uint32_t period_ms) {
   char cmd[40];
 

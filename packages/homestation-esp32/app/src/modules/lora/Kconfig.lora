@@ -21,13 +21,16 @@ config LORA_BEACON_INTERVAL_S
 	int "Seconds between LORA beacons"
 	default 30
 
-config LORA_PING_INTERVAL_S
-	int "Seconds between pings"
-	default 300
-
 config LORA_PING_PREAMBLE
 	int "Ping preamble length in symbols"
 	default 512
+
+config LORA_PAUSE_FOR_BLE
+	bool "Stop LoRa receive while the tag is in BLE range"
+	default y
+	help
+	  Off keeps the receiver on regardless, for testing the LoRa link with
+	  the collar nearby.
 
 config LORA_TX_POWER_DBM
 	int "P2P transmit power in dBm (5-22)"

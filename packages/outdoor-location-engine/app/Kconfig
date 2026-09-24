@@ -128,6 +128,15 @@ config LORA_LINK_BURST_PERIOD_S
 	depends on LORA_LINK
 	default 30
 
+config LORA_LINK_HEARTBEAT_S
+	int "Seconds between module-sent heartbeats to the station, 0 for none"
+	depends on LORA_LINK
+	default 300
+	help
+	  Sent by the RAK3172 itself (AT+HBEAT) at a sniff burst start, so it
+	  rounds up to whole burst periods. Lets the station show the collar
+	  as in LoRa range between pings.
+
 endmenu
 
 menu "Zephyr Kernel"
