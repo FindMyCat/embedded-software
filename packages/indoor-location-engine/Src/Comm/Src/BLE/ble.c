@@ -180,7 +180,7 @@ static ble_uuid_t m_adv_uuids[] =                                   /**< Univers
 
 APP_TIMER_DEF(m_adv_data_update_timer);
 
-#define ADV_DATA_UPDATE_INTERVAL        5000
+#define ADV_DATA_UPDATE_INTERVAL        30000   /* FreeRTOS app_timer ticks are ms */
 #define APP_COMPANY_IDENTIFIER          0xFFFF  
 static ble_advdata_t                    new_advdata;
 static ble_advdata_t                    new_srdata;
@@ -248,6 +248,15 @@ static void adv_data_update_timer_handler(void * p_context)
 {
     ret_code_t                  err_code;
 
+    /* SoC is the only field that changes. Starting at unknown also skips the
+     * boot advert, which has no battery byte and means the same thing. */
+    static uint8_t advertised_soc = I2C_NRF9151_SOC_UNKNOWN;
+    uint8_t soc = i2c_nrf9151_soc();
+    if (soc == advertised_soc)
+    {
+        return;
+    }
+
     new_advdata.name_type                = BLE_ADVDATA_NO_NAME;
     new_advdata.include_appearance       = false;
     new_advdata.flags                    = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
@@ -255,7 +264,7 @@ static void adv_data_update_timer_handler(void * p_context)
     new_advdata.uuids_complete.p_uuids   = m_adv_uuids;
 
     static uint8_t fmc_adv_payload[4] = { FMC_ADV_MAGIC_BYTES, 0x00 };
-    fmc_adv_payload[3] = i2c_nrf9151_soc();
+    fmc_adv_payload[3] = soc;
     static ble_advdata_manuf_data_t fmc_manuf_upd;
     fmc_manuf_upd.company_identifier      = FMC_ADV_COMPANY_ID;
     fmc_manuf_upd.data.p_data             = fmc_adv_payload;
@@ -279,8 +288,9 @@ static void adv_data_update_timer_handler(void * p_context)
     NRF_LOG_INFO("Updating advertising data!");
     
     err_code = ble_advertising_advdata_update(&m_advertising, &new_advdata, &new_srdata);
-    APP_ERROR_CHECK(err_code);  
-    
+    APP_ERROR_CHECK(err_code);
+    advertised_soc = soc;
+
 
     NRF_LOG_INFO("Advertising data updated!");
 
