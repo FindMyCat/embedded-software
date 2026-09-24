@@ -40,6 +40,7 @@ set(SRC_FILES
     ${SDK_MOD}/mdk/system_nrf52833.c
     ${PROJ_FREERTOS_DIR}/QANI-FreeRTOS-Common/main.c
     ${PROJ_FREERTOS_DIR}/QANI-FreeRTOS-Common/hooks.c
+    ${PROJ_FREERTOS_DIR}/QANI-FreeRTOS-Common/floor_current_hold.c
     ${PROJECT_DEFINITION_DIR}/ProjectName.c
 )
 
@@ -187,7 +188,7 @@ list(APPEND SRC_FILES
     ${SRC_ROOT}/UWB/FreeRTOS/create_report_task.c
 
     ${QANI_BLE}/ble.c
-    ${QANI_BLE}/nrf9160_power_mode_manager.c
+    ${QANI_BLE}/nrf91_power_mode_manager.c
     ${QANI_BLE}/niq/ble_niq.c
     ${QANI_BLE}/qnis/ble_qnis.c
     ${QANI_BLE}/anis/ble_anis.c

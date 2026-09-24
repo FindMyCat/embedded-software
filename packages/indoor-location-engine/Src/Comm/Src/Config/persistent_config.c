@@ -5,9 +5,9 @@
 #include "fds.h"
 #include "nrf_log.h"
 
-#include "i2c_nrf9151.h"   /* i2c_nrf9151_publish_config + register/struct defs */
+#include "i2c_nrf9151.h"
 
-/* implemented in ble.c: restores the BLE config char value after a flash load */
+/* in ble.c */
 void app_ble_restore_persisted_config(const uint8_t *data, uint16_t len);
 
 #define PERSISTENT_CONFIG_FILE  0xCF60
@@ -17,7 +17,7 @@ static volatile bool      m_fds_ready;
 static volatile bool      m_save_pending;
 static struct fmc_config  m_pending_cfg;
 
-/* word-aligned, word-multiple buffer FDS can persist */
+/* FDS needs a word-aligned, word-multiple buffer */
 static union {
     struct fmc_config cfg;
     uint32_t          words[(sizeof(struct fmc_config) + 3) / 4];
@@ -46,7 +46,7 @@ void persistent_config_save(const struct fmc_config *cfg) {
     }
 
     if (rc == FDS_ERR_NO_SPACE_IN_FLASH) {
-        /* reclaim obsoleted records, then retry from the GC event */
+        /* retry from the GC event */
         m_pending_cfg = *cfg;
         m_save_pending = true;
         fds_gc();
@@ -74,10 +74,9 @@ static void persistent_config_load(void) {
     memcpy(&cfg, flash_rec.p_data, sizeof(cfg));
     fds_record_close(&desc);
 
-    /* push the restored config to the nRF9151 (raises CONFIG_RDY so it reads it) */
     i2c_nrf9151_publish_config(&cfg);
 
-    /* restore the BLE read-back value ([port_lo][port_hi][host_len][host][device_id]) */
+    /* BLE read-back value: [port_lo][port_hi][host_len][host][device_id] */
     uint8_t wire[3 + sizeof(cfg.host) + sizeof(cfg.device_id)];
     size_t host_len = strnlen(cfg.host, sizeof(cfg.host));
     size_t id_len = strnlen(cfg.device_id, sizeof(cfg.device_id));

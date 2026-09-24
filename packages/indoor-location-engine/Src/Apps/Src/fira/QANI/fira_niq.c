@@ -444,8 +444,7 @@ const app_definition_t helpers_fira_niq[] __attribute__((section(".known_apps"))
  */
 void ResumeUwbTasks(void)
 {
-    /* uwb_init() leaves dw NULL when the probe found no chip. Registering the
-     * ranging app then runs the UWB tasks against a dead SPI. */
+    /* dw is NULL when the probe found no chip; ranging would run on dead SPI. */
     if (hal_uwb.uwbs == NULL || hal_uwb.uwbs->dw == NULL)
     {
         return;

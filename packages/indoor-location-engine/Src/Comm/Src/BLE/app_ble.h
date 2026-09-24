@@ -69,14 +69,12 @@ void handle_new_data(const uint8_t * data, int data_len);
 
 void ble_evt_disconnected_handler(void);
 
-//void advertising_start(void *);
 
 void ble_play_sound(void);
 
 bool ble_is_connected(void);
 
-/* Restore the Config characteristic's value (so iOS read-back works after a
- * reboot), called when the persisted config is loaded from flash. */
+/* Restore the Config characteristic value so iOS read-back survives a reboot. */
 void app_ble_restore_persisted_config(const uint8_t *data, uint16_t len);
 
 //================ reuse NI defs =================
@@ -86,7 +84,4 @@ void get_conn_handle(uint16_t * pconn_handle);
 
 void construct_fira_param_from_config(fira_param_t *fira_param, fira_device_configure_t *config, int controller_type);
 
-
-
-/* */
 #endif

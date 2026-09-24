@@ -126,7 +126,7 @@
 #include "fira_device_config.h"
 #include "app_ble.h"
 #include "boards.h"
-#include "nrf9160_power_mode_manager.h"
+#include "nrf91_power_mode_manager.h"
 #include "app_timer.h"
 
 #include "nrf_drv_saadc.h"
@@ -140,7 +140,7 @@
 #define APP_ADV_INTERVAL_FAST               320                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 200 ms). */
 #define APP_ADV_INTERVAL_SLOW               6400                                    /**< The advertising interval (in units of 0.625 ms. This value corresponds to 4s). */
 #define APP_ADV_DURATION                    0                                       /**< The advertising duration in units of 10 milliseconds. 0 is to never stop. */
-#define APP_TX_POWER_DBM                    0                                       /**< Advertising and connection TX power. 8 is the part maximum and costs about twice the radio current for range the collar never needs. */
+#define APP_TX_POWER_DBM                    0                                       /**< Advertising and connection TX power. 8 is the part max, ~2x radio current. */
 
 #define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(25, UNIT_1_25_MS)         /**< Minimum acceptable connection interval (0.4 seconds). */
 #define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(250, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.65 second). */
@@ -329,19 +329,12 @@ static void application_timers_start(void)
 
 /**@brief Function for initializing the scanning.
  */
-/* Set to 0 to isolate the 62.5 ms receive window every 30 s in a floor current
- * reading. The board then only advertises and central discovery does not
- * work. */
-#define BLE_SCAN_ENABLED 1
-
 static void scan_start(void)
 {
-#if BLE_SCAN_ENABLED
     ret_code_t err_code;
 
     err_code = nrf_ble_scan_start(&m_scan);
     APP_ERROR_CHECK(err_code);
-#endif
 }
 
 
@@ -428,9 +421,7 @@ static void qnis_data_handler(ble_qnis_evt_t * p_evt)
 
     if (p_evt->type == BLE_QNIS_EVT_CONFIG_DATA)
     {
-        /* Payload: [port_lo][port_hi][host_len][host UTF-8][device_id UTF-8].
-         * Assemble fmc_config and push it to the nRF9151 (raises CONFIG_RDY,
-         * 91 reads it back). */
+        /* [port_lo][port_hi][host_len][host][device_id] */
         const uint8_t *d = p_evt->params.rx_data.p_data;
         uint16_t len = p_evt->params.rx_data.length;
 

@@ -1,16 +1,16 @@
-#ifndef NRF9160_POWER_MODE_MANAGER_H
-#define NRF9160_POWER_MODE_MANAGER_H
+#ifndef NRF91_POWER_MODE_MANAGER_H
+#define NRF91_POWER_MODE_MANAGER_H
 
-/* This section of code manages the power mode of nrf9160 connected to the GPIO pins 
+/* This section of code manages the power mode of nrf91 connected to the GPIO pins 
 * When the BLE scanner on the Tag (this device) has seen the homestation recently (within 60 seconds)
-* the device will command nrf9160 to stay in PSM (Power saving mode).
+* the device will command nrf91 to stay in PSM (Power saving mode).
 
 * When the BLE scanner hasn't seen the homestation recently (within 60 seconds) then the device will command
-* nrf9160 to switch to EDRX mode (Enhanced Discontinuous Reception) so that it can receive messages from the Cloud.
+* nrf91 to switch to EDRX mode (Enhanced Discontinuous Reception) so that it can receive messages from the Cloud.
 
 * Pins used:
 * P0.06 - nrf52833 (M_PIN24)
-* TBD   - nrf9160  
+* TBD   - nrf91  
 
 * Convention:
 * 1 - High - POWER_COMMAND_PSM
@@ -25,4 +25,4 @@ the device will default to EDRX mode and not PSM mode.
 void home_station_seen();
 void power_mode_manager_thread_init();
 
-#endif // NRF9160_POWER_MODE_MANAGER_H
+#endif // NRF91_POWER_MODE_MANAGER_H

@@ -15,8 +15,7 @@
 #define I2C_NRF9151_SCL_PIN     NRF_GPIO_PIN_MAP(0, 4)
 #define CONFIG_RDY_PIN          NRF_GPIO_PIN_MAP(0, 5)  /* bus window -> nRF9151 */
 
-/* How often the nrf91 gets a window, and how long one may stay open if the 91
- * never acks. A healthy exchange is closed by the ack in well under 100ms. */
+/* A healthy exchange is acked well under 100ms. */
 #define BUS_WINDOW_PERIOD_MS    30000
 #define BUS_WINDOW_MAX_MS       1000
 
@@ -32,7 +31,7 @@ static uint8_t m_write_offset;
 static volatile bool m_config_acked;
 static volatile bool m_config_ack_pending;
 
-/* Battery frame the nRF9151 streams over this link (matches fuel_gauge.c). */
+/* Matches fuel_gauge.c on the 91. */
 struct __attribute__((packed)) batt_frame {
     float   voltage;
     float   current;
@@ -53,7 +52,7 @@ static void bus_window_open(void) {
     m_window_open = true;
     nrfx_twis_enable(&m_twis);
     nrf_gpio_pin_set(CONFIG_RDY_PIN);
-    /* No close timer means a window that never shuts, so back out instead. */
+    /* No close timer means a window that never shuts. */
     if (xTimerStart(m_window_timer, 0) != pdPASS) {
         NRF_LOG_ERROR("Error: i2c window timer queue full");
         bus_window_close();

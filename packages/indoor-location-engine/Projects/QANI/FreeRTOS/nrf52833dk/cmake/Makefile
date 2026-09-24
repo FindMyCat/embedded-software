@@ -1,6 +1,3 @@
-# Convenience wrapper around CMake.
-# Run any target from this directory: `make`, `make flash_full`, etc.
-
 BUILD_DIR ?= build
 GENERATOR ?= Ninja
 
@@ -19,10 +16,6 @@ build: configure
 clean:
 	cmake --build $(BUILD_DIR) --target clean 2>/dev/null || true
 
-rebuild:
-	rm -rf $(BUILD_DIR)
-	$(MAKE) build
-
 flash: build
 	cmake --build $(BUILD_DIR) --target flash
 
@@ -38,9 +31,6 @@ erase: configure
 recover: configure
 	cmake --build $(BUILD_DIR) --target recover
 
-# JLinkExe holds the debug connection and serves RTT on localhost:19021, so it
-# is backgrounded here and torn down on exit, leaving the client in the
-# foreground.
 JLINK        ?= JLinkExe
 JLINK_DEVICE ?= nRF52833_xxAA
 RTT_SPEED    ?= 4000
