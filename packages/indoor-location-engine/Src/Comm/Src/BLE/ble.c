@@ -140,7 +140,8 @@
 #define APP_ADV_INTERVAL_FAST               320                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 200 ms). */
 #define APP_ADV_INTERVAL_SLOW               6400                                    /**< The advertising interval (in units of 0.625 ms. This value corresponds to 4s). */
 #define APP_ADV_DURATION                    0                                       /**< The advertising duration in units of 10 milliseconds. 0 is to never stop. */
-#define APP_TX_POWER_DBM                    0                                       /**< Advertising and connection TX power. 8 is the part max, ~2x radio current. */
+#define APP_TX_POWER_DBM                    0                                       /**< Connection TX power. 8 is the part max, ~2x radio current. */
+#define APP_ADV_TX_POWER_DBM                8                                       /**< Advertising TX power: max, so the homestation hears the tag from further away. */
 
 #define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(25, UNIT_1_25_MS)         /**< Minimum acceptable connection interval (0.4 seconds). */
 #define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(250, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.65 second). */
@@ -964,7 +965,7 @@ static void advertising_init(void)
 
     ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 
-    err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, APP_TX_POWER_DBM);
+    err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, APP_ADV_TX_POWER_DBM);
     APP_ERROR_CHECK(err_code);
 }
 
