@@ -386,7 +386,7 @@ void hal_uwb_mcu_sleep_config(void)
 {
     // Activate deep sleep mode.
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-    NRF_POWER->DCDCEN = 0;
+    NRF_POWER->DCDCEN = 1;
 }
 
 

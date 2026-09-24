@@ -9,20 +9,28 @@
 #include "buzzer.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "timers.h"
 
 #define I2C_NRF9151_SDA_PIN     NRF_GPIO_PIN_MAP(0, 26)
 #define I2C_NRF9151_SCL_PIN     NRF_GPIO_PIN_MAP(0, 4)
-#define CONFIG_RDY_PIN          NRF_GPIO_PIN_MAP(0, 5)  /* "config ready" -> nRF9151 */
+#define CONFIG_RDY_PIN          NRF_GPIO_PIN_MAP(0, 5)  /* bus window -> nRF9151 */
+
+/* How often the nrf91 gets a window, and how long one may stay open if the 91
+ * never acks. A healthy exchange is closed by the ack in well under 100ms. */
+#define BUS_WINDOW_PERIOD_MS    30000
+#define BUS_WINDOW_MAX_MS       1000
 
 static const nrfx_twis_t m_twis = NRFX_TWIS_INSTANCE(1);
+
+static TimerHandle_t m_beacon_timer;  /* opens a window */
+static TimerHandle_t m_window_timer;  /* closes one the 91 left open */
+static volatile bool m_window_open;
 
 static uint8_t m_buf[I2C_NRF9151_BUF_SIZE];
 static uint8_t m_rx_scratch[I2C_NRF9151_BUF_SIZE + 1];
 static uint8_t m_write_offset;
-
-/* Set in the TWIS ISR when the 91 acks a config; the buzzer beeps from a task
- * (the ISR runs above the FreeRTOS-safe priority, so it cannot queue directly). */
 static volatile bool m_config_acked;
+static volatile bool m_config_ack_pending;
 
 /* Battery frame the nRF9151 streams over this link (matches fuel_gauge.c). */
 struct __attribute__((packed)) batt_frame {
@@ -34,6 +42,46 @@ struct __attribute__((packed)) batt_frame {
     float   ttf;
     int32_t chg_status;
 };
+
+static void bus_window_close(void);
+
+static void bus_window_open(void) {
+    if (m_window_open) {
+        xTimerReset(m_window_timer, 0);
+        return;
+    }
+    m_window_open = true;
+    nrfx_twis_enable(&m_twis);
+    nrf_gpio_pin_set(CONFIG_RDY_PIN);
+    /* No close timer means a window that never shuts, so back out instead. */
+    if (xTimerStart(m_window_timer, 0) != pdPASS) {
+        NRF_LOG_ERROR("Error: i2c window timer queue full");
+        bus_window_close();
+    }
+}
+
+static void bus_window_close(void) {
+    if (!m_window_open) {
+        return;
+    }
+    m_window_open = false;
+    nrf_gpio_pin_clear(CONFIG_RDY_PIN);
+    nrfx_twis_disable(&m_twis);
+}
+
+static void beacon_timer_cb(TimerHandle_t t) {
+    (void)t;
+    bus_window_open();
+}
+
+static void window_timer_cb(TimerHandle_t t) {
+    (void)t;
+    bus_window_close();
+    if (m_config_acked) {
+        m_config_acked = false;
+        buzzer_play(BUZZER_TUNE_BEEP);
+    }
+}
 
 static void twis_event_handler(nrfx_twis_evt_t const *p_event) {
     switch (p_event->type) {
@@ -65,10 +113,13 @@ static void twis_event_handler(nrfx_twis_evt_t const *p_event) {
             if (m_write_offset == I2C_NRF9151_REG_CONFIG_APPLIED &&
                 m_buf[I2C_NRF9151_REG_CONFIG_APPLIED] ==
                     m_buf[I2C_NRF9151_REG_CONFIG_VERSION]) {
-                nrf_gpio_pin_clear(CONFIG_RDY_PIN);
-                m_config_acked = true;
-                NRF_LOG_INFO("config v%u applied by 91, CONFIG_RDY low",
-                             m_buf[I2C_NRF9151_REG_CONFIG_VERSION]);
+                bus_window_close();
+                if (m_config_ack_pending) {
+                    m_config_ack_pending = false;
+                    m_config_acked = true;
+                    NRF_LOG_INFO("config v%u applied by 91, window closed",
+                                 m_buf[I2C_NRF9151_REG_CONFIG_VERSION]);
+                }
             }
             break;
         }
@@ -87,30 +138,16 @@ static void twis_event_handler(nrfx_twis_evt_t const *p_event) {
     }
 }
 
-/* Beeps once when the 91 acks a config write (deferred out of the TWIS ISR). */
-static void config_ack_task(void *arg) {
-    (void)arg;
-    for (;;) {
-        if (m_config_acked) {
-            m_config_acked = false;
-            buzzer_play(BUZZER_TUNE_BEEP);
-        }
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
-}
-
 void i2c_nrf9151_init(void) {
     nrf_gpio_cfg_output(CONFIG_RDY_PIN);
     nrf_gpio_pin_clear(CONFIG_RDY_PIN);
-
-    xTaskCreate(config_ack_task, "cfgack", 256, NULL, 1, NULL);
 
     nrfx_twis_config_t cfg = {
         .addr               = { I2C_NRF9151_SLAVE_ADDR, 0 },
         .scl                = I2C_NRF9151_SCL_PIN,
         .sda                = I2C_NRF9151_SDA_PIN,
-        .scl_pull           = NRF_GPIO_PIN_PULLUP,
-        .sda_pull           = NRF_GPIO_PIN_PULLUP,
+        .scl_pull           = NRF_GPIO_PIN_NOPULL,
+        .sda_pull           = NRF_GPIO_PIN_NOPULL,
         .interrupt_priority = 2,
     };
     nrfx_err_t err = nrfx_twis_init(&m_twis, &cfg, twis_event_handler);
@@ -118,8 +155,18 @@ void i2c_nrf9151_init(void) {
         NRF_LOG_ERROR("Error: nrfx_twis_init 0x%x", err);
         return;
     }
-    nrfx_twis_enable(&m_twis);
-    NRF_LOG_INFO("i2c_nrf9151 slave ready @0x%02x", I2C_NRF9151_SLAVE_ADDR);
+
+    m_window_timer = xTimerCreate("i2cwin", pdMS_TO_TICKS(BUS_WINDOW_MAX_MS),
+                                  pdFALSE, NULL, window_timer_cb);
+    m_beacon_timer = xTimerCreate("i2cbcn", pdMS_TO_TICKS(BUS_WINDOW_PERIOD_MS),
+                                  pdTRUE, NULL, beacon_timer_cb);
+    if (m_window_timer == NULL || m_beacon_timer == NULL) {
+        NRF_LOG_ERROR("Error: i2c_nrf9151 timer alloc failed");
+        return;
+    }
+    if (xTimerStart(m_beacon_timer, 0) != pdPASS) {
+        NRF_LOG_ERROR("Error: i2c beacon timer queue full");
+    }
 }
 
 int i2c_nrf9151_read(uint8_t offset, uint8_t *dst, size_t len) {
@@ -138,8 +185,9 @@ void i2c_nrf9151_publish_config(const struct fmc_config *cfg) {
     i2c_nrf9151_write(I2C_NRF9151_REG_CONFIG, (const uint8_t *)cfg, sizeof(*cfg));
     uint8_t ver = (uint8_t)(m_buf[I2C_NRF9151_REG_CONFIG_VERSION] + 1);
     i2c_nrf9151_write(I2C_NRF9151_REG_CONFIG_VERSION, &ver, 1);
-    nrf_gpio_pin_set(CONFIG_RDY_PIN);
-    NRF_LOG_INFO("config published v%u, CONFIG_RDY high", ver);
+    m_config_ack_pending = true;
+    bus_window_open();
+    NRF_LOG_INFO("config published v%u, window open", ver);
 }
 
 void i2c_nrf9151_publish_test_config(void) {

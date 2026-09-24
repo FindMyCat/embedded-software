@@ -145,9 +145,10 @@ int uwb_init(void)
         hal_uwb.uwbs->spi->fast_rate(hal_uwb.uwbs->spi->handler);
 
         hal_uwb.sleep_config();
-        hal_uwb.sleep_enter();        
-        hal_uwb.mcu_suspend_clk();
+        hal_uwb.sleep_enter();
     }
+
+    hal_uwb.mcu_suspend_clk();
 
     return status;
 }

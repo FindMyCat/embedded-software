@@ -138,7 +138,7 @@
 #define APP_BLE_CONN_CFG_TAG                1                                       /**< A tag identifying the SoftDevice BLE configuration. */
 
 #define APP_ADV_INTERVAL_FAST               320                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 200 ms). */
-#define APP_ADV_INTERVAL_SLOW               3200                                    /**< The advertising interval (in units of 0.625 ms. This value corresponds to 1s). */
+#define APP_ADV_INTERVAL_SLOW               6400                                    /**< The advertising interval (in units of 0.625 ms. This value corresponds to 4s). */
 #define APP_ADV_DURATION                    0                                       /**< The advertising duration in units of 10 milliseconds. 0 is to never stop. */
 #define APP_TX_POWER_DBM                    0                                       /**< Advertising and connection TX power. 8 is the part maximum and costs about twice the radio current for range the collar never needs. */
 
@@ -329,12 +329,19 @@ static void application_timers_start(void)
 
 /**@brief Function for initializing the scanning.
  */
+/* Set to 0 to isolate the 62.5 ms receive window every 30 s in a floor current
+ * reading. The board then only advertises and central discovery does not
+ * work. */
+#define BLE_SCAN_ENABLED 1
+
 static void scan_start(void)
 {
+#if BLE_SCAN_ENABLED
     ret_code_t err_code;
 
     err_code = nrf_ble_scan_start(&m_scan);
     APP_ERROR_CHECK(err_code);
+#endif
 }
 
 
