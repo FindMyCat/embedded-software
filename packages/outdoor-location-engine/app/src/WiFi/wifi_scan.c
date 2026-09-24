@@ -6,7 +6,6 @@
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/wifi_mgmt.h>
-#include <zephyr/pm/device.h>
 #include <zephyr/sys/byteorder.h>
 
 LOG_MODULE_REGISTER(wifi_scan,
@@ -138,10 +137,18 @@ static void wifi_event_handler(struct net_mgmt_event_callback *cb,
 }
 
 int wifi_scan_init(void) {
+  /* Called before every scan; a double registration doubles every result. */
+  static bool registered;
+
+  if (registered) {
+    return 0;
+  }
+
   net_mgmt_init_event_callback(&wifi_cb, wifi_event_handler,
                                NET_EVENT_WIFI_SCAN_RESULT |
                                    NET_EVENT_WIFI_SCAN_DONE);
   net_mgmt_add_event_callback(&wifi_cb);
+  registered = true;
   return 0;
 }
 
@@ -185,8 +192,8 @@ int wifi_scan_stop(void) {
   struct net_if *iface = net_if_get_first_wifi();
   int err = 0;
 
-  /* Best effort: a failure here must not skip the power cut below, or the
-   * nRF7002 stays supplied and burns a few hundred microamps forever. */
+  /* Best effort: a failure must not skip the power cut below, or the nRF7002
+   * stays supplied at a few hundred microamps. */
   if (!iface) {
     LOG_ERR("Error: no WiFi interface found");
     err = -ENODEV;
@@ -208,23 +215,6 @@ int wifi_scan_stop(void) {
     err = err ? err : -ENODEV;
   }
 
-  const struct device *spi = DEVICE_DT_GET(DT_NODELABEL(spi3));
-  if (device_is_ready(spi)) {
-    int suspend = pm_device_action_run(spi, PM_DEVICE_ACTION_SUSPEND);
-
-    if (suspend != 0 && suspend != -EALREADY) {
-      LOG_ERR("Error: spi3 suspend failed (%d)", suspend);
-      err = err ? err : suspend;
-    }
-  }
-
-  if (device_is_ready(gpio0)) {
-    gpio_pin_configure(gpio0, 17, GPIO_DISCONNECTED);
-    gpio_pin_configure(gpio0, 16, GPIO_DISCONNECTED);
-    gpio_pin_configure(gpio0, 13, GPIO_DISCONNECTED);
-    gpio_pin_configure(gpio0, 14, GPIO_DISCONNECTED);
-    gpio_pin_configure(gpio0, 15, GPIO_DISCONNECTED);
-  }
 
   LOG_INF("nRF7002 powered off (interface teardown %d)", err);
   return err;

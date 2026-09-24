@@ -104,15 +104,29 @@ config LORA_LINK_CAD_INTERVAL_MS
 	depends on LORA_LINK
 	default 450
 
+config LORA_LINK_PEER_PREAMBLE
+	int "Preamble length in symbols the home station transmits with"
+	depends on LORA_LINK
+	default 512
+
 config LORA_LINK_CAD_PIN
 	int "RUI3 pin number the RAK3172 raises when a packet is buffered"
-	depends on LORA_LINK
 	default 9
 
 config LORA_LINK_ABSENCE_S
 	int "Seconds without a CAD detection before the home station counts as absent"
 	depends on LORA_LINK
 	default 35
+
+config LORA_LINK_BURST_MS
+	int "Milliseconds of CAD sniffing per cycle, 0 to sniff continuously"
+	depends on LORA_LINK
+	default 1500
+
+config LORA_LINK_BURST_PERIOD_S
+	int "Seconds from the start of one sniff burst to the start of the next"
+	depends on LORA_LINK
+	default 30
 
 endmenu
 

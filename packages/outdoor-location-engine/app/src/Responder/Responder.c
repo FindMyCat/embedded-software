@@ -6,6 +6,7 @@
 #include "../FuelGauge/fuel_gauge.h"
 #include "../LoRa/lora_link.h"
 #include "../LocationEngine/LocationEngine.h"
+#include "../WiFi/wifi_scan.h"
 #include "../mqtt/mqttsn.h"
 
 LOG_MODULE_REGISTER(responder,
@@ -13,6 +14,8 @@ LOG_MODULE_REGISTER(responder,
 
 #define STATUS_PAYLOAD_SIZE 192
 #define NET_PAYLOAD_SIZE 96
+
+#define PING_ACCESS_POINTS 6
 
 // TODO: (sahas) this should have a new file/folder
 void publish_command_status_to_device_status_topic(const char *command,
@@ -63,21 +66,28 @@ void turn_on_active_mode(void) {
 }
 
 void respond_to_ping(void) {
-  // location_gnss_high_accuracy_get is a blocking call.
-  location_gnss_high_accuracy_get();
+  struct wifi_scan_frame scan;
 
-  const struct location_result *result = location_last_result();
+  wifi_scan_init();
 
-  if (!result->has_fix) {
-#if defined(CONFIG_LORA_LINK)
-    if (lora_link_homestation_in_range()) {
-      LOG_WRN("No fix to answer the ping with (%s)", result->reason);
-      changeDispatcherState(DISPATCHER_STATE_IDLE);
-      return;
-    }
-#endif
-    publish_command_status_to_device_status_topic("PING", "fail",
-                                                  result->reason);
+  /* Blocking; returns once the scan has finished. */
+  int err = wifi_scan_start();
+
+  if (err == 0) {
+    err = wifi_scan_pack_strongest_access_points(&scan, PING_ACCESS_POINTS);
+  }
+
+  /* Cuts the nRF7002's supply, so it runs whether or not the scan worked. */
+  wifi_scan_stop();
+
+  if (err != 0) {
+    LOG_ERR("Error: no WiFi scan to answer the ping with (%d)", err);
+    changeDispatcherState(DISPATCHER_STATE_IDLE);
+    return;
+  }
+
+  if (lora_link_send_wifi_scan(&scan) != 0) {
+    LOG_ERR("Error: sending the WiFi scan over LoRa failed");
   }
 
   changeDispatcherState(DISPATCHER_STATE_IDLE);

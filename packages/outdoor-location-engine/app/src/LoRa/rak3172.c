@@ -10,7 +10,8 @@
 
 #include "rak3172.h"
 
-LOG_MODULE_REGISTER(rak3172, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
+LOG_MODULE_REGISTER(rak3172,
+                    CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
 static const struct device *uart_dev = DEVICE_DT_GET(DT_ALIAS(lora_uart));
 
@@ -24,6 +25,8 @@ static const struct gpio_dt_spec lora_reset =
 #define RX_RING_BUF_SIZE 256
 RING_BUF_DECLARE(rx_ring_buf, RX_RING_BUF_SIZE);
 static K_SEM_DEFINE(rx_sem, 0, RX_RING_BUF_SIZE);
+
+static K_MUTEX_DEFINE(rak3172_lock);
 
 static void uart_irq_cb(const struct device *dev, void *user_data) {
   ARG_UNUSED(user_data);
@@ -50,9 +53,8 @@ static int rx_get_byte(uint8_t *c, int64_t remaining_ms) {
   return 0;
 }
 
-/* Drop whatever is still buffered from an earlier command. A read that timed
- * out leaves its late reply behind, and the next command then reads that stale
- * line instead of its own, misattributing every response after it. */
+/* A read that timed out leaves its late reply behind; the next command would
+ * then read that stale line as its own. */
 static void rx_flush(void) {
   unsigned int key = irq_lock();
 
@@ -62,10 +64,8 @@ static void rx_flush(void) {
 }
 
 void rak3172_send_at(const char *cmd) {
-  /* Under AT+LPM the module sleeps between commands and spends the first byte
-   * it receives on waking its UART. Spend a newline on that instead of the
-   * command, which would otherwise arrive truncated and be rejected as
-   * AT_COMMAND_NOT_FOUND. The newline's own OK is flushed below. */
+  /* Under AT+LPM the module spends the first byte on waking its UART, so spend
+   * a newline on that rather than the command. Its OK is flushed below. */
   uart_poll_out(uart_dev, '\n');
   k_sleep(K_MSEC(10));
 
@@ -101,17 +101,15 @@ int rak3172_read_response(int timeout_ms) {
     if (c == '\n') {
       buf[i] = '\0';
       LOG_INF("        << %s", buf);
-      /* Banner lines (RAKwireless.../Current Work Mode...) and other notices
-       * are skipped; we only conclude on OK or ERROR. */
+      /* Banners and notices are skipped; conclude only on OK or ERROR. */
       if (strcmp(buf, "OK") == 0) {
         return 0;
       }
       if (strstr(buf, "ERROR") != NULL) {
         return -EIO;
       }
-      /* RUI3 error codes are AT_ prefixed (AT_COMMAND_NOT_FOUND, AT_BUSY_ERROR);
-       * successful responses echo the command as AT+. Without this the parser
-       * waits out the full timeout on any error that lacks "ERROR". */
+      /* RUI3 errors are AT_ prefixed; successes echo the command as AT+.
+       * Without this any error lacking "ERROR" waits out the timeout. */
       if (strncmp(buf, "AT_", 3) == 0) {
         LOG_WRN("RAK3172 rejected command: %s", buf);
         return -EIO;
@@ -145,10 +143,10 @@ void rak3172_hw_reset(void) {
     return;
   }
   LOG_WRN("RAK3172 hardware reset");
-  gpio_pin_set_dt(&lora_reset, 1);  /* assert (active low) */
+  gpio_pin_set_dt(&lora_reset, 1); /* assert (active low) */
   k_sleep(K_MSEC(10));
-  gpio_pin_set_dt(&lora_reset, 0);  /* deassert */
-  k_sleep(K_MSEC(300));             /* module boot time */
+  gpio_pin_set_dt(&lora_reset, 0); /* deassert */
+  k_sleep(K_MSEC(300));            /* module boot time */
 }
 
 int rak3172_init(void) {
@@ -158,33 +156,47 @@ int rak3172_init(void) {
   }
 
   uart_irq_callback_set(uart_dev, uart_irq_cb);
-  uart_irq_rx_enable(uart_dev);
+
+  int err = pm_device_runtime_enable(uart_dev);
+
+  if (err != 0 && err != -EALREADY) {
+    LOG_ERR("Error: UART runtime PM enable failed (%d)", err);
+  }
 
   if (gpio_is_ready_dt(&lora_reset)) {
     /* idle high = reset deasserted (active low) */
     gpio_pin_configure_dt(&lora_reset, GPIO_OUTPUT_INACTIVE);
   }
 
+  rak3172_uart_claim();
+
   LOG_INF("RAK3172 UART ready");
 
-  /* AT+P2P's OK is the liveness signal; if it never ACKs, hardware-reset and retry. */
+  /* AT+P2P's OK is the liveness signal; no ACK means hardware-reset and retry. */
   for (int attempt = 0; attempt < 3; attempt++) {
     LOG_INF("Enabling P2P mode (RAK3172 will restart automatically.)");
     rak3172_send_at("AT+NWM=0");
     rak3172_read_response(8000);
 
     if (rak3172_configure_p2p() != 0) {
-      LOG_WRN("RAK3172 not responding (attempt %d/3); hardware reset", attempt + 1);
+      LOG_WRN("RAK3172 not responding (attempt %d/3); hardware reset",
+              attempt + 1);
       rak3172_hw_reset();
       continue;
     }
     k_sleep(K_MSEC(500));
 
+    rak3172_cad_rx_set_pin(CONFIG_LORA_LINK_CAD_PIN);
+
+    rak3172_low_power(true);
+
     LOG_INF("RAK3172 ready");
+    rak3172_uart_release();
     return 0;
   }
 
   LOG_ERR("Error: RAK3172 unresponsive after hardware resets (tried 3 times)");
+  rak3172_uart_release();
   return -EIO;
 }
 
@@ -203,11 +215,10 @@ int rak3172_send_payload(const uint8_t *data, size_t len) {
 
   rak3172_send_at(cmd);
 
-  /* NOTE: (sahas): This code might be deleted later if its stabelized. 
-   * "OK" should return immediately (command accepted); +EVT:TXP2P DONE fires when
-   * the air transmission finishes. If LPM is on, the module was observed to SOMETIMES reboot
-   * after TX, this was due to the RF coupling into the RX/TX wires, which triggered a reboot.
-   * This piece of code detects and reconfigure P2P in that case. */
+  /* NOTE (sahas): may be deleted once stabilized. "OK" means accepted;
+   * +EVT:TXP2P DONE means the air transmission finished. Under LPM the module
+   * sometimes reboots after TX, from RF coupling into the RX/TX wires; this
+   * detects that and reconfigures P2P. */
   bool rebooted = false;
   bool tx_done = false;
   int64_t deadline = k_uptime_get() + 10000;
@@ -234,6 +245,12 @@ int rak3172_send_payload(const uint8_t *data, size_t len) {
         LOG_INF("TX done");
         tx_done = true;
         break;
+      }
+      /* Rejected, so no transmission is coming; waiting out the timeout would
+       * trigger the hardware reset below for a retryable error. */
+      if (strncmp(buf, "AT_", 3) == 0) {
+        LOG_WRN("RAK3172 rejected the transmit: %s", buf);
+        return -EIO;
       }
       if (strncmp(buf, "RAKwireless", 11) == 0) {
         rebooted = true;
@@ -267,26 +284,55 @@ int rak3172_send_message(const char *msg) {
   return rak3172_send_payload((const uint8_t *)msg, strlen(msg));
 }
 
-void rak3172_sleep(void) {
+int rak3172_sleep(void) {
   LOG_INF("Putting rak3172 to sleep");
   rak3172_send_at("AT+SLEEP");
-  rak3172_read_response(4000);
+  return rak3172_read_response(4000);
 }
 
-void rak3172_suspend(void) {
-  uart_irq_rx_disable(uart_dev);
-  int err = pm_device_runtime_put(uart_dev);
-  if (err) {
-    LOG_ERR("Error: UART suspend failed (%d)", err);
+int rak3172_low_power(bool enable) {
+  rak3172_send_at(enable ? "AT+LPM=1" : "AT+LPM=0");
+
+  int err = rak3172_read_response(1000);
+
+  if (err != 0 || !enable) {
+    return err;
   }
+
+  rak3172_send_at("AT+LPMLVL=2");
+  return rak3172_read_response(1000);
 }
 
-void rak3172_resume(void) {
+static int claim_depth;
+
+void rak3172_uart_claim(void) {
+  k_mutex_lock(&rak3172_lock, K_FOREVER);
+
+  if (claim_depth++ > 0) {
+    return;
+  }
+
   int err = pm_device_runtime_get(uart_dev);
+
   if (err) {
     LOG_ERR("Error: UART resume failed (%d)", err);
   }
+
   uart_irq_rx_enable(uart_dev);
+}
+
+void rak3172_uart_release(void) {
+  if (--claim_depth == 0) {
+    uart_irq_rx_disable(uart_dev);
+
+    int err = pm_device_runtime_put(uart_dev);
+
+    if (err) {
+      LOG_ERR("Error: UART suspend failed (%d)", err);
+    }
+  }
+
+  k_mutex_unlock(&rak3172_lock);
 }
 
 void rak3172_print_version_info(void) {
@@ -331,12 +377,15 @@ int rak3172_wait_event(const char *prefix, char *buf, size_t buf_len,
   }
 }
 
+/* peer_preamble is the home station's, (not this collar's LORA send Preamble): the module sizes its receive
+ * window from it, and ours closes the window mid-preamble. */
 int rak3172_cad_rx_configure(uint8_t symbols, uint8_t det_peak, uint8_t det_min,
-                             uint32_t interval_ms) {
-  char cmd[48];
+                             uint32_t interval_ms, uint8_t max_payload,
+                             uint16_t peer_preamble) {
+  char cmd[56];
 
-  snprintf(cmd, sizeof(cmd), "AT+CADP=%u:%u:%u:%u", symbols, det_peak, det_min,
-           interval_ms);
+  snprintf(cmd, sizeof(cmd), "AT+CADP=%u:%u:%u:%u:%u:%u", symbols, det_peak,
+           det_min, interval_ms, max_payload, peer_preamble);
   rak3172_send_at(cmd);
 
   int err = rak3172_read_response(3000);
@@ -430,6 +479,23 @@ int rak3172_cad_rx_set_absence(uint32_t seconds) {
   return err;
 }
 
+/* The module owns the schedule; only the wake line brings the nRF up.
+ * burst_ms of 0 sniffs continuously. */
+int rak3172_cad_rx_set_duty(uint32_t burst_ms, uint32_t period_ms) {
+  char cmd[40];
+
+  snprintf(cmd, sizeof(cmd), "AT+CADDUTY=%u:%u", burst_ms, period_ms);
+  rak3172_send_at(cmd);
+
+  int err = rak3172_read_response(3000);
+
+  if (err != 0) {
+    LOG_ERR("Error: AT+CADDUTY rejected (%d)", err);
+  }
+
+  return err;
+}
+
 int rak3172_cad_rx_event(void) {
   char line[64];
 
@@ -449,24 +515,6 @@ int rak3172_cad_rx_event(void) {
   }
 
   return RAK3172_CAD_EVENT_NONE;
-}
-
-int rak3172_reset_test(void) {
-  char line[128];
-
-  LOG_INF("Reset test: pulsing the reset line");
-  rak3172_hw_reset();
-
-  /* A module that saw the pin reports PIN in its reset flags. Silence means the
-   * line never reached it, or it is wedged badly enough that reset does not
-   * recover it and only a power cycle will. */
-  if (rak3172_wait_event("+EVT:RESET:", line, sizeof(line), 15000) == 0) {
-    LOG_INF("Reset test: module rebooted, %s", line);
-    return 0;
-  }
-
-  LOG_ERR("Error: reset test: no reboot seen; reset line ineffective");
-  return -EIO;
 }
 
 int rak3172_cad_rx_stats(void) {
