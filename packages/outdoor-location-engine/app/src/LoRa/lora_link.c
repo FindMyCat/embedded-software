@@ -330,22 +330,6 @@ static int send_payload_around_cad(const uint8_t *payload, size_t len) {
   return err;
 }
 
-/* Only while the link is on; in BLE range the station has paused LoRa. */
-static void heartbeat_handler(struct k_work *work) {
-  if (atomic_get(&link_enabled) != 0) {
-    static const uint8_t beat = LORA_HEARTBEAT_BYTE;
-
-    if (send_payload_around_cad(&beat, sizeof(beat)) != 0) {
-      LOG_WRN("Heartbeat transmit failed");
-    }
-  }
-
-  k_work_reschedule(k_work_delayable_from_work(work),
-                    K_SECONDS(CONFIG_LORA_LINK_HEARTBEAT_S));
-}
-
-static K_WORK_DELAYABLE_DEFINE(heartbeat_work, heartbeat_handler);
-
 int lora_link_send_position(const struct lora_frame_position *position) {
   uint8_t frame[LORA_FRAME_MAX_BYTES];
   int frame_len = lora_frame_encode_position(frame, sizeof(frame), device_id,
@@ -435,10 +419,6 @@ int lora_link_start(void) {
                   K_THREAD_STACK_SIZEOF(receive_stack), receive_loop, NULL,
                   NULL, NULL, RECEIVE_THREAD_PRIORITY, 0, K_NO_WAIT);
   k_thread_name_set(&receive_thread, "lora_link");
-
-  if (CONFIG_LORA_LINK_HEARTBEAT_S > 0) {
-    k_work_reschedule(&heartbeat_work, K_SECONDS(CONFIG_LORA_LINK_HEARTBEAT_S));
-  }
 
   LOG_INF("LoRa link listening as %s", device_id);
   return 0;

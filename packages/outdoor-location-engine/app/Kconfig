@@ -128,15 +128,6 @@ config LORA_LINK_BURST_PERIOD_S
 	depends on LORA_LINK
 	default 30
 
-config LORA_LINK_HEARTBEAT_S
-	int "Seconds between one-byte heartbeats to the home station, 0 for none"
-	depends on LORA_LINK
-	default 29
-	help
-	  Test aid: lets the station show the collar as in LoRa range without
-	  a ping. Costs a transmit per interval. Kept off the station's 30 s
-	  beacon period so the two cannot collide cycle after cycle.
-
 endmenu
 
 menu "Zephyr Kernel"
