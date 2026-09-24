@@ -5,7 +5,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/random/random.h>
 
-#include "../comm/transport.h"
+#include "../communication_channels/transport.h"
 
 K_SEM_DEFINE(location_event, 0, 1);
 

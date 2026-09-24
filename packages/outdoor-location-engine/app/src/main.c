@@ -25,7 +25,7 @@
 #include "UDPListener/UDPListener.h"
 #include "WiFi/wifi_location.h"
 #include "WiFi/wifi_scan.h"
-#include "comm/nrf52_link.h"
+#include "communication_channels/nrf52_link.h"
 #include "led/led.h"
 #include "mqtt/mqttsn.h"
 
@@ -236,12 +236,12 @@ retry:
     LOG_ERR("Error: nRF52 config-ready pin not ready");
   }
 
-#if !defined(CONFIG_FINDMYCAT_LOW_POWER_HOLD)
-  err = fuel_gauge_start();
-  if (err != 0) {
-    LOG_ERR("Error: Fuel gauge start failed (%d)", err);
-  }
-#endif
+// #if !defined(CONFIG_FINDMYCAT_LOW_POWER_HOLD)
+//   err = fuel_gauge_start();
+//   if (err != 0) {
+//     LOG_ERR("Error: Fuel gauge start failed (%d)", err);
+//   }
+// #endif
 
   set_homestation_in_ble_range(gpio_pin_get_dt(&power_mode_command_recv_pin) ==
                                1);
@@ -250,6 +250,7 @@ retry:
   diagnostics_low_power_hold();
   return 0;
 #endif
+
 
 #if defined(CONFIG_LORA_LINK)
   err = lora_link_start();
@@ -260,63 +261,63 @@ retry:
 #endif
 
   // Connect to LTE network with retries if necessary.
-  while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
-    err = lte_connect();
-
-    if (err) {
-      LOG_INF("Failed to connect to LTE with error: %d", err);
-      retry_count++;
-      k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
-    } else {
-      break;
-    }
-  }
-
-  if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
-    LOG_ERR("Max retry limit reached for connecting to LTE, program exiting.");
-    return -1;
-  }
-
-  retry_count = 0;
-  // Initialize location services with retries if necessary.
-  while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
-    err = initialize_location_services();
-
-    if (err) {
-      LOG_INF("Failed to initialize location services with error: %d", err);
-      retry_count++;
-      k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
-    } else {
-      break;
-    }
-  }
-
-  if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
-    LOG_ERR("Max retry limit reached for initializing location services, "
-            "program exiting.");
-    return -1;
-  }
-
-  retry_count = 0;
-  // Initialize UDP listener with retries (using the same retry count as
-  // location services)
-  while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
-    err = create_udp_listener();
-
-    if (err) {
-      LOG_INF("Failed to create UDP Listener with error: %d", err);
-      destroy_udp_listener();
-      retry_count++;
-      k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
-    } else {
-      LOG_INF("Created UDP Listener.");
-      break;
-    }
-  }
-
-  // Start the UDP listener thread.
-  start_udp_listener_thread();
+  // while (retry_count < CONFIG_LTE_CONNECT_MAX_RETRIES) {
+  //   err = lte_connect();
   //
+  //   if (err) {
+  //     LOG_INF("Failed to connect to LTE with error: %d", err);
+  //     retry_count++;
+  //     k_sleep(K_MSEC(CONFIG_LTE_CONNECT_RETRY_DELAY_S * 1000));
+  //   } else {
+  //     break;
+  //   }
+  // }
+  //
+  // if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
+  //   LOG_ERR("Max retry limit reached for connecting to LTE, program exiting.");
+  //   return -1;
+  // }
+  //
+  // retry_count = 0;
+  // // Initialize location services with retries if necessary.
+  // while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
+  //   err = initialize_location_services();
+  //
+  //   if (err) {
+  //     LOG_INF("Failed to initialize location services with error: %d", err);
+  //     retry_count++;
+  //     k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
+  //   } else {
+  //     break;
+  //   }
+  // }
+  //
+  // if (retry_count == CONFIG_LTE_CONNECT_MAX_RETRIES) {
+  //   LOG_ERR("Max retry limit reached for initializing location services, "
+  //           "program exiting.");
+  //   return -1;
+  // }
+  //
+  // retry_count = 0;
+  // // Initialize UDP listener with retries (using the same retry count as
+  // // location services)
+  // while (retry_count < CONFIG_LOCATION_SERVICES_INIT_MAX_RETRIES) {
+  //   err = create_udp_listener();
+  //
+  //   if (err) {
+  //     LOG_INF("Failed to create UDP Listener with error: %d", err);
+  //     destroy_udp_listener();
+  //     retry_count++;
+  //     k_sleep(K_MSEC(CONFIG_LOCATION_SERVICES_INIT_RETRY_DELAY_S * 1000));
+  //   } else {
+  //     LOG_INF("Created UDP Listener.");
+  //     break;
+  //   }
+  // }
+  //
+  // // Start the UDP listener thread.
+  // start_udp_listener_thread();
+  // //
   int tick = 0;
 
   while (true) {
@@ -328,12 +329,15 @@ retry:
             home ? "in range" : "out of range");
 
     if (++tick % 8 == 0) {
-      lora_link_log_stats();
+      // lora_link_log_stats();
     }
 #else
     LOG_INF("Main thread is running.");
 #endif
-    k_sleep(K_MSEC(4000));
+    /* A heartbeat, so it pays for a wake every time it prints. Presence changes
+     * are logged from the wake line in lora_link.c as they happen; this only
+     * has to say the thread is alive and what the current answer is. */
+    k_sleep(K_MSEC(30000));
   }
 
   return 0;

@@ -8,7 +8,7 @@
 
 #include <nrf_fuel_gauge.h>
 
-#include "../comm/nrf52_link.h"
+#include "../communication_channels/nrf52_link.h"
 
 LOG_MODULE_REGISTER(fuel_gauge,
                     CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);

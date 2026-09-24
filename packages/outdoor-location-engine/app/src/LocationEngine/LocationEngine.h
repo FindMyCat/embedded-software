@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "../comm/transport.h"
+#include "../communication_channels/transport.h"
 
 struct location_result {
   bool has_fix;

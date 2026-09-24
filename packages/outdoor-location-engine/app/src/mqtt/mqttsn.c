@@ -9,6 +9,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/net/mqtt_sn.h>
 #include <zephyr/net/socket.h>
+#include "../shared.h"
 
 #define APP_BMEM
 #define APP_DMEM
@@ -25,7 +26,7 @@ struct fmc_mqtt_sn_config {
 };
 
 static struct fmc_mqtt_sn_config fmc_mqtt_config = {
-	.client_id = MQTT_SN_DATA_STRING_LITERAL(CONFIG_DEVICE_ID),
+	.client_id = MQTT_SN_DATA_STRING_LITERAL(UNCONFIGURED_DEVICE_ID),
 	.hostname = CONFIG_FINDMYCAT_CLOUD_HOSTNAME,
 	.port = CONFIG_MQTT_SN_GATEWAY_PORT};
 

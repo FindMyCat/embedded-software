@@ -5,7 +5,7 @@
  *   SERIAL1  uart1  RAK3172 LoRa     TX=P0.24  RX=P0.23
  *   SERIAL2  i2c2   nPM1300 PMIC     SDA=P0.09 SCL=P0.08  (addr 0x6b, Thingy-matched)
  *                   shared bus: also reaches the nRF52/DWM at 0x42 (see
- *                   src/comm/nrf52_link.h); that peer has no DT node.
+ *                   src/communication_channels/nrf52_link.h); that peer has no DT node.
  *   SERIAL3  spi3   nRF7002 Wi-Fi    SCK=P0.13 MOSI=P0.14 MISO=P0.15
  *                   CS=P0.17  IRQ=P0.16  VDDIO_CTRL=P0.27  ENABLE/BUCKEN=P0.28
  *

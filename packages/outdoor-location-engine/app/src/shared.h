@@ -1,1 +1,1 @@
-#define UNCONFIGURED_DEVICE_ID "unconfigured-device-id"
+#define UNCONFIGURED_DEVICE_ID "45740770"

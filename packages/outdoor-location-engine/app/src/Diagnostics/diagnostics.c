@@ -18,8 +18,8 @@
 #include "../LTE/diagnostics.h"
 #include "../LocationEngine/diagnostics.h"
 #include "../WiFi/diagnostics.h"
-#include "../comm/diagnostics.h"
-#include "../comm/nrf52_diagnostics.h"
+#include "../communication_channels/diagnostics.h"
+#include "../communication_channels/nrf52_diagnostics.h"
 
 LOG_MODULE_REGISTER(diagnostics,
                     CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
@@ -44,7 +44,7 @@ const struct {
 } checks_to_run[] = {
     {"power", fuel_gauge_diagnostics}, {"nrf52-link", nrf52_diagnostics},
     {"modem", lte_diagnostics},        {"transport/cellular", check_cellular},
-    {"transport/lora", check_lora},    {"wifi-power", wifi_scan_power_on},
+    {"transport/lora", check_lora},
     {"wifi", wifi_diagnostics},        {"gnss", location_diagnostics},
 };
 
