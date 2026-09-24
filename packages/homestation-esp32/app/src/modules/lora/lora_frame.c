@@ -68,6 +68,13 @@ int lora_frame_encode_beacon(uint8_t *out, size_t out_len,
 			     counter, 0);
 }
 
+int lora_frame_encode_ack(uint8_t *out, size_t out_len, const char *device_id,
+			  uint32_t counter)
+{
+	return encode_header(out, out_len, LORA_FRAME_TYPE_ACK, device_id,
+			     counter, 0);
+}
+
 int lora_frame_encode_position(uint8_t *out, size_t out_len,
 			       const char *device_id, uint32_t counter,
 			       const struct lora_frame_position *position)
@@ -125,6 +132,9 @@ int lora_frame_decode(const uint8_t *in, size_t in_len, struct lora_frame *out)
 		return 0;
 	case LORA_FRAME_TYPE_BEACON:
 		out->type = LORA_FRAME_TYPE_BEACON;
+		return 0;
+	case LORA_FRAME_TYPE_ACK:
+		out->type = LORA_FRAME_TYPE_ACK;
 		return 0;
 	case LORA_FRAME_TYPE_POSITION:
 		if (body_len < POSITION_BYTES) {

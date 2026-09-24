@@ -2,71 +2,32 @@ menu "LoRa"
 
 config LORA_THREAD_STACK_SIZE
 	int "Thread stack size"
-	default 8192 if WIFI_GEOLOCATION
-	default 2048
-	help
-	  The geolocation lookup runs on this thread, and an mbedTLS handshake
-	  needs several kilobytes of stack.
+	default 8192
 
 config LORA_MESSAGE_QUEUE_SIZE
 	int "Message queue size"
 	default 4
 
-config LORA_CAD_TEST
-	bool "CAD receive test beacon"
-	help
-	  Transmit a periodic long-preamble beacon instead of entering RX, to
-	  exercise the collar's duty-cycled CAD receive mode.
+config LORA_ABSENCE_S
+	int "Seconds without a frame from the collar before it counts as gone"
+	default 900
 
-config LORA_CAD_TEST_PREAMBLE
-	int "Beacon preamble length in symbols"
-	depends on LORA_CAD_TEST
-	default 512
 
-config LORA_CAD_TEST_PERIOD_MS
-	int "Beacon period in milliseconds"
-	depends on LORA_CAD_TEST
-	default 5000
-
-config LORA_BEACON
-	bool "Beacon presence to the collar over LoRa"
-	select LORA_PING
-	help
-	  Transmits on an interval so the collar's CAD sniffing keeps hearing
-	  something. The collar's module clears its absence timer on the
-	  detection alone and never has to decode the frame, so this is what
-	  keeps the collar's modem down while the cat is home.
+config LORA_LOCATE_WINDOW_S
+	int "Seconds to keep pinging after the locate button is pressed"
+	default 120
 
 config LORA_BEACON_INTERVAL_S
-	int "Seconds between beacons"
-	depends on LORA_BEACON
+	int "Seconds between LORA beacons"
 	default 30
-	help
-	  The collar's CONFIG_LORA_LINK_ABSENCE_S should be several of these.
-	  Single misses are normal from fading and collisions, and each one
-	  wakes the collar's modem for nothing.
-
-config LORA_PING
-	bool "Ping the collar over LoRa and decode its position reply"
-	help
-	  Sends a ping frame on an interval and stays in receive between them,
-	  so the collar can answer with a position without waking its modem.
-	  The collar must be running CONFIG_LORA_LINK with the CAD firmware.
 
 config LORA_PING_INTERVAL_S
 	int "Seconds between pings"
-	depends on LORA_PING
 	default 300
 
 config LORA_PING_PREAMBLE
 	int "Ping preamble length in symbols"
-	depends on LORA_PING
 	default 512
-	help
-	  Must outlast the collar's CONFIG_LORA_LINK_CAD_INTERVAL_MS sniff
-	  period, or its duty-cycled receiver never sees the packet. 512
-	  symbols is about 525 ms at SF7/125 kHz, pairing with the 450 ms
-	  default on the collar.
 
 config LORA_TX_POWER_DBM
 	int "P2P transmit power in dBm (5-22)"

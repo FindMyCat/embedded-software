@@ -6,7 +6,7 @@
 #include <zephyr/sys/util.h>
 
 
-/* Mirrors outdoor-location-engine LoRa/lora_frame.h; Important to keep the two identical.
+/* Mirrors outdoor-location-engine LoRa/lora_frame.h; keep the two identical.
  *
  * Wire format for the collar <-> home station LoRa link.
  *
@@ -36,10 +36,8 @@
 enum lora_frame_type {
 	LORA_FRAME_TYPE_PING = 1,
 	LORA_FRAME_TYPE_POSITION = 2,
-	/* Periodic "still here" from the home station. Carries no body: the
-	 * collar's module clears its absence timer on the CAD detection alone,
-	 * so the contents never have to be decoded. */
 	LORA_FRAME_TYPE_BEACON = 3,
+	LORA_FRAME_TYPE_ACK = 4,
 };
 
 struct lora_frame_position {
@@ -71,8 +69,9 @@ int lora_frame_encode_ping(uint8_t *out, size_t out_len, const char *device_id,
 int lora_frame_encode_beacon(uint8_t *out, size_t out_len,
 			     const char *device_id, uint32_t counter);
 
-/* Returns 0, -EBADMSG for anything that is not a frame this build understands,
- * or -ENOTSUP for a known layout carrying an unknown type. */
+int lora_frame_encode_ack(uint8_t *out, size_t out_len, const char *device_id,
+			  uint32_t counter);
+
 int lora_frame_decode(const uint8_t *in, size_t in_len, struct lora_frame *out);
 
 #endif /* LORA_FRAME_H */

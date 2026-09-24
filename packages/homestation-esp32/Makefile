@@ -1,4 +1,4 @@
-BOARD  := esp32_devkitc/esp32/procpu
+BOARD  := adafruit_feather_esp32/esp32/procpu
 VENV   := .venv
 # Zephyr's build scripts call pathlib relative_to(walk_up=True), which is 3.12+.
 PYTHON := python3.12
@@ -31,8 +31,9 @@ endif
 build:
 	$(WEST) build -b $(BOARD) app $(BUILD_ARGS)
 
+# 921600 loses sync on this USB-serial chip
 flash:
-	$(WEST) flash
+	$(WEST) flash --esp-baud-rate 115200
 
 logs:
 	$(WEST) espressif monitor

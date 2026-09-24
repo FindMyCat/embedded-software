@@ -2,7 +2,9 @@
 #include <zephyr/logging/log.h>
 
 #include "lora.h"
+#include "status_led.h"
 #include "wifi_station.h"
+#include "modules/diagnostics/diagnostics.h"
 #if defined(CONFIG_BLE_SCANNER)
 #include "ble_scanner.h"
 #endif
@@ -29,6 +31,8 @@ int main(void)
 			"lookups will be skipped", err);
 	}
 
+	diagnostics_run();
+
 #if defined(CONFIG_ESP32_SW_COEXIST_ENABLE)
 	// Prefering BT for COEX as the collar only advertises so often and packets are being missed due to wifi taking up more Radio time.
 	coex_preference_set(COEX_PREFER_BT);
@@ -47,7 +51,11 @@ int main(void)
 	mqtt_publisher_start();
 #endif
 
+	status_led_start();
+
 	lora_start();
+
+	LOG_INF("All modules started");
 
 	return 0;
 }

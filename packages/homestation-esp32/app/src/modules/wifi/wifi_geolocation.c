@@ -86,8 +86,9 @@ static int build_request_body(const struct wifi_scan_report *report, char *buf,
   return written + n;
 }
 
-static void response_handler(struct http_response *rsp,
-                             enum http_final_call final_data, void *user_data) {
+/* Returns 0 to keep the download going, negative to abort it. */
+static int response_handler(struct http_response *rsp,
+                            enum http_final_call final_data, void *user_data) {
   struct response_context *ctx = user_data;
 
   ctx->status = rsp->http_status_code;
@@ -104,6 +105,8 @@ static void response_handler(struct http_response *rsp,
   if (final_data == HTTP_DATA_FINAL) {
     ctx->complete = true;
   }
+
+  return 0;
 }
 
 static int register_ca_certificate(void) {

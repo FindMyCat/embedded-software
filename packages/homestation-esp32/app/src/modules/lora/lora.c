@@ -1,23 +1,21 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
-#include <zephyr/sys/util.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/atomic.h>
+#include <zephyr/sys/util.h>
 #include <zephyr/zbus/zbus.h>
 
-#include "message_channel.h"
-#include "lora.h"
-#if defined(CONFIG_BLE_SCANNER)
 #include "ble_scanner.h"
-#endif
+#include "lora.h"
 #include "lora_frame.h"
+#include "message_channel.h"
 #include "rak3172.h"
-#include "wifi_scan_frame.h"
-#if defined(CONFIG_WIFI_GEOLOCATION)
 #include "wifi_geolocation.h"
+#include "wifi_scan_frame.h"
 #include "wifi_station.h"
-#endif
 
 LOG_MODULE_REGISTER(lora, CONFIG_LORA_LOG_LEVEL);
 
@@ -27,12 +25,27 @@ ZBUS_SUBSCRIBER_DEFINE(lora, CONFIG_LORA_MESSAGE_QUEUE_SIZE);
 
 #define LORA_MAX_PAYLOAD_BYTES 127
 
-/*
- * Body of a +EVT:RXP2P line, formatted by RUI3 as RSSI:SNR:payload-hex.
- * Kept free of anything slow so the caller can re-arm the receiver promptly.
- *
- * @return payload length in bytes, or a negative errno.
- */
+#define ABSENCE_MS (CONFIG_LORA_ABSENCE_S * MSEC_PER_SEC)
+
+/* Uptime of the last decoded frame from the collar, 0 before the first. */
+static atomic_t last_heard_ms = ATOMIC_INIT(0);
+
+static void mark_collar_heard(void) {
+  atomic_set(&last_heard_ms, (atomic_val_t)k_uptime_get_32());
+}
+
+bool lora_collar_in_range(void) {
+  uint32_t last_heard = (uint32_t)atomic_get(&last_heard_ms);
+
+  if (last_heard == 0) {
+    return false;
+  }
+
+  return k_uptime_get_32() - last_heard < ABSENCE_MS;
+}
+
+/* Body of a +EVT:RXP2P line: RSSI:SNR:payload-hex. Kept free of anything slow
+ * so the caller can re-arm the receiver promptly. Returns bytes, or -errno. */
 static int unpack_rxp2p(char *body, uint8_t *payload, size_t payload_len) {
   char *snr = strchr(body, ':');
 
@@ -62,7 +75,6 @@ static int unpack_rxp2p(char *body, uint8_t *payload, size_t payload_len) {
   return (int)len;
 }
 
-#if defined(CONFIG_WIFI_GEOLOCATION)
 /* Blocks for as long as the request takes, so the receiver must already be
  * re-armed before this is called. */
 static void resolve_position(const struct wifi_scan_report *report) {
@@ -78,15 +90,16 @@ static void resolve_position(const struct wifi_scan_report *report) {
             location.longitude, location.accuracy_m);
   }
 }
-#endif
 
-#if defined(CONFIG_LORA_PING)
 static uint32_t ping_counter;
 
+/* TODO (sahas): one transmit is not enough. The collar duty-cycles its receiver
+ * (AT+CADDUTY), so a single ping usually lands while it is asleep. Repeat until
+ * the position comes back, or send inside a known sniff window. */
 static void send_ping(void) {
   uint8_t frame[LORA_FRAME_MAX_BYTES];
-  int len = lora_frame_encode_ping(frame, sizeof(frame),
-                                   CONFIG_DEVICE_ID, ping_counter);
+  int len = lora_frame_encode_ping(frame, sizeof(frame), CONFIG_DEVICE_ID,
+                                   ping_counter);
 
   if (len < 0) {
     LOG_ERR("Error: encoding ping failed (%d)", len);
@@ -99,20 +112,16 @@ static void send_ping(void) {
     ping_counter++;
   }
 
-  /* Transmitting drops the module out of receive; the collar needs a GNSS fix
-   * before it answers, so get back in before that lands. */
+  /* Transmitting drops the module out of receive; get back in before the
+   * collar answers. */
   rak3172_start_rx();
 }
 
-#if defined(CONFIG_LORA_BEACON)
 static uint32_t beacon_counter;
 
-/* Keeps the collar's absence timer clear. Its module resets that on the CAD
- * detection alone, so this never has to be decoded to do its job. */
 static void send_beacon(void) {
   uint8_t frame[LORA_FRAME_MAX_BYTES];
-  int len = lora_frame_encode_beacon(frame, sizeof(frame),
-                                     CONFIG_DEVICE_ID,
+  int len = lora_frame_encode_beacon(frame, sizeof(frame), CONFIG_DEVICE_ID,
                                      beacon_counter);
 
   if (len < 0) {
@@ -128,7 +137,67 @@ static void send_beacon(void) {
 
   rak3172_start_rx();
 }
-#endif
+
+static const struct gpio_dt_spec locate_button =
+    GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
+static struct gpio_callback locate_button_cb;
+static atomic_t locate_requested;
+static int64_t locate_until;
+
+enum locate_state {
+  LOCATE_IDLE,
+  /* Repeating the ping until one lands in the collar's listening burst. */
+  LOCATE_PINGING,
+  /* The collar acked, so it is off gathering a position. Transmitting now
+   * would deafen this side for the answer it is waiting for. */
+  LOCATE_WAITING,
+};
+
+static enum locate_state locate_state;
+
+static void locate_button_isr(const struct device *port,
+                              struct gpio_callback *cb, gpio_port_pins_t pins) {
+  ARG_UNUSED(port);
+  ARG_UNUSED(cb);
+  ARG_UNUSED(pins);
+
+  atomic_set(&locate_requested, 1);
+}
+
+static void locate_button_init(void) {
+  if (!gpio_is_ready_dt(&locate_button)) {
+    LOG_WRN("No locate button wired; pings can only be triggered in code");
+    return;
+  }
+
+  if (gpio_pin_configure_dt(&locate_button, GPIO_INPUT) != 0 ||
+      gpio_pin_interrupt_configure_dt(&locate_button,
+                                      GPIO_INT_EDGE_TO_ACTIVE) != 0) {
+    LOG_ERR("Error: configuring the locate button failed");
+    return;
+  }
+
+  gpio_init_callback(&locate_button_cb, locate_button_isr,
+                     BIT(locate_button.pin));
+  gpio_add_callback(locate_button.port, &locate_button_cb);
+
+  LOG_INF("Locate button ready");
+}
+
+static void locate_tick(void) {
+  if (atomic_cas(&locate_requested, 1, 0)) {
+    locate_until = k_uptime_get() + CONFIG_LORA_LOCATE_WINDOW_S * MSEC_PER_SEC;
+    locate_state = LOCATE_PINGING;
+    LOG_INF("Locate requested, pinging for up to %d s",
+            CONFIG_LORA_LOCATE_WINDOW_S);
+    return;
+  }
+
+  if (locate_state != LOCATE_IDLE && k_uptime_get() >= locate_until) {
+    LOG_WRN("Locate window closed with no position");
+    locate_state = LOCATE_IDLE;
+  }
+}
 
 /* A %d.%06d pair loses the sign between -1 and 0 degrees, where the whole part
  * is 0 and carries no minus of its own. */
@@ -166,49 +235,38 @@ static void handle_position(const struct lora_frame *frame) {
     LOG_INF("  battery %u%%", frame->position.battery_percent);
   }
 }
-#endif /* CONFIG_LORA_PING */
-
-#if defined(CONFIG_LORA_CAD_TEST)
-static void lora_cad_test_beacon(void) {
-  uint32_t seq = 0;
-  uint32_t sent = 0;
-
-  rak3172_set_preamble(CONFIG_LORA_CAD_TEST_PREAMBLE);
-
-  LOG_INF("CAD test beacon: preamble %d symbols, period %d ms",
-          CONFIG_LORA_CAD_TEST_PREAMBLE, CONFIG_LORA_CAD_TEST_PERIOD_MS);
-
-  while (true) {
-    char msg[16];
-
-    snprintf(msg, sizeof(msg), "CAD%05u", seq++);
-    LOG_INF("Beacon %s", msg);
-
-    if (rak3172_send_message(msg) == 0) {
-      sent++;
-    }
-    LOG_INF("Beacons confirmed %u/%u", sent, seq);
-
-    k_sleep(K_MSEC(CONFIG_LORA_CAD_TEST_PERIOD_MS));
-  }
-}
-#endif
 
 /* Routes one received payload. The frame magic and the WiFi scan type byte are
  * distinct, so the first match wins without ambiguity. */
 static void handle_payload(const uint8_t *payload, size_t len) {
-#if defined(CONFIG_LORA_PING)
   struct lora_frame frame;
 
   if (lora_frame_decode(payload, len, &frame) == 0) {
-    if (frame.type == LORA_FRAME_TYPE_POSITION) {
+    mark_collar_heard();
+
+    switch (frame.type) {
+    case LORA_FRAME_TYPE_ACK:
+      /* Stop transmitting: this side cannot hear the position while it talks.
+       */
+      if (locate_state == LOCATE_PINGING) {
+        LOG_INF("Collar acked ping %u, listening for the position",
+                frame.counter);
+        locate_state = LOCATE_WAITING;
+      }
+      break;
+    case LORA_FRAME_TYPE_POSITION:
+      if (locate_state != LOCATE_IDLE) {
+        LOG_INF("Position received, locate window closed");
+        locate_state = LOCATE_IDLE;
+      }
       handle_position(&frame);
-    } else {
+      break;
+    default:
       LOG_DBG("Frame type %d ignored", frame.type);
+      break;
     }
     return;
   }
-#endif
 
   if (!wifi_scan_frame_matches(payload, len)) {
     LOG_HEXDUMP_INF(payload, len, "Unrecognised payload");
@@ -221,11 +279,10 @@ static void handle_payload(const uint8_t *payload, size_t len) {
     return;
   }
 
+  mark_collar_heard();
   wifi_scan_report_log(&report);
 
-#if defined(CONFIG_WIFI_GEOLOCATION)
   resolve_position(&report);
-#endif
 }
 
 static void lora_task(void) {
@@ -237,27 +294,24 @@ static void lora_task(void) {
     return;
   }
 
-#if defined(CONFIG_LORA_CAD_TEST)
-  lora_cad_test_beacon();
-  return;
-#endif
-
-#if defined(CONFIG_LORA_PING)
-  /* The collar's receiver is duty cycled, so the preamble has to outlast one
-   * of its sniff periods for anything to be heard at all. */
   rak3172_set_preamble(CONFIG_LORA_PING_PREAMBLE);
-#endif
 
-#if defined(CONFIG_LORA_BEACON)
+  locate_button_init();
+
   int64_t next_beacon = k_uptime_get();
-#endif
 
   char event[320];
   bool radio_on = false;
 
   while (true) {
-#if defined(CONFIG_BLE_SCANNER)
-    if (ble_scanner_tag_in_range()) {
+    locate_tick();
+
+    bool pause_for_ble = ble_scanner_tag_in_range();
+
+    /* A locate request outranks the pause: BLE range is not a position. */
+    pause_for_ble = pause_for_ble && locate_state == LOCATE_IDLE;
+
+    if (pause_for_ble) {
       if (radio_on) {
         LOG_INF("Tag in BLE range, pausing LoRa; back after %d s without an "
                 "advertisement",
@@ -269,31 +323,35 @@ static void lora_task(void) {
       k_sleep(K_MSEC(500));
       continue;
     }
-#endif
 
     if (!radio_on) {
-#if defined(CONFIG_BLE_SCANNER)
       LOG_INF("No tag advertisement for %d s, starting LoRa receive",
               CONFIG_BLE_SCANNER_ABSENCE_S);
-#else
-      LOG_INF("Starting LoRa receive");
-#endif
-      rak3172_start_rx();
       radio_on = true;
-#if defined(CONFIG_LORA_BEACON)
-      /* Beacon immediately: the collar has been hearing nothing and its
-       * absence timer is already running. */
       next_beacon = k_uptime_get();
-#endif
     }
 
-#if defined(CONFIG_LORA_BEACON)
     if (k_uptime_get() >= next_beacon) {
-      send_beacon();
-      next_beacon =
-          k_uptime_get() + CONFIG_LORA_BEACON_INTERVAL_S * MSEC_PER_SEC;
+      switch (locate_state) {
+      case LOCATE_PINGING:
+        send_ping();
+        break;
+      case LOCATE_WAITING:
+        /* Deliberately silent. */
+        break;
+      case LOCATE_IDLE:
+        send_beacon();
+        break;
+      }
+
+      next_beacon += CONFIG_LORA_BEACON_INTERVAL_S * MSEC_PER_SEC;
+
+      int64_t now = k_uptime_get();
+
+      if (next_beacon < now) {
+        next_beacon = now;
+      }
     }
-#endif
 
     if (rak3172_read_event(event, sizeof(event), 100) != 0) {
       continue;
@@ -304,8 +362,6 @@ static void lora_task(void) {
       int len = unpack_rxp2p(event + strlen(EVT_RXP2P_PREFIX), payload,
                              sizeof(payload));
 
-      /* Re-arm before anything slow: the module left receive mode when the
-       * packet arrived, and stays deaf until this runs. */
       rak3172_start_rx();
 
       if (len > 0) {
