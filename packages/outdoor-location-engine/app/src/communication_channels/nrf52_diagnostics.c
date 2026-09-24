@@ -8,10 +8,9 @@
 
 LOG_MODULE_REGISTER(nrf52_diag, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
-/* The 52 opens a bus window every 30s; outside one it NACKs. Span a whole
- * period so a healthy link cannot be reported as dead wiring. */
-#define WINDOW_WAIT_MS  32000
-#define WINDOW_POLL_MS  250
+/* We raise the request line ourselves; a live 52 answers within ms. */
+#define WINDOW_WAIT_MS  1000
+#define WINDOW_POLL_MS  50
 
 int nrf52_diagnostics(void)
 {
@@ -20,6 +19,7 @@ int nrf52_diagnostics(void)
 
     LOG_INF("nRF52 link diagnostics:");
 
+    bool raised = nrf52_session_begin();
     int waited = 0;
 
     for (; waited < WINDOW_WAIT_MS; waited += WINDOW_POLL_MS) {
@@ -27,16 +27,19 @@ int nrf52_diagnostics(void)
         if (err == 0) {
             break;
         }
-        /* One line only; the rest of this loop is silent by design. */
-        if (waited == 0) {
-            LOG_INF("  waiting up to %d ms for the nRF52 to open a bus window",
-                    WINDOW_WAIT_MS);
-        }
         k_sleep(K_MSEC(WINDOW_POLL_MS));
     }
 
     if (err == 0) {
         err = nrf52_read_config(&config);
+    }
+
+    nrf52_session_end(raised);
+
+    if (err == -ENODATA) {
+        LOG_INF("  PASS nRF52 answers at 0x%02x after %d ms", NRF52_I2C_ADDR, waited);
+        LOG_WRN("  no FindMyCat config stored yet, use the mobile app to set this.");
+        return 0;
     }
 
     if (err) {

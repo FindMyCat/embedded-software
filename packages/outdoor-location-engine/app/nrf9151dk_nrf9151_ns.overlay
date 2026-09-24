@@ -9,7 +9,9 @@
  *   SERIAL3  spi3   nRF7002 Wi-Fi    SCK=P0.13 MOSI=P0.14 MISO=P0.15
  *                   CS=P0.17  IRQ=P0.16  VDDIO_CTRL=P0.27  ENABLE/BUCKEN=P0.28
  *
- *   P0.20    NRF_91_CELL_MODE: pulled high by the engine to enable eDRX (gpiocus10)
+ *   P0.20    NRF_91_CELL_MODE: engine drives low for eDRX + LoRa CAD, high for PSM (gpiocus10)
+ *   P0.22    nRF52 request line: either side drives it high (open source), the
+ *            52's pull-down holds it low. See nrf52_link.h.
  *   P0.12    RAK3172 wake line: asserted for a buffered packet or for absence
  *            (module pin 20 / PA9, set with AT+CADPIN=9)
  *
@@ -195,7 +197,7 @@
         };
         config_ready: config_ready {
             gpios = <&gpio0 22 GPIO_ACTIVE_HIGH>;
-            label = "nRF52 config ready";
+            label = "nRF52 request line";
         };
         lora_reset: lora_reset {
             gpios = <&gpio0 25 GPIO_ACTIVE_LOW>;

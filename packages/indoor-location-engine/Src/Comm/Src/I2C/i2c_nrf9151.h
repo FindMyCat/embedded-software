@@ -22,6 +22,12 @@ struct __attribute__((packed)) fmc_config {
 
 void i2c_nrf9151_init(void);
 
+/* Out of the advert's 0-100 range, so scanners skip it. */
+#define I2C_NRF9151_SOC_UNKNOWN     0xFF
+
+/* Last SoC percent the 91 pushed, or I2C_NRF9151_SOC_UNKNOWN. */
+uint8_t i2c_nrf9151_soc(void);
+
 int i2c_nrf9151_read(uint8_t offset, uint8_t *dst, size_t len);
 int i2c_nrf9151_write(uint8_t offset, const uint8_t *src, size_t len);
 

@@ -37,13 +37,8 @@ LOG_MODULE_REGISTER(main, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 static const struct gpio_dt_spec power_mode_command_recv_pin =
     GPIO_DT_SPEC_GET_OR(POWER_MODE_COMMAND_PIN, gpios, {0});
 
-#define NRF52_CONFIG_READY_PIN DT_ALIAS(nrf52_config_ready)
-static const struct gpio_dt_spec nrf52_config_ready_pin =
-    GPIO_DT_SPEC_GET_OR(NRF52_CONFIG_READY_PIN, gpios, {0});
-
 static struct fmc_config fmc_config_nrf52;
 static struct k_work_delayable fmc_nrf52_config__work;
-static struct gpio_callback fmc_config_nrf52_cb_data;
 
 /**
  * @brief Initialize location services.
@@ -70,8 +65,9 @@ static int initialize_location_services() {
   return err;
 }
 
-#define POWER_MODE_COMMAND_DEBOUNCE_TIME 50
-uint32_t last_powermode_command_received_timestamp;
+#define POWER_MODE_COMMAND_DEBOUNCE_MS 100
+
+static struct k_work_delayable power_mode_work;
 
 static atomic_t homestation_in_ble_range = ATOMIC_INIT(0);
 
@@ -82,19 +78,11 @@ static void set_homestation_in_ble_range(bool in_range) {
   lora_link_set_enabled(!in_range);
 #endif
 }
-/**
- * @brief Callback function for when the power mode command is received through
- * gpio interrupt.
- */
-static void powermode_command_recieved__cb() {
-  k_sleep(K_MSEC(100));
-  int power_mode_command = gpio_pin_get_dt(&power_mode_command_recv_pin);
-  uint32_t command_recv_time = k_uptime_get_32();
+/* Low (eDRX) means the home station is out of BLE range, so CAD runs. */
+static void power_mode_work_handler(struct k_work *work) {
+  ARG_UNUSED(work);
 
-  if (k_uptime_get_32() - last_powermode_command_received_timestamp <
-      POWER_MODE_COMMAND_DEBOUNCE_TIME) {
-    return;
-  }
+  int power_mode_command = gpio_pin_get_dt(&power_mode_command_recv_pin);
 
   if (power_mode_command == 0) {
     LOG_INF("Power mode set to eDRX");
@@ -108,8 +96,16 @@ static void powermode_command_recieved__cb() {
   }
 
   set_homestation_in_ble_range(power_mode_command == 1);
+}
 
-  last_powermode_command_received_timestamp = command_recv_time;
+/* ISR: each edge pushes the read out, so it lands on the settled level. */
+static void powermode_command_recieved__cb(const struct device *port,
+                                           struct gpio_callback *cb,
+                                           uint32_t pins) {
+  ARG_UNUSED(port);
+  ARG_UNUSED(cb);
+  ARG_UNUSED(pins);
+  k_work_reschedule(&power_mode_work, K_MSEC(POWER_MODE_COMMAND_DEBOUNCE_MS));
 }
 
 static struct gpio_callback pwr_mode_cb_data;
@@ -121,13 +117,17 @@ static int config_retries;
 static void nrf52_config_work_handler(struct k_work *work) {
   ARG_UNUSED(work);
 
-  (void)fuel_gauge_sample_and_push();
+  (void)fuel_gauge_push();
 
   /* On a transient failure, retry while the data-ready line is still asserted:
    * the nRF52 holds it high until we ack, so a held-high line means "still
    * pending" and there is no fresh edge to re-trigger us. */
-  if (nrf52_read_config(&fmc_config_nrf52) != 0) {
-    if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0 &&
+  int ret = nrf52_read_config(&fmc_config_nrf52);
+  if (ret == -ENODATA) {
+    return;
+  }
+  if (ret != 0) {
+    if (nrf52_link_requested() &&
         ++config_retries < NRF52_CONFIG_MAX_RETRIES) {
       k_work_reschedule(&fmc_nrf52_config__work, K_MSEC(100));
     } else {
@@ -145,14 +145,9 @@ static void nrf52_config_work_handler(struct k_work *work) {
 }
 
 /**
- * @brief ISR for the nRF52 config-ready line; defers the i2c read to a
- * workitem.
+ * @brief The 52 raised the request line; defers the i2c work to a workitem.
  */
-static void nrf52_config_ready_isr(const struct device *port,
-                                   struct gpio_callback *cb, uint32_t pins) {
-  ARG_UNUSED(port);
-  ARG_UNUSED(cb);
-  ARG_UNUSED(pins);
+static void nrf52_request_isr(void) {
   config_retries = 0;
   k_work_schedule(&fmc_nrf52_config__work, K_NO_WAIT);
 }
@@ -184,6 +179,12 @@ int main(void) {
 
   boot_led_blink();
 
+  k_work_init_delayable(&fmc_nrf52_config__work, nrf52_config_work_handler);
+  err = nrf52_link_init(nrf52_request_isr);
+  if (err != 0) {
+    LOG_ERR("Error: nRF52 link init failed (%d)", err);
+  }
+
 #if defined(CONFIG_FINDMYCAT_DIAGNOSTICS) &&                                   \
     !defined(CONFIG_FINDMYCAT_LOW_POWER_HOLD)
   onboard_diagnostics_run();
@@ -214,34 +215,15 @@ retry:
     return -1;
   }
 
+  k_work_init_delayable(&power_mode_work, power_mode_work_handler);
   gpio_init_callback(&pwr_mode_cb_data, powermode_command_recieved__cb,
                      BIT(power_mode_command_recv_pin.pin));
   gpio_add_callback(power_mode_command_recv_pin.port, &pwr_mode_cb_data);
 
-  /* nRF52 bus-window line: 52 drives it high on its beacon and whenever the
-   * iOS app pushes new config. High means its I2C slave is powered up. */
-  if (device_is_ready(nrf52_config_ready_pin.port)) {
-    k_work_init_delayable(&fmc_nrf52_config__work, nrf52_config_work_handler);
-    gpio_pin_configure_dt(&nrf52_config_ready_pin, GPIO_INPUT | GPIO_PULL_DOWN);
-    gpio_pin_interrupt_configure_dt(&nrf52_config_ready_pin,
-                                    GPIO_INT_EDGE_TO_ACTIVE);
-    gpio_init_callback(&fmc_config_nrf52_cb_data, nrf52_config_ready_isr,
-                       BIT(nrf52_config_ready_pin.pin));
-    gpio_add_callback(nrf52_config_ready_pin.port, &fmc_config_nrf52_cb_data);
-
-    if (gpio_pin_get_dt(&nrf52_config_ready_pin) > 0) {
-      k_work_schedule(&fmc_nrf52_config__work, K_NO_WAIT);
-    }
-  } else {
-    LOG_ERR("Error: nRF52 config-ready pin not ready");
+  err = fuel_gauge_start();
+  if (err != 0) {
+    LOG_ERR("Error: Fuel gauge start failed (%d)", err);
   }
-
-// #if !defined(CONFIG_FINDMYCAT_LOW_POWER_HOLD)
-//   err = fuel_gauge_start();
-//   if (err != 0) {
-//     LOG_ERR("Error: Fuel gauge start failed (%d)", err);
-//   }
-// #endif
 
   set_homestation_in_ble_range(gpio_pin_get_dt(&power_mode_command_recv_pin) ==
                                1);

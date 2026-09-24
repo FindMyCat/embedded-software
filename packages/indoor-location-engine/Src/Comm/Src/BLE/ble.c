@@ -255,7 +255,7 @@ static void adv_data_update_timer_handler(void * p_context)
     new_advdata.uuids_complete.p_uuids   = m_adv_uuids;
 
     static uint8_t fmc_adv_payload[4] = { FMC_ADV_MAGIC_BYTES, 0x00 };
-    fmc_adv_payload[3] = (uint8_t)percentage_batt_lvl;
+    fmc_adv_payload[3] = i2c_nrf9151_soc();
     static ble_advdata_manuf_data_t fmc_manuf_upd;
     fmc_manuf_upd.company_identifier      = FMC_ADV_COMPANY_ID;
     fmc_manuf_upd.data.p_data             = fmc_adv_payload;

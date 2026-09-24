@@ -1,5 +1,6 @@
 #include "fuel_gauge.h"
 
+#include <math.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/kernel.h>
@@ -16,7 +17,13 @@ LOG_MODULE_REGISTER(fuel_gauge,
 static int64_t ref_time;
 static float last_state_of_charge = -1.f;
 
+#define SAMPLE_PERIOD K_MINUTES(5)
+#define BATT_PUSH_SOC_DELTA 1.f
+
+static struct k_work_delayable sample_work;
 static struct fmc_batt_frame last_frame;
+static struct fmc_batt_frame last_pushed;
+static bool pushed_once;
 static bool started;
 
 static const struct battery_model battery_model = {
@@ -161,16 +168,33 @@ static int fuel_gauge_sample(void) {
   return 0;
 }
 
-int fuel_gauge_sample_and_push(void) {
-  if (!started) {
-    return -EAGAIN;
+static int push(void) {
+  int ret = nrf52_write_batt(&last_frame);
+  if (ret == 0) {
+    last_pushed = last_frame;
+    pushed_once = true;
+  }
+  return ret;
+}
+
+static void sample_work_handler(struct k_work *work) {
+  ARG_UNUSED(work);
+
+  if (fuel_gauge_sample() == 0 &&
+      (!pushed_once || last_frame.chg_status != last_pushed.chg_status ||
+       fabsf(last_frame.soc - last_pushed.soc) >= BATT_PUSH_SOC_DELTA)) {
+    (void)push();
   }
 
-  int ret = fuel_gauge_sample();
-  if (ret < 0) {
-    return ret;
+  k_work_schedule(&sample_work, SAMPLE_PERIOD);
+}
+
+int fuel_gauge_push(void) {
+  /* Nothing sampled yet means last_frame is zeros, not a real 0%. */
+  if (!started || last_state_of_charge < 0.f) {
+    return -EAGAIN;
   }
-  return nrf52_write_batt(&last_frame);
+  return push();
 }
 
 int fuel_gauge_start(void) {
@@ -190,8 +214,8 @@ int fuel_gauge_start(void) {
     return ret;
   }
 
-  /* Seed the gauge so SoC is available before the first bus window. */
-  (void)fuel_gauge_sample();
+  k_work_init_delayable(&sample_work, sample_work_handler);
+  k_work_schedule(&sample_work, K_NO_WAIT);
 
   started = true;
   LOG_INF("nPM1300 fuel gauge started");

@@ -16,7 +16,7 @@ int fuel_gauge_read_sensors(float *voltage, float *current, float *temp,
                             int32_t *chg_status);
 
 int fuel_gauge_start(void);
-int fuel_gauge_sample_and_push(void);
+int fuel_gauge_push(void);
 int fuel_gauge_get_state_of_charge(float *state_of_charge);
 int fuel_gauge_send_test_frame(void);
 

@@ -364,21 +364,29 @@ static void deca_irq_handler(nrf_drv_gpiote_pin_t irqPin, nrf_gpiote_polarity_t 
 
 void hal_uwb_init_irq(void)
 {
+    /* GPIOTE is shared (i2c_nrf9151 uses it too), so track our own pin. */
+    static bool irq_pin_ready;
     ret_code_t err_code;
+
+    if (irq_pin_ready)
+    {
+        return;
+    }
 
     if (!nrf_drv_gpiote_is_init())
     {
         err_code = nrf_drv_gpiote_init();
         APP_ERROR_CHECK(err_code);
-
-        nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_LOTOHI(true);
-        in_config.pull = NRF_GPIO_PIN_PULLDOWN;
-
-        err_code = nrf_drv_gpiote_in_init(hal_uwb.uwbs->ext_io_cfg->irqPin, &in_config, deca_irq_handler);
-        APP_ERROR_CHECK(err_code);
-
-        nrf_drv_gpiote_in_event_enable(hal_uwb.uwbs->ext_io_cfg->irqPin, false);
     }
+
+    nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_LOTOHI(true);
+    in_config.pull = NRF_GPIO_PIN_PULLDOWN;
+
+    err_code = nrf_drv_gpiote_in_init(hal_uwb.uwbs->ext_io_cfg->irqPin, &in_config, deca_irq_handler);
+    APP_ERROR_CHECK(err_code);
+
+    nrf_drv_gpiote_in_event_enable(hal_uwb.uwbs->ext_io_cfg->irqPin, false);
+    irq_pin_ready = true;
 }
 
 
