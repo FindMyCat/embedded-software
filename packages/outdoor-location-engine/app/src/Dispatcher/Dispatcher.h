@@ -1,6 +1,8 @@
 #ifndef DISPATCHER_DOT_H
 #define DISPATCHER_DOT_H
 
+#include <stddef.h>
+
 enum dispatcherState {
   DISPATCHER_STATE_IDLE,
   DISPATCHER_STATE_RESPOND_TO_PING,
@@ -11,5 +13,9 @@ enum dispatcherState {
 
 void changeDispatcherState(int newState);
 int getDispatcherState();
+
+/* Runs a text command from UDP or SMS on the calling thread. -EINVAL if
+ * unknown. */
+int dispatchCommand(const char *command, size_t len);
 
 #endif

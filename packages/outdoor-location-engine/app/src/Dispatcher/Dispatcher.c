@@ -1,5 +1,7 @@
 #include "Dispatcher.h"
 #include "../Responder/Responder.h"
+#include <errno.h>
+#include <string.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(dispatcher,
@@ -40,3 +42,24 @@ void changeDispatcherState(int newState) {
  * @brief Function to get dispatcher state.
  */
 int getDispatcherState() { return currentDispatcherState; }
+
+// Commands are kept short so each one costs as little data as possible.
+// The dispatcher logs the state it moves to, so no need to log it here.
+int dispatchCommand(const char *command, size_t len) {
+  if (strncmp(command, "spoof-ping", len) == 0) {
+    changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_SPOOF_PING);
+  } else if (strncmp(command, "ping", len) == 0) {
+    changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
+  } else if (strncmp(command, "lost", len) == 0) {
+    changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
+  } else if (strncmp(command, "active", len) == 0) {
+    changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
+  } else if (strncmp(command, "idle", len) == 0) {
+    changeDispatcherState(DISPATCHER_STATE_IDLE);
+  } else {
+    LOG_ERR("Error: Unknown command: %s", command);
+    return -EINVAL;
+  }
+
+  return 0;
+}

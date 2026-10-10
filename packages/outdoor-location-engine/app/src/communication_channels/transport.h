@@ -1,6 +1,8 @@
 #ifndef TRANSPORT_H
 #define TRANSPORT_H
 
+#include "../WiFi/wifi_scan.h"
+
 struct position_report {
 	double latitude;
 	double longitude;
@@ -23,5 +25,9 @@ int transport_publish_position(const struct position_report *report);
  * and CELLULAR skips LoRa even when the home station is in range. */
 int transport_publish_position_via(const struct position_report *report,
 				   enum transport_path path);
+
+/* Sends a ping's WiFi scan over the current link: LoRa to the home station,
+ * or MQTT-SN to the server when LTE is the link. Same frame either way. */
+int transport_publish_wifi_scan(const struct wifi_scan_frame *scan);
 
 #endif /* TRANSPORT_H */

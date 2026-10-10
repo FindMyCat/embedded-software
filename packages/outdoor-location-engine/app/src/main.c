@@ -10,6 +10,7 @@
 #include <zephyr/logging/log.h>
 
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/hwinfo.h>
 #include <zephyr/drivers/led.h>
 
 #include <zephyr/sys/atomic.h>
@@ -22,6 +23,7 @@
 #include "LoRa/lora_link.h"
 #include "LoRa/rak3172.h"
 #include "LocationEngine/LocationEngine.h"
+#include "Presence/presence.h"
 #include "UDPListener/UDPListener.h"
 #include "WiFi/wifi_location.h"
 #include "WiFi/wifi_scan.h"
@@ -69,20 +71,17 @@ static int initialize_location_services() {
 
 static struct k_work_delayable power_mode_work;
 
-static atomic_t homestation_in_ble_range = ATOMIC_INIT(0);
-
-static void set_homestation_in_ble_range(bool in_range) {
-  atomic_set(&homestation_in_ble_range, in_range ? 1 : 0);
-
-#if defined(CONFIG_LORA_LINK)
-  lora_link_set_enabled(!in_range);
-#endif
-}
 /* Low (eDRX) means the home station is out of BLE range, so CAD runs. */
 static void power_mode_work_handler(struct k_work *work) {
   ARG_UNUSED(work);
 
   int power_mode_command = gpio_pin_get_dt(&power_mode_command_recv_pin);
+
+  /* Forced LTE stays in eDRX: PSM would leave it unreachable for pings. */
+  if (IS_ENABLED(CONFIG_FINDMYCAT_FORCE_LTE_LINK)) {
+    presence_set_ble(power_mode_command == 1);
+    return;
+  }
 
   if (power_mode_command == 0) {
     LOG_INF("Power mode set to eDRX");
@@ -95,7 +94,7 @@ static void power_mode_work_handler(struct k_work *work) {
     lte_lc_edrx_req(false);
   }
 
-  set_homestation_in_ble_range(power_mode_command == 1);
+  presence_set_ble(power_mode_command == 1);
 }
 
 /* ISR: each edge pushes the read out, so it lands on the settled level. */
@@ -225,13 +224,12 @@ retry:
     LOG_ERR("Error: Fuel gauge start failed (%d)", err);
   }
 
-  set_homestation_in_ble_range(gpio_pin_get_dt(&power_mode_command_recv_pin) ==
-                               1);
-
 #if defined(CONFIG_FINDMYCAT_LOW_POWER_HOLD)
   diagnostics_low_power_hold();
   return 0;
 #endif
+
+  presence_set_ble(gpio_pin_get_dt(&power_mode_command_recv_pin) == 1);
 
 
 #if defined(CONFIG_LORA_LINK)
@@ -303,18 +301,15 @@ retry:
   int tick = 0;
 
   while (true) {
+    enum presence_link link = presence_link_get();
+
+    LOG_INF("Main thread is running. Link = %s%s", presence_link_name(link),
+            link == PRESENCE_LINK_LTE ? ". Home station absent" : "");
+
 #if defined(CONFIG_LORA_LINK)
-    bool home = atomic_get(&homestation_in_ble_range) != 0 ||
-                lora_link_homestation_in_range();
-
-    LOG_INF("Main thread is running. Home station %s",
-            home ? "in range" : "out of range");
-
     if (++tick % 8 == 0) {
       // lora_link_log_stats();
     }
-#else
-    LOG_INF("Main thread is running.");
 #endif
     /* A heartbeat, so it pays for a wake every time it prints. Presence changes
      * are logged from the wake line in lora_link.c as they happen; this only

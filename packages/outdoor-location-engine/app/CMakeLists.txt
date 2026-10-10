@@ -23,6 +23,9 @@ target_sources(app PRIVATE src/Dispatcher/Dispatcher.h)
 target_sources(app PRIVATE src/Responder/Responder.c)
 target_sources(app PRIVATE src/Responder/Responder.h)
 
+target_sources(app PRIVATE src/DeviceStatus/device_status_reporting.c)
+target_sources(app PRIVATE src/DeviceStatus/device_status_reporting.h)
+
 target_sources(app PRIVATE src/mqtt/mqttsn.c)
 target_sources(app PRIVATE src/mqtt/mqttsn.h)
 
@@ -31,6 +34,12 @@ target_sources(app PRIVATE src/utils/network.h)
 
 target_sources(app PRIVATE src/LTE/lte.c)
 target_sources(app PRIVATE src/LTE/lte.h)
+
+target_sources(app PRIVATE src/Presence/presence.c)
+target_sources(app PRIVATE src/Presence/presence.h)
+
+target_sources(app PRIVATE src/Link/link_orchestrator.c)
+target_sources(app PRIVATE src/Link/link_orchestrator.h)
 
 target_sources(app PRIVATE src/LoRa/rak3172.c)
 target_sources(app PRIVATE src/LoRa/rak3172.h)

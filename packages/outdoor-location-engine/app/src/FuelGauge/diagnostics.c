@@ -14,7 +14,7 @@
 LOG_MODULE_REGISTER(fuel_gauge_diag,
                     CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
-static void report_charge_status(int32_t status) {
+static void report_charge_status(int32_t status, bool on_usb) {
   LOG_INF("  charge status 0x%02x:%s%s%s%s%s%s", (unsigned)status,
           (status & NPM13XX_CHG_STATUS_BATTDETECTED_MASK) ? " battery-detected"
                                                           : "",
@@ -24,12 +24,15 @@ static void report_charge_status(int32_t status) {
           (status & NPM13XX_CHG_STATUS_CV_MASK) ? " constant-voltage" : "",
           (status & NPM13XX_CHG_STATUS_RECHARGE_MASK) ? " recharge" : "");
 
-  if ((status & NPM13XX_CHG_STATUS_BATTDETECTED_MASK) == 0) {
+  /* The charger only probes for a cell with VBUS present; on battery the
+   * whole register reads 0. */
+  if (on_usb && (status & NPM13XX_CHG_STATUS_BATTDETECTED_MASK) == 0) {
     LOG_WRN("  no battery detected: check the cell and its NTC");
   }
 }
 
-static void report_charge_input(void) {
+/* Returns whether USB power is present. */
+static bool report_charge_input(void) {
   struct sensor_value present, cur_limit;
   int ret;
 
@@ -38,7 +41,7 @@ static void report_charge_input(void) {
                       SENSOR_ATTR_NPM13XX_CHARGER_VBUS_PRESENT, &present);
   if (ret < 0) {
     LOG_ERR("  FAIL USB power status read (%d)", ret);
-    return;
+    return false;
   }
 
   (void)sensor_attr_get(npm1300__charger,
@@ -48,6 +51,8 @@ static void report_charge_input(void) {
   LOG_INF("  USB power %s, input current limit %s",
           present.val1 ? "connected, charging" : "not connected, on battery",
           cur_limit.val1 ? "reached" : "not reached");
+
+  return present.val1 != 0;
 }
 
 int fuel_gauge_diagnostics(void) {
@@ -80,7 +85,7 @@ int fuel_gauge_diagnostics(void) {
             (int)TEMP_MIN_C, (int)TEMP_MAX_C);
   }
 
-  report_charge_status(chg_status);
+  report_charge_status(chg_status, report_charge_input());
 
   sensor_channel_get(npm1300__charger, SENSOR_CHAN_NPM13XX_CHARGER_ERROR,
                      &value);
@@ -92,8 +97,6 @@ int fuel_gauge_diagnostics(void) {
 
   sensor_channel_get(npm1300__charger, SENSOR_CHAN_DIE_TEMP, &value);
   LOG_INF("  nPM1300 die temperature %d.%02d C", value.val1, abs(value.val2) / 10000);
-
-  report_charge_input();
 
   return 0;
 }

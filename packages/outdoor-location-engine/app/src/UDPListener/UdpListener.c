@@ -1,5 +1,6 @@
 #include "UdpListener.h"
 #include "../Dispatcher/Dispatcher.h"
+#include "../led/led.h"
 #include <errno.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/net/socket.h>
@@ -15,7 +16,8 @@ int udp_socket;
 char rx_data[MAX_DATA_SIZE];
 ssize_t recv_len;
 
-#define UDP_LISTENER_STACK_SIZE 2048
+/* A ping runs the WiFi scan and a full MQTT-SN session on this thread. */
+#define UDP_LISTENER_STACK_SIZE 4096
 #define UDP_LISTENER_THREAD_PRIORITY 5
 
 K_THREAD_STACK_DEFINE(udp_listener_stack_area, UDP_LISTENER_STACK_SIZE);
@@ -23,6 +25,7 @@ struct k_thread udp_listener_thread_data;
 k_tid_t udp_thread_id;
 
 #define RECEIVE_POLL_TIMEOUT_MS -1
+#define UDP_RX_FLASH_MS 100
 
 static uint32_t inbound_datagram_count;
 
@@ -40,8 +43,15 @@ int create_udp_listener() {
   memset(&my_addr, 0, sizeof(my_addr));
   my_addr.sin_family = AF_INET;
   my_addr.sin_port = htons(UDP_PORT);
-  zsock_bind(udp_socket, (struct sockaddr *)&my_addr, sizeof(my_addr));
+  if (zsock_bind(udp_socket, (struct sockaddr *)&my_addr, sizeof(my_addr)) < 0) {
+    int err = -errno;
 
+    LOG_ERR("Error: Unable to bind UDP port %d (%d)", UDP_PORT, err);
+    zsock_close(udp_socket);
+    return err;
+  }
+
+  LOG_INF("Listening on UDP port %d", UDP_PORT);
   return 0;
 }
 
@@ -88,21 +98,12 @@ void start_listening() {
 
     LOG_INF("Command %s, datagram %u", rx_data, inbound_datagram_count);
 
-    // Commands are kept short so each one costs as little data as possible.
-    // The dispatcher logs the state it moves to, so no need to log it here.
-    if (strncmp(rx_data, "spoof-ping", recv_len) == 0) {
-      changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_SPOOF_PING);
-    } else if (strncmp(rx_data, "ping", recv_len) == 0) {
-      changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
-    } else if (strncmp(rx_data, "lost", recv_len) == 0) {
-      changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
-    } else if (strncmp(rx_data, "active", recv_len) == 0) {
-      changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
-    } else if (strncmp(rx_data, "idle", recv_len) == 0) {
-      changeDispatcherState(DISPATCHER_STATE_IDLE);
-    } else {
-      LOG_ERR("Error: Unknown command: %s", rx_data);
-    }
+    /* Visible proof a datagram arrived, before the command runs. */
+    green__led_on();
+    k_sleep(K_MSEC(UDP_RX_FLASH_MS));
+    green__led_off();
+
+    (void)dispatchCommand(rx_data, recv_len);
   }
 }
 
@@ -111,6 +112,7 @@ void start_udp_listener_thread() {
       &udp_listener_thread_data, udp_listener_stack_area,
       K_THREAD_STACK_SIZEOF(udp_listener_stack_area), start_listening, NULL,
       NULL, NULL, UDP_LISTENER_THREAD_PRIORITY, 0, K_NO_WAIT);
+  k_thread_name_set(udp_thread_id, "udp_listener");
 }
 
 void stop_udp_listener_thread() { k_thread_abort(udp_thread_id); }

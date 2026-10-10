@@ -231,6 +231,20 @@ int fuel_gauge_get_state_of_charge(float *state_of_charge) {
   return 0;
 }
 
+uint8_t fuel_gauge_battery_percent(void) {
+  float state_of_charge;
+
+  if (fuel_gauge_get_state_of_charge(&state_of_charge) != 0) {
+    return UINT8_MAX;
+  }
+
+  if (state_of_charge < 0.f || state_of_charge > 100.f) {
+    return UINT8_MAX;
+  }
+
+  return (uint8_t)state_of_charge;
+}
+
 int fuel_gauge_send_test_frame(void) {
   static const struct fmc_batt_frame snap = {3.70f,   0.10f, 25.0f, 88.5f,
                                              3600.0f, 0.0f,  1};

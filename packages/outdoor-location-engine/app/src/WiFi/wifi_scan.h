@@ -23,8 +23,13 @@ struct wifi_access_point {
     int8_t rssi;
 };
 
+/* Battery percent after the access points, UINT8_MAX when unknown. Trailing,
+ * so a station that predates it only has to accept one more byte. */
+#define WIFI_SCAN_TRAILER_BYTES 1
+
 struct wifi_scan_frame {
-    uint8_t bytes[WIFI_SCAN_PACKED_LENGTH(WIFI_SCAN_MAX_ACCESS_POINTS)];
+    uint8_t bytes[WIFI_SCAN_PACKED_LENGTH(WIFI_SCAN_MAX_ACCESS_POINTS) +
+                  WIFI_SCAN_TRAILER_BYTES];
     size_t len;
 };
 
@@ -37,6 +42,7 @@ int wifi_scan_get_strongest_access_points(struct wifi_access_point *out,
                                           size_t max_access_points);
 
 int wifi_scan_pack_strongest_access_points(struct wifi_scan_frame *out,
-                                           size_t max_access_points);
+                                           size_t max_access_points,
+                                           uint8_t battery_percent);
 
 #endif

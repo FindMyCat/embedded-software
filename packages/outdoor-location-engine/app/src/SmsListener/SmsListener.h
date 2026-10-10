@@ -1,9 +1,8 @@
-#ifndef SMS_LISTENER_DOT_H    /* This is an "include guard" */
-#define SMS_LISTENER_DOT_H    /* prevents the file from being included twice. */
-                              /* Including a header file twice causes all kinds */
-                              /* of interesting problems.*/
+#ifndef SMS_LISTENER_DOT_H
+#define SMS_LISTENER_DOT_H
 
-#include <modem/sms.h>
-void sms_listener_init(void* smsCallback);
+/* Call once LTE has registered; the SMS library re-subscribes on later
+ * attaches by itself. Repeat calls do nothing. */
+int sms_listener_start(void);
 
 #endif

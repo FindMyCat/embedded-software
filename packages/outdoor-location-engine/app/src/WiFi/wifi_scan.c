@@ -85,7 +85,8 @@ int wifi_scan_get_strongest_access_points(struct wifi_access_point *out,
 }
 
 int wifi_scan_pack_strongest_access_points(struct wifi_scan_frame *out,
-                                           size_t max_access_points) {
+                                           size_t max_access_points,
+                                           uint8_t battery_percent) {
   struct wifi_access_point top[WIFI_SCAN_MAX_ACCESS_POINTS];
 
   if (!out || max_access_points == 0 ||
@@ -111,6 +112,7 @@ int wifi_scan_pack_strongest_access_points(struct wifi_scan_frame *out,
   }
 
   out->len = WIFI_SCAN_PACKED_LENGTH((size_t)count);
+  out->bytes[out->len++] = battery_percent;
   return 0;
 }
 

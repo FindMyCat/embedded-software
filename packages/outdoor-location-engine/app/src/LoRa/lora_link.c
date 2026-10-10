@@ -9,6 +9,7 @@
 #include <zephyr/sys/util.h>
 
 #include "../Dispatcher/Dispatcher.h"
+#include "../Presence/presence.h"
 #include "../WiFi/wifi_scan.h"
 #include "../shared.h"
 #include "rak3172.h"
@@ -58,6 +59,11 @@ static bool sniffing;
 static int64_t last_ping_answered_ms;
 
 static atomic_t link_enabled = ATOMIC_INIT(1);
+
+/* Our own transmit stops CAD, which drops the absence line, and restarting it
+ * rewinds the module's absence timer. Neither is the station; see receive_loop. */
+static atomic_t transmitting;
+static atomic_t absence_hold_until_ms;
 
 /* The module runs the burst schedule off its own timer; the nRF stays asleep. */
 #define CAD_BURST_MS CONFIG_LORA_LINK_BURST_MS
@@ -212,10 +218,15 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
 
       if (err != 0) {
         LOG_ERR("Error: could not restart CAD sniffing (%d)", err);
+        presence_set_lora(false);
         continue;
       }
 
       homestation_absent = true;
+      continue;
+    }
+
+    if (atomic_get(&transmitting) != 0) {
       continue;
     }
 
@@ -226,6 +237,16 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
     }
 
     bool lora_module_homestation_absence_flag = absence_line_asserted();
+
+    /* Right after our transmit a quiet line is the rewound timer, not the
+     * station: only a real wake brings it back inside that window. */
+    bool in_hold = (int32_t)(k_uptime_get_32() -
+                             (uint32_t)atomic_get(&absence_hold_until_ms)) < 0;
+
+    if (homestation_absent && !lora_module_homestation_absence_flag &&
+        !woken && in_hold) {
+      lora_module_homestation_absence_flag = true;
+    }
 
     if (woken) {
       LOG_INF("LORA Link GPIO line %d, %s",
@@ -242,7 +263,14 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
       homestation_absent = lora_module_homestation_absence_flag;
     }
 
-    if (!woken || lora_module_homestation_absence_flag || changed) {
+    /* Every read, not only changes: the starting value matches an absent line,
+     * so a station that is never heard would otherwise never be reported. */
+    presence_set_lora(!homestation_absent);
+
+    /* Read on a change back to present too: the frame that proved the
+     * station is back is often a ping, and hearing presence ends the burst,
+     * so the module pulses no second time for it. */
+    if (!woken || lora_module_homestation_absence_flag) {
       continue;
     }
 
@@ -253,7 +281,10 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
     rak3172_uart_release();
 
     if (err != 0) {
-      LOG_WRN("Woken by a pulse but AT+CADRD returned nothing");
+      /* Expected when a bare beacon brought presence back. */
+      if (!changed) {
+        LOG_WRN("Woken by a pulse but AT+CADRD returned nothing");
+      }
       continue;
     }
 
@@ -316,6 +347,7 @@ void lora_link_set_enabled(bool enabled) {
 /* CAD sniffing owns the radio: stop it to transmit, restart it after or the
  * collar goes deaf. Only restart if it was running; the link may be disabled. */
 static int send_payload_around_cad(const uint8_t *payload, size_t len) {
+  atomic_set(&transmitting, 1);
   rak3172_uart_claim();
 
   /* Under AT+LPM the module spends the next command's first byte on waking, so
@@ -334,6 +366,14 @@ static int send_payload_around_cad(const uint8_t *payload, size_t len) {
   }
 
   rak3172_uart_release();
+
+  /* Drop the edge the stop caused, and distrust a quiet line for one absence
+   * window: the module only re-flags absence after that much fresh silence. */
+  atomic_set(&absence_hold_until_ms,
+             (atomic_val_t)(k_uptime_get_32() +
+                            CONFIG_LORA_LINK_ABSENCE_S * MSEC_PER_SEC));
+  k_sem_reset(&wake_line_signal);
+  atomic_set(&transmitting, 0);
 
   return err;
 }
@@ -408,12 +448,14 @@ int lora_link_start(void) {
     err = start_cad_sniffing();
     rak3172_uart_release();
 
+    /* Deaf without CAD: report it so LTE takes over, and let the receive
+     * thread keep retrying. */
     if (err != 0) {
       LOG_ERR("Error: could not start CAD sniffing");
-      return err;
+      presence_set_lora(false);
     }
 
-    sniffing = true;
+    sniffing = err == 0;
   } else {
     /* An nRF reset leaves the module running; AT+NWM=0 only restarts it on a
      * mode change, so a previous boot's sniffing would carry on. */

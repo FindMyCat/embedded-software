@@ -52,6 +52,7 @@ const struct {
 const char *const run_only[] = {
     "power",
     "nrf52-link",
+    "modem",
     "wifi-power",
     "wifi",
 };

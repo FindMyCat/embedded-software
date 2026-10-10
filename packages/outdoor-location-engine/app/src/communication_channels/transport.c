@@ -6,6 +6,7 @@
 
 #include "../FuelGauge/fuel_gauge.h"
 #include "../LoRa/lora_link.h"
+#include "../Presence/presence.h"
 #include "../mqtt/mqttsn.h"
 
 LOG_MODULE_REGISTER(transport,
@@ -13,19 +14,6 @@ LOG_MODULE_REGISTER(transport,
 
 #define POSITION_JSON_BYTES 100
 
-static uint8_t get_battery_percent(void) {
-  float state_of_charge;
-
-  if (fuel_gauge_get_state_of_charge(&state_of_charge) != 0) {
-    return UINT8_MAX;
-  }
-
-  if (state_of_charge < 0.f || state_of_charge > 100.f) {
-    return UINT8_MAX;
-  }
-
-  return (uint8_t)state_of_charge;
-}
 
 static uint16_t get_accuracy_decimetres(double accuracy_metres) {
   double decimetres = accuracy_metres * 10.0;
@@ -45,7 +33,7 @@ static int publish_over_lora(const struct position_report *report) {
       .longitude_microdegrees = (int32_t)(report->longitude * 1000000.0),
       .accuracy_decimetres = get_accuracy_decimetres(report->accuracy_metres),
       .satellites = (uint8_t)report->satellites,
-      .battery_percent = get_battery_percent(),
+      .battery_percent = fuel_gauge_battery_percent(),
   };
 
   return lora_link_send_position(&position);
@@ -57,7 +45,7 @@ static int publish_over_cellular(const struct position_report *report) {
 
   snprintk(json, sizeof(json), "{\"msg\": \"%.06f,%.06f,%d,%.02f,%d\"}",
            report->latitude, report->longitude, report->satellites,
-           report->accuracy_metres, get_battery_percent());
+           report->accuracy_metres, fuel_gauge_battery_percent());
 
   return mqttsn_publish_with_session(CONFIG_MQTT_SN_LOCATION_TOPIC, json);
 }
@@ -98,4 +86,33 @@ int transport_publish_position_via(const struct position_report *report,
 
 int transport_publish_position(const struct position_report *report) {
   return transport_publish_position_via(report, TRANSPORT_PATH_AUTO);
+}
+
+/* The LoRa frame's bytes, hex encoded: the MQTT-SN client takes a string, and
+ * the frame has zero bytes in it.
+ * TODO: evaluate sending it binary; hex doubles the frame (~49 bytes a ping).
+ * Needs a length-taking publish in mqttsn.c and bin2hexstr(payload) in the
+ * EMQX rule. */
+static int publish_wifi_scan_over_cellular(const struct wifi_scan_frame *scan) {
+  char hex[2 * sizeof(scan->bytes) + 1];
+
+  for (size_t i = 0; i < scan->len; i++) {
+    snprintk(&hex[2 * i], 3, "%02X", scan->bytes[i]);
+  }
+  hex[2 * scan->len] = '\0';
+
+  return mqttsn_publish_with_session(CONFIG_MQTT_SN_WIFI_SCAN_TOPIC, hex);
+}
+
+int transport_publish_wifi_scan(const struct wifi_scan_frame *scan) {
+  /* The home station resolves the scan over LoRa, the server over LTE. */
+  if (presence_link_get() == PRESENCE_LINK_LTE) {
+    return publish_wifi_scan_over_cellular(scan);
+  }
+
+#if defined(CONFIG_LORA_LINK)
+  return lora_link_send_wifi_scan(scan);
+#else
+  return publish_wifi_scan_over_cellular(scan);
+#endif
 }

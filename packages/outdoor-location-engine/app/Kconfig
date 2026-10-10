@@ -8,6 +8,13 @@ config FINDMYCAT_LOW_POWER_HOLD
 	bool "Holds the firmware at the lowest power, this can be used to verify current leaks in the hardware."
 	select FINDMYCAT_DIAGNOSTICS
 
+config FINDMYCAT_FORCE_LTE_LINK
+	bool "Always use LTE to reach the home station, skipping BLE and LoRa"
+	help
+	  For testing the LTE path at home: LTE attaches at boot and stays up
+	  in eDRX, LoRa CAD stays off, and the BLE pin no longer changes the
+	  link or the modem's power mode.
+
 
 config FINDMYCAT_CLOUD_HOSTNAME
 	string "Default Hostname of the FindMyCat Cloud, this can be overriden using the iOS/Android App"
@@ -46,6 +53,10 @@ config MQTT_SN_LOCATION_TOPIC
 config MQTT_SN_STATUS_TOPIC
 	string "MQTT Topic device status is published to"
 	default "/status"
+
+config MQTT_SN_WIFI_SCAN_TOPIC
+	string "MQTT Topic raw WiFi scans are published to over LTE, for the server to resolve"
+	default "/wifi-scan"
 
 config MQTT_SN_REFRESH_PERIOD_SECONDS
 	int "MQTT-SN refresh period in seconds"
@@ -131,11 +142,13 @@ config LORA_LINK_BURST_PERIOD_S
 config LORA_LINK_HEARTBEAT_S
 	int "Seconds between module-sent heartbeats to the station, 0 for none"
 	depends on LORA_LINK
-	default 300
+	default 60
 	help
 	  Sent by the RAK3172 itself (AT+HBEAT) at a sniff burst start, so it
-	  rounds up to whole burst periods. Lets the station show the collar
-	  as in LoRa range between pings.
+	  rounds up to whole burst periods. The station replies inside that
+	  burst with a beacon, or a ping when a locate is pending, so this is
+	  both the locate latency and the presence refresh. Keep it well under
+	  CONFIG_LORA_LINK_ABSENCE_S.
 
 endmenu
 
