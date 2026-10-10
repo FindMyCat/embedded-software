@@ -39,7 +39,7 @@ int main(void)
 	LOG_INF("Radio arbitration set to prefer Bluetooth");
 #endif
 
-#if defined(CONFIG_BLE_SCANNER)
+#if defined(CONFIG_BLE_SCANNER_RUN)
 	ble_scanner_start();
 #endif
 	/* After the scanner, which is what calls bt_enable(). */

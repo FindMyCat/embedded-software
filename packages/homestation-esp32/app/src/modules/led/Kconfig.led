@@ -1,0 +1,15 @@
+menu "Status LED"
+
+choice STATUS_LED_EFFECT
+	prompt "Status colour animation"
+	default STATUS_LED_BREATHE
+
+config STATUS_LED_BREATHE
+	bool "Smooth fade in and out"
+
+config STATUS_LED_CANDLE
+	bool "Candle flicker"
+
+endchoice
+
+endmenu # Status LED

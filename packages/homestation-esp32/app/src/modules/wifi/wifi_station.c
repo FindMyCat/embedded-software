@@ -17,8 +17,6 @@ static bool ready;
 
 static void wifi_event_handler(struct net_mgmt_event_callback *cb,
                                uint64_t event, struct net_if *iface) {
-  ARG_UNUSED(iface);
-
   if (event == NET_EVENT_WIFI_CONNECT_RESULT) {
     const struct wifi_status *status = (const struct wifi_status *)cb->info;
 
@@ -26,6 +24,11 @@ static void wifi_event_handler(struct net_mgmt_event_callback *cb,
       LOG_ERR("Error: association failed (%d)", status->status);
     } else {
       LOG_INF("Associated with %s", CONFIG_WIFI_STATION_SSID);
+      /* A reconnect can keep the lease it had, in which case no address
+       * event follows; the station is usable as soon as one is bound. */
+      if (net_if_ipv4_get_global_addr(iface, NET_ADDR_PREFERRED) != NULL) {
+        ready = true;
+      }
     }
   } else if (event == NET_EVENT_WIFI_DISCONNECT_RESULT) {
     LOG_WRN("Disconnected from %s", CONFIG_WIFI_STATION_SSID);

@@ -9,6 +9,7 @@ rsource "src/modules/lora/Kconfig.lora"
 rsource "src/modules/mqtt/Kconfig.mqtt"
 rsource "src/modules/wifi/Kconfig.wifi"
 rsource "src/modules/error/Kconfig.error"
+rsource "src/modules/led/Kconfig.led"
 
 endmenu
 

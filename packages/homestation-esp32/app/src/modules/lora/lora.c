@@ -12,7 +12,11 @@
 #include "lora.h"
 #include "lora_frame.h"
 #include "message_channel.h"
+#if defined(CONFIG_MQTT_PUBLISHER)
+#include "mqtt_publisher.h"
+#endif
 #include "rak3172.h"
+#include "status_led.h"
 #include "wifi_geolocation.h"
 #include "wifi_scan_frame.h"
 #include "wifi_station.h"
@@ -88,6 +92,15 @@ static void resolve_position(const struct wifi_scan_report *report) {
   if (wifi_geolocation_resolve(report, &location) == 0) {
     LOG_INF("Position: %.6f, %.6f (accuracy %.0f m)", location.latitude,
             location.longitude, location.accuracy_m);
+#if defined(CONFIG_MQTT_PUBLISHER)
+    /* Older collars send no battery; fall back to the last BLE advert. */
+    uint8_t battery = report->battery_percent != UINT8_MAX
+                          ? report->battery_percent
+                          : ble_scanner_tag_battery_percent();
+
+    mqtt_publisher_report_position(location.latitude, location.longitude,
+                                   location.accuracy_m, battery);
+#endif
   }
 }
 
@@ -154,6 +167,47 @@ enum locate_state {
 };
 
 static enum locate_state locate_state;
+
+bool lora_locate_pinging(void) { return locate_state == LOCATE_PINGING; }
+
+/* How long the LED keeps showing a completed locate before presence takes
+ * over again. */
+#define LOCATED_HOLD_MS (60 * MSEC_PER_SEC)
+
+static atomic_t located_at_ms;
+
+static void mark_located(void) {
+  atomic_set(&located_at_ms, (atomic_val_t)k_uptime_get_32());
+}
+
+bool lora_locate_acked(void) {
+  if (locate_state == LOCATE_WAITING) {
+    return true;
+  }
+
+  uint32_t located = (uint32_t)atomic_get(&located_at_ms);
+
+  return located != 0 && k_uptime_get_32() - located < LOCATED_HOLD_MS;
+}
+
+/* The collar's module sends its heartbeat at the start of a CAD burst and
+ * keeps sniffing for the rest of the burst, so a reply sent now is heard. A
+ * beacon feeds its presence timer; a pending locate goes out as a ping
+ * instead. Returns with receive re-armed. */
+static void reply_to_heartbeat(void) {
+  switch (locate_state) {
+  case LOCATE_PINGING:
+    send_ping();
+    break;
+  case LOCATE_WAITING:
+    /* Acked: the collar is busy answering, so stay quiet and listen. */
+    rak3172_start_rx();
+    break;
+  case LOCATE_IDLE:
+    send_beacon();
+    break;
+  }
+}
 
 static void locate_button_isr(const struct device *port,
                               struct gpio_callback *cb, gpio_port_pins_t pins) {
@@ -234,6 +288,17 @@ static void handle_position(const struct lora_frame *frame) {
   if (frame->position.battery_percent != UINT8_MAX) {
     LOG_INF("  battery %u%%", frame->position.battery_percent);
   }
+
+#if defined(CONFIG_MQTT_PUBLISHER)
+  /* Unknown accuracy goes out as 0 rather than a huge sentinel. */
+  uint16_t accuracy_dm = frame->position.accuracy_decimetres;
+
+  mqtt_publisher_report_position(
+      frame->position.latitude_microdegrees / 1e6,
+      frame->position.longitude_microdegrees / 1e6,
+      accuracy_dm == UINT16_MAX ? 0 : accuracy_dm / 10.0,
+      frame->position.battery_percent);
+#endif
 }
 
 /* Routes one received payload. The frame magic and the WiFi scan type byte are
@@ -246,6 +311,9 @@ static void handle_payload(const uint8_t *payload, size_t len) {
 
   if (len == 1 && payload[0] == COLLAR_HEARTBEAT_BYTE) {
     LOG_INF("Collar heartbeat");
+    status_led_heartbeat();
+    /* TODO: publish last seen (time and link: BLE or LoRa) to the device
+     * status topic, from here and from the BLE scanner. */
     mark_collar_heard();
     return;
   }
@@ -266,6 +334,7 @@ static void handle_payload(const uint8_t *payload, size_t len) {
     case LORA_FRAME_TYPE_POSITION:
       if (locate_state != LOCATE_IDLE) {
         LOG_INF("Position received, locate window closed");
+        mark_located();
         locate_state = LOCATE_IDLE;
       }
       handle_position(&frame);
@@ -290,6 +359,15 @@ static void handle_payload(const uint8_t *payload, size_t len) {
 
   mark_collar_heard();
   wifi_scan_report_log(&report);
+
+  /* The scan is the collar's answer to a ping, so it closes the locate even
+   * if the ack was lost; otherwise we would keep pinging for an answer we
+   * already hold. Closed before the lookup, which blocks. */
+  if (locate_state != LOCATE_IDLE) {
+    LOG_INF("WiFi scan received, locate window closed");
+    mark_located();
+    locate_state = LOCATE_IDLE;
+  }
 
   resolve_position(&report);
 }
@@ -339,9 +417,13 @@ static void lora_task(void) {
               CONFIG_BLE_SCANNER_ABSENCE_S);
       radio_on = true;
       next_beacon = k_uptime_get();
+      /* Transmits re-arm receive after themselves; replying only to
+       * heartbeats, nothing would until the first one, so arm it here. */
+      rak3172_start_rx();
     }
 
-    if (k_uptime_get() >= next_beacon) {
+    if (!IS_ENABLED(CONFIG_LORA_REPLY_TO_HEARTBEAT) &&
+        k_uptime_get() >= next_beacon) {
       switch (locate_state) {
       case LOCATE_PINGING:
         send_ping();
@@ -372,7 +454,12 @@ static void lora_task(void) {
       int len = unpack_rxp2p(event + strlen(EVT_RXP2P_PREFIX), payload,
                              sizeof(payload));
 
-      rak3172_start_rx();
+      if (IS_ENABLED(CONFIG_LORA_REPLY_TO_HEARTBEAT) && len == 1 &&
+          payload[0] == COLLAR_HEARTBEAT_BYTE) {
+        reply_to_heartbeat();
+      } else {
+        rak3172_start_rx();
+      }
 
       if (len > 0) {
         handle_payload(payload, (size_t)len);

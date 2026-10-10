@@ -27,16 +27,18 @@ int wifi_scan_frame_decode(const uint8_t *payload, size_t len,
   }
 
   uint8_t count = payload[1];
+  size_t body = WIFI_SCAN_HEADER_BYTES + count * WIFI_SCAN_BYTES_PER_ACCESS_POINT;
 
+  /* The battery byte trails the access points; older collars omit it. */
   if (count > WIFI_SCAN_MAX_ACCESS_POINTS ||
-      len !=
-          WIFI_SCAN_HEADER_BYTES + count * WIFI_SCAN_BYTES_PER_ACCESS_POINT) {
+      (len != body && len != body + WIFI_SCAN_TRAILER_BYTES)) {
     LOG_WRN("Frame length mismatch (count %u, %u bytes)", count, (unsigned)len);
     return -EBADMSG;
   }
 
   out->collar_uptime_s = sys_get_le32(&payload[2]);
   out->count = count;
+  out->battery_percent = len > body ? payload[body] : UINT8_MAX;
 
   for (uint8_t i = 0; i < count; i++) {
     const uint8_t *entry =
@@ -54,8 +56,9 @@ void wifi_scan_report_log(const struct wifi_scan_report *report) {
     return;
   }
 
-  LOG_INF("WiFi scan: %u access points, collar uptime %u s",
-          (unsigned)report->count, report->collar_uptime_s);
+  LOG_INF("WiFi scan: %u access points, collar uptime %u s, battery %u%%",
+          (unsigned)report->count, report->collar_uptime_s,
+          report->battery_percent);
 
   for (size_t i = 0; i < report->count; i++) {
     const struct wifi_access_point *access_point = &report->access_points[i];

@@ -15,7 +15,7 @@ config LORA_ABSENCE_S
 
 config LORA_LOCATE_WINDOW_S
 	int "Seconds to keep pinging after the locate button is pressed"
-	default 120
+	default 180
 
 config LORA_BEACON_INTERVAL_S
 	int "Seconds between LORA beacons"
@@ -24,6 +24,15 @@ config LORA_BEACON_INTERVAL_S
 config LORA_PING_PREAMBLE
 	int "Ping preamble length in symbols"
 	default 512
+
+config LORA_REPLY_TO_HEARTBEAT
+	bool "Transmit only in reply to the collar's heartbeat"
+	default y
+	help
+	  Each heartbeat marks the start of a collar CAD burst, so a beacon or
+	  a pending ping sent straight back is heard, and the periodic beacon
+	  is not needed. Locate latency becomes the collar's heartbeat period.
+	  Off restores beaconing every CONFIG_LORA_BEACON_INTERVAL_S.
 
 config LORA_PAUSE_FOR_BLE
 	bool "Stop LoRa receive while the tag is in BLE range"

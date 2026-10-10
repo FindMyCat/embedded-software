@@ -10,6 +10,8 @@
 #define WIFI_SCAN_MAX_ACCESS_POINTS 16
 #define WIFI_SCAN_BYTES_PER_ACCESS_POINT 7
 #define WIFI_SCAN_HEADER_BYTES 6
+/* Optional battery percent after the access points. */
+#define WIFI_SCAN_TRAILER_BYTES 1
 
 struct wifi_access_point {
     uint8_t bssid[6];
@@ -19,6 +21,8 @@ struct wifi_access_point {
 struct wifi_scan_report {
     uint32_t collar_uptime_s;
     size_t count;
+    /* Percent, UINT8_MAX when the collar did not know or did not send it. */
+    uint8_t battery_percent;
     struct wifi_access_point access_points[WIFI_SCAN_MAX_ACCESS_POINTS];
 };
 

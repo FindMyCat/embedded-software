@@ -16,5 +16,51 @@
 / {
 	aliases {
 		rak3172-uart = &uart1;
+		led-ring = &led_ring;
+	};
+};
+
+/* Onboard NeoPixel unused; the ring is the status LED. Disabled, its power
+ * domain is never claimed, so the pixel stays unpowered. */
+&led_strip {
+	status = "disabled";
+};
+
+/* 16-pixel SK6812 RGBW ring, DIN on the Feather's MO pin (GPIO19). It gets
+ * SPI2, with only MOSI routed out so SCK and MISO stay free. Same bit timing
+ * as the onboard SK6812. */
+&pinctrl {
+	spim2_led_ring: spim2_led_ring {
+		group1 {
+			pinmux = <SPIM2_MOSI_GPIO19>;
+			output-low;
+		};
+	};
+};
+
+&spi2 {
+	status = "okay";
+	line-idle-low;
+	/* 16 RGBW pixels are 512 SPI bytes a frame. Without DMA the driver sends
+	 * 64-byte chunks, and the gaps between them latch the ring mid-frame so
+	 * only a pixel or two ever updates. */
+	dma-enabled;
+	pinctrl-0 = <&spim2_led_ring>;
+	pinctrl-names = "default";
+
+	led_ring: ws2812@0 {
+		compatible = "worldsemi,ws2812-spi";
+		reg = <0>;
+		spi-max-frequency = <WS2812C_SPI_FREQ>;
+
+		chain-length = <16>;
+		/* SK6812 RGBW: 32 bits a pixel, G R B W. The white channel is sent
+		 * dark; colours come from RGB only. */
+		color-mapping = <LED_COLOR_ID_GREEN>,
+				<LED_COLOR_ID_RED>,
+				<LED_COLOR_ID_BLUE>,
+				<LED_COLOR_ID_WHITE>;
+		spi-one-frame = <WS2812C_ONE_FRAME>;
+		spi-zero-frame = <WS2812C_ZERO_FRAME>;
 	};
 };

@@ -9,6 +9,14 @@ config BLE_SCANNER
 	  This is the short-range half of the presence picture; the LoRa link is
 	  the long-range half.
 
+config BLE_SCANNER_RUN
+	bool "Start scanning at boot"
+	depends on BLE_SCANNER
+	default y
+	help
+	  Off leaves the scanner built but never started, so the tag always
+	  reads as out of BLE range. For testing the LoRa link alone.
+
 config BLE_SCANNER_ABSENCE_S
 	int "Seconds without an advertisement before the tag counts as gone"
 	depends on BLE_SCANNER

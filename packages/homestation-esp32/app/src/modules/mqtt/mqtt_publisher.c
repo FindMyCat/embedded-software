@@ -190,15 +190,40 @@ static int process(int timeout_ms)
 	return 0;
 }
 
-static int publish_position(void)
+struct reported_position {
+	double latitude;
+	double longitude;
+	double accuracy_m;
+	uint8_t battery;
+};
+
+K_MSGQ_DEFINE(reported_positions, sizeof(struct reported_position), 2, 8);
+
+void mqtt_publisher_report_position(double latitude, double longitude,
+				    double accuracy_m, uint8_t battery)
+{
+	struct reported_position position = {
+		.latitude = latitude,
+		.longitude = longitude,
+		.accuracy_m = accuracy_m,
+		.battery = battery,
+	};
+
+	/* Full means the broker has been away; the newest fix is the useful one. */
+	while (k_msgq_put(&reported_positions, &position, K_NO_WAIT) != 0) {
+		struct reported_position stale;
+
+		(void)k_msgq_get(&reported_positions, &stale, K_NO_WAIT);
+	}
+}
+
+static int publish_location(const char *latitude, const char *longitude,
+			    int accuracy_m, uint8_t battery)
 {
 	char payload[PAYLOAD_BYTES];
-	uint8_t battery = ble_scanner_tag_battery_percent();
 
-	int len = snprintf(payload, sizeof(payload), PAYLOAD_FORMAT,
-			   CONFIG_MQTT_PUBLISHER_HOME_LATITUDE,
-			   CONFIG_MQTT_PUBLISHER_HOME_LONGITUDE,
-			   CONFIG_MQTT_PUBLISHER_HOME_ACCURACY_M, battery);
+	int len = snprintf(payload, sizeof(payload), PAYLOAD_FORMAT, latitude,
+			   longitude, accuracy_m, battery);
 
 	if (len < 0 || len >= (int)sizeof(payload)) {
 		LOG_ERR("Error: position payload did not fit");
@@ -220,6 +245,41 @@ static int publish_position(void)
 		CONFIG_MQTT_PUBLISHER_LOCATION_TOPIC);
 
 	return mqtt_publish(&client, &param);
+}
+
+static int publish_position(void)
+{
+	return publish_location(CONFIG_MQTT_PUBLISHER_HOME_LATITUDE,
+				CONFIG_MQTT_PUBLISHER_HOME_LONGITUDE,
+				CONFIG_MQTT_PUBLISHER_HOME_ACCURACY_M,
+				ble_scanner_tag_battery_percent());
+}
+
+/* Returns non-zero on a publish failure, leaving the rest queued. */
+static int publish_reported_positions(void)
+{
+	struct reported_position position;
+
+	while (k_msgq_peek(&reported_positions, &position) == 0) {
+		char latitude[16];
+		char longitude[16];
+
+		snprintf(latitude, sizeof(latitude), "%.6f", position.latitude);
+		snprintf(longitude, sizeof(longitude), "%.6f",
+			 position.longitude);
+
+		int err = publish_location(latitude, longitude,
+					   (int)position.accuracy_m,
+					   position.battery);
+
+		if (err != 0) {
+			return err;
+		}
+
+		(void)k_msgq_get(&reported_positions, &position, K_NO_WAIT);
+	}
+
+	return 0;
 }
 
 #if defined(CONFIG_MQTT_PUBLISHER_TLS)
@@ -310,6 +370,14 @@ static void mqtt_task(void)
 		}
 
 		was_in_range = in_range;
+
+		if (publish_reported_positions() != 0) {
+			LOG_ERR("Error: publishing a LoRa position failed, "
+				"dropping the connection to start over");
+			mqtt_abort(&client);
+			connected = false;
+			continue;
+		}
 
 		if (in_range && k_uptime_get() >= next_publish) {
 			if (publish_position() != 0) {
