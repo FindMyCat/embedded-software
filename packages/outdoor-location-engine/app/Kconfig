@@ -8,6 +8,13 @@ config FINDMYCAT_LOW_POWER_HOLD
 	bool "Holds the firmware at the lowest power, this can be used to verify current leaks in the hardware."
 	select FINDMYCAT_DIAGNOSTICS
 
+config FINDMYCAT_LOW_POWER_HOLD_EDRX
+	bool "Keep LTE attached in eDRX during the low power hold"
+	depends on FINDMYCAT_LOW_POWER_HOLD
+	help
+	  Everything else stays down, so the measured current is the floor
+	  plus the modem idling in eDRX.
+
 config FINDMYCAT_FORCE_LTE_LINK
 	bool "Always use LTE to reach the home station, skipping BLE and LoRa"
 	help
@@ -24,6 +31,13 @@ module-str = LTE
 source "subsys/logging/Kconfig.template.log_config"
 
 # LTE
+config FINDMYCAT_LTE_OPERATOR
+	string "PLMN to lock the attach to, empty for automatic selection"
+	default ""
+	help
+	  For comparing carriers, e.g. "310410" for AT&T. The modem stores
+	  manual selection, so an empty value sets it back to automatic.
+
 config LTE_CONNECT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry LTE connection"
 	default 20

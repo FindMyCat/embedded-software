@@ -1,5 +1,7 @@
 #include "diagnostics.h"
 
+#include <modem/lte_lc.h>
+#include <modem/modem_info.h>
 #include <nrf_modem_at.h>
 #include <string.h>
 #include <zephyr/kernel.h>
@@ -71,13 +73,28 @@ static void report_sim(void)
     }
 }
 
-static void report_network(void)
+void lte_diagnostics_report_network(void)
 {
     char response[RESPONSE_BYTES];
 
     if (nrf_modem_at_cmd(response, sizeof(response), "AT%%XMONITOR") == 0) {
         LOG_INF("  %s", response);
     }
+
+    /* Energy estimate: 5 excessive, 6 increased, 7 normal, 8 reduced,
+     * 9 efficient. A CE level above 0 means paging repeats, so each eDRX
+     * window costs more. */
+    struct lte_lc_conn_eval_params params = {0};
+    int err = lte_lc_conn_eval_params_get(&params);
+
+    if (err != 0) {
+        LOG_WRN("  Connection evaluation failed (%d)", err);
+        return;
+    }
+
+    LOG_INF("  RSRP %d dBm, CE level %d, energy estimate %d, pathloss %d dB",
+            RSRP_IDX_TO_DBM(params.rsrp), params.ce_level, params.energy_estimate,
+            params.dl_pathloss);
 }
 
 int lte_diagnostics(void)
@@ -95,7 +112,7 @@ int lte_diagnostics(void)
     }
 
     LOG_INF("  PASS attached");
-    report_network();
+    lte_diagnostics_report_network();
 
     return 0;
 }

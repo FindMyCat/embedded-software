@@ -10,6 +10,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 
+#include "../LTE/lte.h"
 #include "../LoRa/lora_link.h"
 #include "../LoRa/rak3172.h"
 #include "../WiFi/wifi_scan.h"
@@ -176,8 +177,20 @@ void diagnostics_low_power_hold(void) {
 
   wifi_scan_init();
 
+#if defined(CONFIG_FINDMYCAT_LOW_POWER_HOLD_EDRX)
+  int err = lte_connect();
+
+  if (err != 0) {
+    LOG_ERR("Error: LTE attach for the hold failed (%d)", err);
+  } else {
+    lte_diagnostics_report_network();
+  }
+
+  LOG_WRN("==== radios down except LTE in eDRX, holding ====");
+#else
   lte_lc_power_off();
   nrf_modem_lib_shutdown();
 
   LOG_WRN("==== radios down, holding ====");
+#endif
 }

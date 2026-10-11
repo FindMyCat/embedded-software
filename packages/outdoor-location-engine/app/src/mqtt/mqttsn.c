@@ -14,7 +14,9 @@
 #define APP_BMEM
 #define APP_DMEM
 
-#define MQTT_SN_CONNECT_TIMEOUT_MS 10000
+/* A CONNACK takes under a second. One that misses the radio connection waits
+ * for the next eDRX window, so retry on a fresh connection instead. */
+#define MQTT_SN_CONNECT_TIMEOUT_MS 3000
 #define MQTT_SN_CONNECT_POLL_MS    100
 #define MQTT_SN_FLUSH_MS           2000
 #define MQTT_SN_CONNECT_RETRIES    3

@@ -51,8 +51,10 @@ static void encode_command(const struct device_status *status, char *payload,
 static void encode_network(const struct device_status *status, char *payload,
                            size_t size) {
   snprintk(payload, size,
-           "{\"command\":\"NET\",\"status\":\"ok\",\"mode\":%d,\"edrx_s\":%.2f}",
-           status->network.mode, (double)status->network.edrx);
+           "{\"command\":\"NET\",\"status\":\"ok\",\"mode\":%d,\"edrx_s\":%.2f,"
+           "\"wake_ms\":%lld}",
+           status->network.edrx.mode, (double)status->network.edrx.edrx,
+           status->network.wake_ms);
 }
 
 static void report_loop(void *unused1, void *unused2, void *unused3) {
