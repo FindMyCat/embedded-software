@@ -18,12 +18,7 @@ struct device_status {
       char status[8];
       char reason[32];
     } command;
-    struct {
-      struct lte_lc_edrx_cfg edrx;
-      /* Unix ms the modem next leaves eDRX sleep. Senders add whole cycles
-       * to aim at a later window. */
-      int64_t wake_ms;
-    } network;
+    struct lte_lc_edrx_cfg network;
   };
 };
 
