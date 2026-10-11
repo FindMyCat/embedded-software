@@ -238,7 +238,9 @@ static int publish_with_session_locked(const char *topic, const char *data_str)
 
 	if (!mqtt_sn_connected) {
 	    LOG_INF("MQTT-SN not connected. Initialising connection.");
-	    err = mqttsn_initialize();
+	    /* Retry on the same socket: a new one makes the gateway discard this
+	     * session, and its late replies then kill the new one. */
+	    err = client_initialized ? mqtt_sn_connect(&client, false, true) : mqttsn_initialize();
 
 	    /* CONNACK only lands if input keeps being pumped, so poll for
 	     * it rather than sleeping blind: a publish sent before the
@@ -255,11 +257,13 @@ static int publish_with_session_locked(const char *topic, const char *data_str)
 	}
 
 	LOG_ERR("Error: MQTT-SN connection failed (%d), attempt %d", err, attempt + 1);
-	mqttsn_disconnect();
     }
 
     if (!mqtt_sn_connected) {
 	LOG_ERR("Error: MQTT-SN connection failed, giving up on %s", topic);
+	/* No DISCONNECT: its reply waits for the next session and kills it. */
+	mqtt_sn_client_deinit(&client);
+	client_initialized = false;
 	return err ? err : -ENOTCONN;
     }
 
