@@ -3,7 +3,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#include "../FuelGauge/fuel_gauge.h"
 #include "../LocationEngine/LocationEngine.h"
 #include "../mqtt/mqttsn.h"
 
@@ -31,21 +30,14 @@ void device_status_report(const struct device_status *status) {
 static void encode_command(const struct device_status *status, char *payload,
                            size_t size) {
   const struct location_result *result = location_last_result();
-  float state_of_charge;
-
-  if (fuel_gauge_get_state_of_charge(&state_of_charge) != 0) {
-    state_of_charge = -1.f;
-  }
 
   snprintk(
       payload, size,
       "{\"command\":\"%s\",\"status\":\"%s\",\"reason\":\"%s\",\"method\":\"%"
       "s\","
-      "\"satellites\":%u,\"elapsed_s\":%u,\"battery\":%.01f,\"uptime_s\":%lld}",
+      "\"satellites\":%u}",
       status->command.command, status->command.status, status->command.reason,
-      location_method_str(result->method), result->num_satellites,
-      result->elapsed_ms / 1000U, (double)state_of_charge,
-      k_uptime_get() / MSEC_PER_SEC);
+      location_method_str(result->method), result->num_satellites);
 }
 
 static void encode_network(const struct device_status *status, char *payload,
