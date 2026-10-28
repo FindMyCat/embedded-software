@@ -94,6 +94,10 @@ list(APPEND SRC_FILES
     ${SDK_LIB}/ringbuf/nrf_ringbuf.c
     ${SDK_LIB}/memobj/nrf_memobj.c
     ${SDK_LIB}/balloc/nrf_balloc.c
+    ${SDK_LIB}/pwr_mgmt/nrf_pwr_mgmt.c
+    ${SDK_LIB}/bootloader/dfu/nrf_dfu_svci.c
+    ${SDK_SVC}/ble_dfu/ble_dfu.c
+    ${SDK_SVC}/ble_dfu/ble_dfu_unbonded.c
 
     ${SDK_LIB}/log/src/nrf_log_frontend.c
     ${SDK_LIB}/log/src/nrf_log_default_backends.c
@@ -295,7 +299,7 @@ foreach(svc ble_nus ble_ancs_c ble_ans_c ble_bas ble_bas_c ble_cscs
     list(APPEND INC_FOLDERS ${SDK_SVC}/${svc})
 endforeach()
 
-foreach(lib atomic atomic_fifo atomic_flags balloc bootloader/ble_dfu
+foreach(lib atomic atomic_fifo atomic_flags balloc bootloader bootloader/dfu bootloader/ble_dfu
             bsp button cli crc32 crypto csense csense_drv delay ecc
             experimental_section_vars experimental_task_manager
             fds fifo fstorage gfx gpiote hardfault hardfault/nrf52 hci
@@ -353,6 +357,9 @@ set(COMMON_DEFINES
     NRF_QUEUE_ENABLED=1
     NRF_CRYPTO_RNG_AUTO_INIT_ENABLED=1
     FLOAT_ABI_HARD
+    BL_SETTINGS_ACCESS_ONLY
+    NRF_DFU_SVCI_ENABLED
+    NRF_DFU_TRANSPORT_BLE=1
 )
 
 set(CPU_FLAGS "-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16")
@@ -373,7 +380,7 @@ add_compile_definitions(${COMMON_DEFINES})
 set(ELF_TARGET nrf52833_xxaa)
 
 add_executable(${ELF_TARGET} ${SRC_FILES})
-set_target_properties(${ELF_TARGET} PROPERTIES SUFFIX ".out")
+set_target_properties(${ELF_TARGET} PROPERTIES SUFFIX ".out" LINK_DEPENDS ${LINKER_SCRIPT})
 
 target_include_directories(${ELF_TARGET} PRIVATE ${INC_FOLDERS})
 
@@ -419,17 +426,41 @@ endif()
 
 set(JLINK_BASE ${JLINK} -device ${JLINK_DEV} -if ${JLINK_IF} -speed ${JLINK_SPEED} -autoconnect 1 ${SERIAL_ARG})
 
+# Bootloader settings page: tells the bootloader the J-Link-flashed app is valid.
+set(BOOTLOADER_HEX "${PROJ_FREERTOS_DIR}/bootloader/_build/nrf52833_xxaa_s140.hex")
+set(SETTINGS_HEX "${CMAKE_BINARY_DIR}/bl_settings.hex")
+# Collar-wide packages/VERSION; 3.0.2 becomes 30002 for the bootloader.
+set(VERSION_FILE "${REPO_ROOT}/../VERSION")
+file(READ ${VERSION_FILE} VERSION_TEXT)
+string(REGEX MATCH "VERSION_MAJOR = ([0-9]+)" _ ${VERSION_TEXT})
+set(V_MAJOR ${CMAKE_MATCH_1})
+string(REGEX MATCH "VERSION_MINOR = ([0-9]+)" _ ${VERSION_TEXT})
+set(V_MINOR ${CMAKE_MATCH_1})
+string(REGEX MATCH "PATCHLEVEL = ([0-9]+)" _ ${VERSION_TEXT})
+math(EXPR APP_VERSION "${V_MAJOR} * 10000 + ${V_MINOR} * 100 + ${CMAKE_MATCH_1}")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${VERSION_FILE})
+file(WRITE ${CMAKE_BINARY_DIR}/app_version ${APP_VERSION})
+
+add_custom_target(bl_settings
+    DEPENDS ${ELF_TARGET}
+    COMMAND nrfutil nrf5sdk-tools settings generate --family NRF52 --application ${APP_HEX}
+            --application-version ${APP_VERSION} --bootloader-version 1 --bl-settings-version 2
+            --no-backup ${SETTINGS_HEX}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
 file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/flash_app.jlink
-    CONTENT "r\nloadfile ${APP_HEX}\nr\ng\nexit\n")
+    CONTENT "r\nloadfile ${APP_HEX}\nloadfile ${SETTINGS_HEX}\nr\ng\nexit\n")
 file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/flash_sd.jlink
-    CONTENT "r\nerase\nloadfile ${SOFTDEVICE_HEX}\nr\nexit\n")
+    CONTENT "r\nerase\nw4 0x4001E504 1\nw4 0x10001208 0x5A\nw4 0x4001E504 0\nloadfile ${SOFTDEVICE_HEX}\nr\nexit\n")
+# erase wipes UICR, which re-locks debug on newer nRF52833s; write APPROTECT = HwDisabled back.
 file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/flash_full.jlink
-    CONTENT "r\nerase\nloadfile ${SOFTDEVICE_HEX}\nloadfile ${APP_HEX}\nr\ng\nexit\n")
+    CONTENT "r\nerase\nw4 0x4001E504 1\nw4 0x10001208 0x5A\nw4 0x4001E504 0\nloadfile ${SOFTDEVICE_HEX}\nloadfile ${BOOTLOADER_HEX}\nloadfile ${APP_HEX}\nloadfile ${SETTINGS_HEX}\nr\ng\nexit\n")
 file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/erase.jlink
     CONTENT "r\nerase\nexit\n")
 
 add_custom_target(flash
-    DEPENDS ${ELF_TARGET}
+    DEPENDS ${ELF_TARGET} bl_settings
     COMMAND ${JLINK_BASE} -CommanderScript flash_app.jlink
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
@@ -440,7 +471,7 @@ add_custom_target(flash_softdevice
 )
 
 add_custom_target(flash_full
-    DEPENDS ${ELF_TARGET}
+    DEPENDS ${ELF_TARGET} bl_settings
     COMMAND ${JLINK_BASE} -CommanderScript flash_full.jlink
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )

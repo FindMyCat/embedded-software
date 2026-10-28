@@ -119,6 +119,8 @@
 #include "nrf_ble_qwr.h"
 #include "nrf_log.h"
 #include "nrf_nvic.h"
+#include "ble_dfu.h"
+#include "nrf_pwr_mgmt.h"
 
 //#include "nrf_ble_scan.h"
 #include "../../../../SDK_BSP/Nordic/NORDIC_SDK_17_1_0/components/ble/nrf_ble_scan/nrf_ble_scan.h"
@@ -537,15 +539,37 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
 }
 
 
+// Phone asked for an update: drop the link so the bootloader can take over.
+static void ble_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
+{
+    switch (event)
+    {
+        case BLE_DFU_EVT_BOOTLOADER_ENTER_PREPARE:
+            NRF_LOG_INFO("DFU: entering bootloader");
+            if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
+            {
+                (void)sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+            }
+            break;
+        case BLE_DFU_EVT_BOOTLOADER_ENTER_FAILED:
+        case BLE_DFU_EVT_RESPONSE_SEND_ERROR:
+            NRF_LOG_ERROR("DFU: bootloader entry failed (%d)", event);
+            break;
+        default:
+            break;
+    }
+}
+
 /**@brief Function for initializing services that will be used by the application.
  *
- * @details Initialize the QNIS and ANIS services.
+ * @details Initialize the QNIS, ANIS and buttonless DFU services.
  */
 static void services_init(void)
 {
     ret_code_t         err_code;
-    ble_qnis_init_t     qnis_init;    
+    ble_qnis_init_t     qnis_init;
     nrf_ble_qwr_init_t qwr_init = {0};
+    ble_dfu_buttonless_init_t dfus_init = {0};
 
 
     // Initialize Queued Write Module.
@@ -564,6 +588,10 @@ static void services_init(void)
 
     // Initialize ANIS.
     err_code = ble_anis_init(&m_anis);
+    APP_ERROR_CHECK(err_code);
+
+    dfus_init.evt_handler = ble_dfu_evt_handler;
+    err_code = ble_dfu_buttonless_init(&dfus_init);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -1048,6 +1076,14 @@ bool ble_is_connected(void) {
 
 void ble_init(char * gap_name)
 {
+    // Must run before the SoftDevice enables interrupts. Fails without a bootloader.
+    ret_code_t err_code = ble_dfu_buttonless_async_svci_init();
+    if (err_code != NRF_SUCCESS)
+    {
+        NRF_LOG_WARNING("DFU: no bootloader (%d)", err_code);
+    }
+    APP_ERROR_CHECK(nrf_pwr_mgmt_init());
+
     // Configure and initialize the BLE stack.
     ble_stack_init();
     scan_init();

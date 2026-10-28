@@ -4,3 +4,4 @@ Projects/QANI/FreeRTOS/DWM3001CDK/ses/DWM3001CDK-QANI-FreeRTOS_Common.jlink
 Projects/QANI/FreeRTOS/DWM3001CDK/ses/DWM3001CDK-QANI-FreeRTOS.emSession
 
 Projects/QANI/FreeRTOS/nrf52833dk/cmake/build
+Projects/QANI/FreeRTOS/nrf52833dk/cmake/.env

@@ -6,12 +6,15 @@
  *   0x00000 .. 0x26FFF : SoftDevice S140 (reserved)
  *   0x27000 .. 0x27FFF : .vectors (app vector table)
  *   0x28000 .. 0x283FF : default config blob (DEFAULT_CONFIG)  [data island]
- *   0x29000 .. 0x29FFF : .fconfig (writable config page, fixed addr)
- *   0x2A000 .. end     : .init / .text / .rodata / app
+ *   0x2A000 .. 0x74FFF : .init / .text / .rodata / app
+ *   0x75000 .. 0x75FFF : .fconfig (writable config page, outside the
+ *                        bootloader's write protection, kept across DFU)
+ *   0x76000 .. 0x77FFF : FDS
+ *   0x78000 .. 0x7FFFF : bootloader, MBR params, bootloader settings
  *
  * RAM layout:
- *   0x20000000 .. 0x20002B37 : SoftDevice RAM (reserved)
- *   0x20002B38 .. 0x2001FFFF : app RAM (~117 KiB)
+ *   0x20000000 .. 0x20002B47 : SoftDevice RAM (reserved)
+ *   0x20002B48 .. 0x2001FFFF : app RAM (~117 KiB)
  */
 
 SEARCH_DIR(.)
@@ -20,23 +23,23 @@ GROUP(-lgcc -lc -lnosys)
 MEMORY
 {
   FLASH_VECTORS (rx) : ORIGIN = 0x27000,    LENGTH = 0x2000
-  FCONFIG       (r)  : ORIGIN = 0x29000,    LENGTH = 0x1000
-  FLASH         (rx) : ORIGIN = 0x2A000,    LENGTH = 0x56000
-  RAM          (rwx) : ORIGIN = 0x20002B38, LENGTH = 0x1D4C8
+  FCONFIG       (r)  : ORIGIN = 0x75000,    LENGTH = 0x1000
+  FLASH         (rx) : ORIGIN = 0x2A000,    LENGTH = 0x4B000
+  RAM          (rwx) : ORIGIN = 0x20002B48, LENGTH = 0x1D4B8
 }
 
 SECTIONS
 {
   /* App vector table at 0x27000. Pulled out of nrf_common.ld's .text so
-   * the rest of code can live above the fconfig page at 0x29000. */
+   * the rest of code can start at 0x2A000. */
   .vectors 0x27000 :
   {
     KEEP(*(.isr_vector))
   } > FLASH_VECTORS
 
-  /* Fixed-address writable config page (FDS-like). KEEP so GC doesn't
-   * drop the symbols even when nothing references them at link time. */
-  .fconfig 0x29000 :
+  /* Fixed-address writable config page (FDS-like). NOLOAD keeps it out of
+   * the app image; config.c restores defaults when its CRC is invalid. */
+  .fconfig 0x75000 (NOLOAD) :
   {
     __fconfig_start = .;
     KEEP(*(.fconfig))

@@ -1,7 +1,11 @@
+-include .env
+
 BUILD_DIR ?= build
 GENERATOR ?= Ninja
+FW_DIR    ?= /opt/cloud/firmware
+DFU_ZIP   := $(BUILD_DIR)/indoor_update.zip
 
-.PHONY: all configure build clean rebuild flash flash_softdevice flash_full erase recover logs flash-logs help
+.PHONY: all configure build clean rebuild bootloader flash flash_softdevice flash_full erase recover fw-upload logs flash-logs help
 
 all: build
 
@@ -22,8 +26,22 @@ flash: build
 flash_softdevice: configure
 	cmake --build $(BUILD_DIR) --target flash_softdevice
 
-flash_full: build recover
+bootloader:
+	$(MAKE) -C ../../bootloader
+
+flash_full: build bootloader recover
 	cmake --build $(BUILD_DIR) --target flash_full
+
+fw-upload: build
+	@test -n "$(FW_SERVER)" || { echo "set FW_SERVER in .env (see .env.example)"; exit 1; }
+	@test -f "$(DFU_KEY)" || { echo "set DFU_KEY in .env to your signing key"; exit 1; }
+	nrfutil nrf5sdk-tools pkg generate --hw-version 52 --sd-req 0x0100 \
+		--application $(BUILD_DIR)/nrf52833_xxaa.hex \
+		--application-version $$(cat $(BUILD_DIR)/app_version) \
+		--key-file $(DFU_KEY) $(DFU_ZIP)
+	ssh $(FW_SERVER) "mkdir -p $(FW_DIR)"
+	scp $(DFU_ZIP) $(FW_SERVER):$(FW_DIR)/indoor_update.zip.tmp
+	ssh $(FW_SERVER) "mv $(FW_DIR)/indoor_update.zip.tmp $(FW_DIR)/indoor_update.zip && ls -l $(FW_DIR)/indoor_update.zip"
 
 erase: configure
 	cmake --build $(BUILD_DIR) --target erase
@@ -52,7 +70,9 @@ help:
 	@echo "  rebuild           - wipe build/ and rebuild from scratch"
 	@echo "  flash             - build + flash app via JLinkExe"
 	@echo "  flash_softdevice  - flash S140 SoftDevice"
-	@echo "  flash_full        - recover + build + flash SoftDevice + app + reset"
+	@echo "  bootloader        - build the BLE DFU bootloader"
+	@echo "  flash_full        - recover + build + flash SoftDevice + bootloader + app + reset"
+	@echo "  fw-upload         - sign the app and upload it for BLE updates (needs .env)"
 	@echo "  erase             - mass erase target"
 	@echo "  recover           - nrfutil device recover (mass erase + clear AP-protect)"
 	@echo "  logs              - stream RTT logs (JLinkExe + JLinkRTTClient)"
