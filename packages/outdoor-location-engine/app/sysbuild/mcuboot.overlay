@@ -1,0 +1,6 @@
+/* MCUboot is built from the plain nRF9151 DK devicetree. On the collar board
+ * uart0's DK pins are the nRF7002's IOVDD enable and SPI lines, so keep it off.
+ */
+&uart0 {
+    status = "disabled";
+};

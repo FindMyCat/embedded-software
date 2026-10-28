@@ -9,6 +9,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+#include <zephyr/dfu/mcuboot.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/hwinfo.h>
 #include <zephyr/drivers/led.h>
@@ -222,6 +223,13 @@ retry:
   err = fuel_gauge_start();
   if (err != 0) {
     LOG_ERR("Error: Fuel gauge start failed (%d)", err);
+  }
+
+  /* Init got this far, so keep this image. An update that crashes before
+   * here is never confirmed, and MCUboot rolls back to the old one on reset. */
+  if (!boot_is_img_confirmed()) {
+    err = boot_write_img_confirmed();
+    LOG_INF("Firmware image confirmed (%d)", err);
   }
 
 #if defined(CONFIG_FINDMYCAT_LOW_POWER_HOLD)

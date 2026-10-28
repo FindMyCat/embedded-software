@@ -7,7 +7,7 @@ JLINK        := /Applications/SEGGER/JLink_V834
 NCS   := nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) --
 LOCAL := $(if $(wildcard app/local.conf),;local.conf)
 
-.PHONY: setup build-dev-t91x build-prod-t91x build-dev-9151dk build-prod-9151dk flash recover modem-fw-info modem-fw-flash logs clean
+.PHONY: setup build-dev-t91x build-prod-t91x build-dev-9151dk build-prod-9151dk flash recover modem-fw-info modem-fw-flash logs logs-mcuboot clean
 
 setup:
 	west init -l manifest
@@ -35,13 +35,26 @@ flash:
 JLINK_DEVICE ?= nRF9151_xxCA
 RTT_SPEED    ?= 4000
 
-logs:
+# MCUboot and the app each leave an RTT block in RAM, and an open search
+# latches onto the first. They live in fixed regions: MCUboot in the 32 KB
+# TF-M later takes, the app in the non-secure SRAM after it.
+RTT_RANGE_MCUBOOT := 0x20000000 0x8000
+RTT_RANGE_APP     := 0x20008000 0x38000
+
+define rtt_client
 	@set -m; \
-	( tail -f /dev/null | $(JLINK)/JLinkExe -device $(JLINK_DEVICE) -if SWD -speed $(RTT_SPEED) -autoconnect 1 >/dev/null 2>&1 ) & \
+	( { echo "exec SetRTTSearchRanges $(1)"; tail -f /dev/null; } | $(JLINK)/JLinkExe -device $(JLINK_DEVICE) -if SWD -speed $(RTT_SPEED) -autoconnect 1 >/dev/null 2>&1 ) & \
 	SERVER_PGID=$$!; \
 	trap "kill -- -$$SERVER_PGID 2>/dev/null; true" EXIT INT TERM; \
 	sleep 2; \
 	$(JLINK)/JLinkRTTClient || true
+endef
+
+logs:
+	$(call rtt_client,$(RTT_RANGE_APP))
+
+logs-mcuboot:
+	$(call rtt_client,$(RTT_RANGE_MCUBOOT))
 
 recover:
 	nrfutil device recover --traits jlink
