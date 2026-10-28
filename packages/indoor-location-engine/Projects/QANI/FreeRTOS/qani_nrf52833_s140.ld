@@ -181,8 +181,8 @@ SECTIONS
   .dw_drivers :
   {
     PROVIDE(__dw_drivers_start = .);
-    KEEP(*(.dw_drivers))
-    KEEP(*(SORT(.dw_drivers.*)))
+    KEEP(*dw3000_device.c.obj(.dw_drivers))
+    KEEP(*dw3000_device.c.obj(SORT(.dw_drivers.*)))
     PROVIDE(__dw_drivers_end = .);
   } > FLASH
   .known_apps :

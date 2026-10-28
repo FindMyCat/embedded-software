@@ -115,6 +115,7 @@ int uwb_init(void)
     hal_uwb.reset();
 
     int status = hal_uwb.probe();
+    NRF_LOG_INFO("UWB probe %d devid 0x%08x", status, hal_uwb.uwbs->devid);
 
     /* This section is added to initialize the local in dw_drivers
        Without this initialization The command like xtaltrim will fail*/
