@@ -110,7 +110,8 @@
             status = "okay";
             nordic,led0-mode = "host";
             nordic,led1-mode = "host";
-            nordic,led2-mode = "host";
+            /* Red: lit by the PMIC itself while the battery charges. */
+            nordic,led2-mode = "charging";
         };
 
         regulators {

@@ -158,7 +158,7 @@ int wifi_scan_start(void) {
   struct net_if *iface = net_if_get_first_wifi();
   struct wifi_scan_params params = {
       .scan_type = WIFI_SCAN_TYPE_ACTIVE,
-      .dwell_time_active = 50,   /* ms per channel, active */
+      .dwell_time_active = 100,  /* ms per channel; 50 missed slow responders */
       .dwell_time_passive = 130, /* ms per channel, passive */
       .bands =
           (1 << WIFI_FREQ_BAND_2_4_GHZ), /* skip 5 GHz if you don't need it */

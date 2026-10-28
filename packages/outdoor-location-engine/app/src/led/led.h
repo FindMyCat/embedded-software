@@ -4,9 +4,10 @@
 #include <zephyr/drivers/led.h>
 
 #define BOOT_BLINK_MS 300
-#define LED_RED 0
+/* nPM1300 LED driver channels as wired on the board. */
+#define LED_BLUE 0
 #define LED_GREEN 1
-#define LED_BLUE 2
+#define LED_RED 2
 #define LED_COUNT 3
 
 #define BLINK_PERIOD_MS 500

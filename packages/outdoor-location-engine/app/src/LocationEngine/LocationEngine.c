@@ -240,17 +240,17 @@ void location_default_get(void) {
 }
 
 /**
- * @brief Retrieve location with GNSS low accuracy.
+ * @brief Retrieve location with GNSS normal accuracy.
  */
-void location_gnss_low_accuracy_get(void) {
+void location_gnss_normal_accuracy_get(void) {
   int err;
   struct location_config config;
   enum location_method methods[] = {LOCATION_METHOD_GNSS};
 
   location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
-  config.methods[0].gnss.accuracy = LOCATION_ACCURACY_LOW;
+  config.methods[0].gnss.accuracy = LOCATION_ACCURACY_NORMAL;
 
-  LOG_INF("Requesting low accuracy GNSS location...");
+  LOG_INF("Requesting normal accuracy GNSS location...");
 
   err = location_request(&config);
   if (err) {

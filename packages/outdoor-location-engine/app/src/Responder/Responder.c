@@ -18,14 +18,14 @@ LOG_MODULE_REGISTER(responder,
 
 /* Status goes out over MQTT-SN, so only report while LTE is the link; on
  * LoRa the home station sees the failure itself. */
-static void report_ping_failure(const char *reason) {
+static void report_ping_failure(const char *command, const char *reason) {
   if (presence_link_get() != PRESENCE_LINK_LTE) {
     return;
   }
 
   struct device_status status = {.kind = DEVICE_STATUS_COMMAND};
 
-  strncpy(status.command.command, "ping", sizeof(status.command.command) - 1);
+  strncpy(status.command.command, command, sizeof(status.command.command) - 1);
   strncpy(status.command.status, "fail", sizeof(status.command.status) - 1);
   strncpy(status.command.reason, reason, sizeof(status.command.reason) - 1);
   device_status_report(&status);
@@ -54,14 +54,30 @@ void respond_to_ping(void) {
 
   if (err != 0) {
     LOG_ERR("Error: no WiFi scan to answer the ping with (%d)", err);
-    report_ping_failure("wifi scan failed");
+    report_ping_failure("ping-wifi", "wifi scan failed");
     changeDispatcherState(DISPATCHER_STATE_IDLE);
     return;
   }
 
   if (transport_publish_wifi_scan(&scan) != 0) {
     LOG_ERR("Error: sending the WiFi scan failed");
-    report_ping_failure("scan not sent");
+    report_ping_failure("ping-wifi", "scan not sent");
+  }
+
+  changeDispatcherState(DISPATCHER_STATE_IDLE);
+}
+
+/* A fix publishes itself from the location event handler. */
+void respond_to_gps_ping(void) {
+  /* Not started at boot; once is enough. */
+  if (location_ensure_init() == 0) {
+    location_gnss_normal_accuracy_get();
+  }
+
+  const struct location_result *result = location_last_result();
+
+  if (!result->has_fix) {
+    report_ping_failure("ping-gps", result->reason);
   }
 
   changeDispatcherState(DISPATCHER_STATE_IDLE);
