@@ -7,6 +7,7 @@
 /nrf9160-dk*/
 
 app/local.conf
+.env
 
 # West workspace and NCS SDK
 .west/

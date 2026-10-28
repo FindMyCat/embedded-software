@@ -64,9 +64,13 @@ void boot_led_blink(void) {
   }
 
   /* Not red: the PMIC owns it for charging. */
-  if (led_on(findmycat_RGB_led, LED_BLUE) == 0) {
+  for (int i = 0; i < 2; i++) {
+    if (led_on(findmycat_RGB_led, LED_BLUE) != 0) {
+      return;
+    }
     k_sleep(K_MSEC(BOOT_BLINK_MS));
     led_off(findmycat_RGB_led, LED_BLUE);
+    k_sleep(K_MSEC(BOOT_BLINK_MS));
   }
 }
 

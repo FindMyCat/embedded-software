@@ -1,5 +1,4 @@
 #include "Responder.h"
-#include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
@@ -23,12 +22,7 @@ static void report_ping_failure(const char *command, const char *reason) {
     return;
   }
 
-  struct device_status status = {.kind = DEVICE_STATUS_COMMAND};
-
-  strncpy(status.command.command, command, sizeof(status.command.command) - 1);
-  strncpy(status.command.status, "fail", sizeof(status.command.status) - 1);
-  strncpy(status.command.reason, reason, sizeof(status.command.reason) - 1);
-  device_status_report(&status);
+  device_status_report_command(command, "fail", reason);
 }
 
 void turn_on_active_mode(void) {

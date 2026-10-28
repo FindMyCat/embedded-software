@@ -1,13 +1,16 @@
+# Per-machine settings (J-Link path, upload server) live in .env; see .env.example.
+-include .env
+
 NCS_VERSION  := v3.2.4
 BOARD        := nrf9160dk/nrf9160/ns
 BOARD_T91X   := thingy91x/nrf9151/ns
 BOARD_9151DK := nrf9151dk/nrf9151/ns
-JLINK        := /Applications/SEGGER/JLink_V834
+JLINK        ?= /Applications/SEGGER/JLink_V834
 
 NCS   := nrfutil toolchain-manager launch --ncs-version $(NCS_VERSION) --
 LOCAL := $(if $(wildcard app/local.conf),;local.conf)
 
-.PHONY: setup build-dev-t91x build-prod-t91x build-dev-9151dk build-prod-9151dk flash recover modem-fw-info modem-fw-flash logs logs-mcuboot clean
+.PHONY: setup build-dev-t91x build-prod-t91x build-dev-9151dk build-prod-9151dk flash recover fw-upload modem-fw-info modem-fw-flash logs logs-mcuboot clean
 
 setup:
 	west init -l manifest
@@ -58,6 +61,19 @@ logs-mcuboot:
 
 recover:
 	nrfutil device recover --traits jlink
+
+# Publishes the last build for the collar's "update" command. device-commands
+# serves this file; the collar downloads it into MCUboot's secondary slot.
+# FW_SERVER comes from .env (see .env.example).
+FW_IMAGE := build/app/zephyr/zephyr.signed.bin
+FW_DIR   ?= /opt/cloud/firmware
+
+fw-upload:
+	@test -n "$(FW_SERVER)" || { echo "set FW_SERVER in .env (see .env.example)"; exit 1; }
+	@test -f $(FW_IMAGE) || { echo "no $(FW_IMAGE), build first"; exit 1; }
+	ssh $(FW_SERVER) "mkdir -p $(FW_DIR)"
+	scp $(FW_IMAGE) $(FW_SERVER):$(FW_DIR)/app_update.bin.tmp
+	ssh $(FW_SERVER) "mv $(FW_DIR)/app_update.bin.tmp $(FW_DIR)/app_update.bin && ls -l $(FW_DIR)/app_update.bin"
 
 modem-fw-info:
 	nrfutil device device-info --traits jlink

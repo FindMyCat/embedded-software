@@ -1,4 +1,5 @@
 #include "Dispatcher.h"
+#include "../FOTA/fota.h"
 #include "../Responder/Responder.h"
 #include <errno.h>
 #include <stdbool.h>
@@ -65,6 +66,9 @@ int dispatchCommand(const char *command, size_t len) {
     changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
   } else if (is_command(command, len, "active")) {
     changeDispatcherState(DISPATCHER_STATE_ACTIVE_MODE);
+  } else if (is_command(command, len, "update")) {
+    /* Downloads in the background and reboots when done. */
+    fota_start_update();
   } else if (is_command(command, len, "idle")) {
     changeDispatcherState(DISPATCHER_STATE_IDLE);
   } else {

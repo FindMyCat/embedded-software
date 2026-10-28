@@ -38,6 +38,14 @@ config FINDMYCAT_LTE_OPERATOR
 	  For comparing carriers, e.g. "310410" for AT&T. The modem stores
 	  manual selection, so an empty value sets it back to automatic.
 
+config FINDMYCAT_FOTA_HOST
+	string "Host the update command downloads firmware from"
+	default "https://api.findmycat.io"
+
+config FINDMYCAT_FOTA_FILE
+	string "Path of the signed update image on that host"
+	default "api/device-commands/firmware/app_update.bin"
+
 config LTE_CONNECT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry LTE connection"
 	default 20

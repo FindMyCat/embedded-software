@@ -19,6 +19,7 @@
 // Application specific imports
 #include "Diagnostics/diagnostics.h"
 #include "Dispatcher/Dispatcher.h"
+#include "FOTA/fota.h"
 #include "FuelGauge/fuel_gauge.h"
 #include "LTE/lte.h"
 #include "LoRa/lora_link.h"
@@ -198,6 +199,12 @@ retry:
   }
 
   lte_lc_power_off();
+
+  /* Credentials can only be written with the modem offline, as it is here. */
+  if (fota_provision_ca() != 0) {
+    LOG_ERR("Error: update certificates not provisioned, updates will fail");
+  }
+
   err = gpio_pin_configure_dt(&power_mode_command_recv_pin, GPIO_INPUT);
   if (err != 0) {
     LOG_ERR("Error %d: failed to configure %s pin %d", err,

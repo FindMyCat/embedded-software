@@ -1,5 +1,6 @@
 #include "device_status_reporting.h"
 
+#include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
@@ -27,6 +28,23 @@ void device_status_report(const struct device_status *status) {
   }
 }
 
+void device_status_report_command(const char *command, const char *status,
+                                  const char *reason) {
+  struct device_status report = {.kind = DEVICE_STATUS_COMMAND};
+
+  strncpy(report.command.command, command, sizeof(report.command.command) - 1);
+  strncpy(report.command.status, status, sizeof(report.command.status) - 1);
+  strncpy(report.command.reason, reason, sizeof(report.command.reason) - 1);
+  device_status_report(&report);
+}
+
+void device_status_report_firmware(const char *version) {
+  struct device_status report = {.kind = DEVICE_STATUS_FIRMWARE};
+
+  strncpy(report.firmware, version, sizeof(report.firmware) - 1);
+  device_status_report(&report);
+}
+
 static void encode_command(const struct device_status *status, char *payload,
                            size_t size) {
   const struct location_result *result = location_last_result();
@@ -47,6 +65,12 @@ static void encode_network(const struct device_status *status, char *payload,
            status->network.mode, (double)status->network.edrx);
 }
 
+static void encode_firmware(const struct device_status *status, char *payload,
+                            size_t size) {
+  snprintk(payload, size, "{\"kind\":\"firmware\",\"version\":\"%s\"}",
+           status->firmware);
+}
+
 static void report_loop(void *unused1, void *unused2, void *unused3) {
   ARG_UNUSED(unused1);
   ARG_UNUSED(unused2);
@@ -64,6 +88,9 @@ static void report_loop(void *unused1, void *unused2, void *unused3) {
       break;
     case DEVICE_STATUS_NETWORK:
       encode_network(&status, payload, sizeof(payload));
+      break;
+    case DEVICE_STATUS_FIRMWARE:
+      encode_firmware(&status, payload, sizeof(payload));
       break;
     }
 

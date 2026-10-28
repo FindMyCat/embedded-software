@@ -35,6 +35,9 @@ target_sources(app PRIVATE src/utils/network.h)
 target_sources(app PRIVATE src/LTE/lte.c)
 target_sources(app PRIVATE src/LTE/lte.h)
 
+target_sources(app PRIVATE src/FOTA/fota.c)
+target_sources(app PRIVATE src/FOTA/fota.h)
+
 target_sources(app PRIVATE src/Presence/presence.c)
 target_sources(app PRIVATE src/Presence/presence.h)
 

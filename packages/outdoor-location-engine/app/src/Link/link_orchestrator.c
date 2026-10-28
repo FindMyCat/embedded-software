@@ -3,6 +3,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+#include "../FOTA/fota.h"
 #include "../LTE/lte.h"
 #include "../LoRa/lora_link.h"
 #include "../Presence/presence.h"
@@ -42,6 +43,7 @@ static void bring_lte_up(void) {
 
   lte_up = true;
 
+  fota_report_running_version();
   (void)sms_listener_start();
 
   err = create_udp_listener();
