@@ -44,7 +44,7 @@ config FINDMYCAT_FOTA_HOST
 
 config FINDMYCAT_FOTA_FILE
 	string "Path of the signed update image on that host"
-	default "api/device-commands/firmware/app_update.bin"
+	default "api/firmware/app_update.bin"
 
 config LTE_CONNECT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry LTE connection"
