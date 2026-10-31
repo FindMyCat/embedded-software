@@ -140,10 +140,7 @@
             thermistor-hot-millidegrees = <45000>;
             thermistor-ohms = <10000>;
             thermistor-beta = <3435>;
-            /* MEASUREMENT: restore before shipping, the cell will not charge
-             * without it. Off so the charger stops measuring the battery on a
-             * timer while the floor current is being read. */
-            /* charging-enable; */
+            charging-enable;
         };
     };
 };
