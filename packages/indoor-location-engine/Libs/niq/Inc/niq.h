@@ -128,6 +128,7 @@ enum SampleAppMessageId {
 
    UserId_iOSNotify = 0x2F,
    UserId_playSound = 0x30,
+   UserId_light = 0x31, /* payload: [LED mask], optional */
 };
 
 

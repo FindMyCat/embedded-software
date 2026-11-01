@@ -11,6 +11,7 @@
 #define I2C_NRF9151_REG_BATT            0x00 /* battery frame, 91 -> 52 */
 #define I2C_NRF9151_REG_CONFIG_VERSION  0x20 /* bumped on each new config */
 #define I2C_NRF9151_REG_CONFIG_APPLIED  0x21 /* 91 writes back the version it ingested */
+#define I2C_NRF9151_REG_LIGHT           0x22 /* app light mask, 91 clears on read */
 #define I2C_NRF9151_REG_CONFIG          0x40 /* fmc_config blob, 52 -> 91 */
 
 /* Layout MUST match struct fmc_config in the 91's comm/nrf52_link.h. */
@@ -33,6 +34,10 @@ int i2c_nrf9151_write(uint8_t offset, const uint8_t *src, size_t len);
 
 /* Store the blob, bump the version, raise CONFIG_RDY. */
 void i2c_nrf9151_publish_config(const struct fmc_config *cfg);
+
+/* Store the LED mask (bit0 blue, bit1 green, bit2 red; 0 means all) for the
+ * 91 and raise CONFIG_RDY. */
+void i2c_nrf9151_request_light(uint8_t mask);
 
 /* Fixed dummy config, bench test. */
 void i2c_nrf9151_publish_test_config(void);

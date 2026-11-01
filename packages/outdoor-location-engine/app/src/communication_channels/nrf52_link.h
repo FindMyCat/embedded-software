@@ -11,6 +11,7 @@
 #define NRF52_REG_BATT           0x00 /* battery frame, 91 -> 52 */
 #define NRF52_REG_CONFIG_VERSION 0x20 /* 52 bumps on each new config */
 #define NRF52_REG_CONFIG_APPLIED 0x21 /* 91 writes back the version it ingested */
+#define NRF52_REG_LIGHT          0x22 /* app light request, 52 -> 91, 91 clears */
 #define NRF52_REG_CONFIG         0x40 /* fmc_config blob, 52 -> 91 */
 
 struct __attribute__((packed)) fmc_config {
@@ -67,6 +68,15 @@ int nrf52_probe(void);
  *         negative errno otherwise.
  */
 int nrf52_read_config(struct fmc_config *out);
+
+/**
+ * Read and clear the light request the nRF52 published. Call before
+ * nrf52_read_config(), whose ack closes the 52's bus window.
+ *
+ * @param mask Set to the LED_* channel mask, 0 if no request.
+ * @return 0 on success, negative errno otherwise.
+ */
+int nrf52_take_light_request(uint8_t *mask);
 
 /**
  * Push one battery frame to the nRF52, raising the request line first if the

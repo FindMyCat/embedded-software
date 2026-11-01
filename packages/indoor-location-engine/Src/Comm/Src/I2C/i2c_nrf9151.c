@@ -230,6 +230,16 @@ void i2c_nrf9151_publish_config(const struct fmc_config *cfg) {
     NRF_LOG_INFO("config published v%u, window open", ver);
 }
 
+void i2c_nrf9151_request_light(uint8_t mask) {
+    mask &= 0x07;
+    if (mask == 0) {
+        mask = 0x07;  /* 0 in the register means "no request" to the 91 */
+    }
+    i2c_nrf9151_write(I2C_NRF9151_REG_LIGHT, &mask, 1);
+    bus_window_open();
+    NRF_LOG_INFO("light 0x%02x requested, window open", mask);
+}
+
 void i2c_nrf9151_publish_test_config(void) {
     struct fmc_config cfg;
     memset(&cfg, 0, sizeof(cfg));

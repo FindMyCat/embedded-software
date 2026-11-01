@@ -249,6 +249,11 @@ void handle_new_data(const uint8_t * data, int data_len)
             ble_play_sound();
             break;
         }
+        case UserId_light: {
+            /* No mask byte means white. */
+            ble_light(data_len > 1 ? packet->payload[0] : 0);
+            break;
+        }
         default:
             // unsupported message ID
             NRF_LOG_INFO("Unsupported message ID.");
@@ -261,6 +266,5 @@ void handle_new_data(const uint8_t * data, int data_len)
 void ble_evt_disconnected_handler(){
     niq_stop_uwb();
 }
-
 
 

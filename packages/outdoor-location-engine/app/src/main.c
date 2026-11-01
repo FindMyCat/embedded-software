@@ -120,6 +120,12 @@ static void nrf52_config_work_handler(struct k_work *work) {
 
   (void)fuel_gauge_push();
 
+  /* Before the config ack, which closes the 52's bus window. */
+  uint8_t light_mask;
+  if (nrf52_take_light_request(&light_mask) == 0 && light_mask != 0) {
+    light__led_blink(light_mask);
+  }
+
   /* On a transient failure, retry while the data-ready line is still asserted:
    * the nRF52 holds it high until we ack, so a held-high line means "still
    * pending" and there is no fresh edge to re-trigger us. */

@@ -72,6 +72,9 @@ void ble_evt_disconnected_handler(void);
 
 void ble_play_sound(void);
 
+/* Ask the 91 to blink the collar LEDs; mask bit0 blue, bit1 green, bit2 red. */
+void ble_light(uint8_t mask);
+
 bool ble_is_connected(void);
 
 /* Restore the Config characteristic value so iOS read-back survives a reboot. */

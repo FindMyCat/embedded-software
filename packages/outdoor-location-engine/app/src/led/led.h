@@ -1,7 +1,7 @@
 #ifndef LED_H
 #define LED_H
 
-#include <zephyr/drivers/led.h>
+#include <stdint.h>
 
 #define BOOT_BLINK_MS 300
 /* nPM1300 LED driver channels as wired on the board. */
@@ -11,9 +11,7 @@
 #define LED_COUNT 3
 
 #define BLINK_PERIOD_MS 500
-
-static const struct device *const findmycat_RGB_led =
-    DEVICE_DT_GET(DT_NODELABEL(npm1300_leds));
+#define LIGHT_BLINK_MS 10000
 
 void boot_led_blink(void);
 
@@ -29,5 +27,9 @@ void blue__led_off(void);
 void red__led_blink(void);
 void green__led_blink(void);
 void blue__led_blink(void);
+
+/* App light command. Mask bits are LED_* channels; 0 means all (white).
+ * Blinks for LIGHT_BLINK_MS, then off. */
+void light__led_blink(uint8_t mask);
 
 #endif

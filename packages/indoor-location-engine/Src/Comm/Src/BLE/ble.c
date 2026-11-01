@@ -1070,6 +1070,10 @@ void ble_play_sound() {
     buzzer_play(BUZZER_TUNE_AIRTAG);
 }
 
+void ble_light(uint8_t mask) {
+    i2c_nrf9151_request_light(mask);
+}
+
 bool ble_is_connected(void) {
     return m_conn_handle != BLE_CONN_HANDLE_INVALID;
 }

@@ -178,6 +178,20 @@ int nrf52_read_config(struct fmc_config *out)
     return 0;
 }
 
+int nrf52_take_light_request(uint8_t *mask)
+{
+    if (!device_is_ready(i2c)) {
+        return -ENODEV;
+    }
+
+    int ret = i2c_reg_read_byte(i2c, NRF52_I2C_ADDR, NRF52_REG_LIGHT, mask);
+    if (ret < 0 || *mask == 0) {
+        return ret;
+    }
+
+    return i2c_reg_write_byte(i2c, NRF52_I2C_ADDR, NRF52_REG_LIGHT, 0);
+}
+
 int nrf52_write_batt(const struct fmc_batt_frame *frame)
 {
     if (!device_is_ready(i2c)) {
