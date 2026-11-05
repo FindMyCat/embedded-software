@@ -97,6 +97,26 @@ config LOCATION_SERVICES_INIT_RETRY_DELAY_S
 	int "Seconds to delay before attempting to retry location services initialization"
 	default 20
 
+config FINDMYCAT_GNSS_ASSISTANCE_SUPL
+	bool "Fetch GNSS assistance from a SUPL server over LTE"
+	select SUPL_CLIENT_LIB
+	select LOCATION_SERVICE_EXTERNAL
+	select NRF_CLOUD_AGNSS
+
+if FINDMYCAT_GNSS_ASSISTANCE_SUPL
+
+config FINDMYCAT_SUPL_SERVER_HOSTNAME
+	string "SUPL server hostname"
+	default "supl.google.com"
+
+config FINDMYCAT_SUPL_SERVER_PORT
+	int "SUPL server port"
+	default 7276
+	help
+	  7276 is plain TCP on Google's server; 7275 is the TLS port.
+
+endif # FINDMYCAT_GNSS_ASSISTANCE_SUPL
+
 config ACTIVE_MODE_LOCATION_REFRESH_PERIOD_SECONDS
 	int "Location refresh period in seconds for Active Mode"
 	default 1800	

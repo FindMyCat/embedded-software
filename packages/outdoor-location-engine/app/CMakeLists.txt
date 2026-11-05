@@ -9,6 +9,7 @@ zephyr_library_sources(src/main.c)
 
 target_sources(app PRIVATE src/LocationEngine/LocationEngine.c)
 target_sources(app PRIVATE src/LocationEngine/LocationEngine.h)
+target_sources_ifdef(CONFIG_FINDMYCAT_GNSS_ASSISTANCE_SUPL app PRIVATE src/LocationEngine/supl_assistance.c)
 
 target_sources(app PRIVATE src/SmsListener/SmsListener.c)
 target_sources(app PRIVATE src/SmsListener/SmsListener.h)

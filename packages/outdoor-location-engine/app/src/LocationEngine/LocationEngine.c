@@ -6,6 +6,9 @@
 #include <zephyr/random/random.h>
 
 #include "../communication_channels/transport.h"
+#if defined(CONFIG_FINDMYCAT_GNSS_ASSISTANCE_SUPL)
+#include "supl_assistance.h"
+#endif
 
 K_SEM_DEFINE(location_event, 0, 1);
 
@@ -157,15 +160,29 @@ void location_event_handler(const struct location_event_data *event_data) {
     LOG_ERR("Getting location failed");
     break;
 
+  /* Requests, not outcomes: returning here keeps a waiting ping from waking
+   * before GNSS has even started. */
   case LOCATION_EVT_GNSS_ASSISTANCE_REQUEST:
-    LOG_INF(
-        "Getting location assistance requested (A-GPS). Not doing anything.");
-    break;
+#if defined(CONFIG_FINDMYCAT_GNSS_ASSISTANCE_SUPL)
+    /* Runs on the location library's work queue, which starts GNSS only after
+     * this returns, so the data is in the modem before the search begins. */
+    (void)supl_assistance_fetch_and_inject(&event_data->agnss_request);
+#else
+    LOG_INF("GNSS assistance requested; none configured, starting cold");
+#endif
+    return;
 
   case LOCATION_EVT_GNSS_PREDICTION_REQUEST:
-    LOG_INF(
-        "Getting location assistance requested (P-GPS). Not doing anything.");
-    break;
+    LOG_INF("GNSS prediction (P-GPS) requested; not supported");
+    return;
+
+#if defined(CONFIG_LOCATION_SERVICE_EXTERNAL)
+  /* External service mode also routes cellular fallback here; we resolve
+   * cells on our own server instead, so end that method at once. */
+  case LOCATION_EVT_CLOUD_LOCATION_EXT_REQUEST:
+    location_cloud_location_ext_result_set(LOCATION_EXT_RESULT_ERROR, NULL);
+    return;
+#endif
 
   case LOCATION_EVT_STARTED:
     LOG_INF("Getting location by %s started",
