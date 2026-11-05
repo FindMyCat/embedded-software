@@ -9,6 +9,12 @@
 LOG_MODULE_REGISTER(dispatcher,
                     CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 static int currentDispatcherState = DISPATCHER_STATE_IDLE;
+static int backgroundModeState = DISPATCHER_STATE_IDLE;
+
+static bool isBackgroundMode(int state) {
+  return state == DISPATCHER_STATE_IDLE || state == DISPATCHER_STATE_LOST_MODE ||
+         state == DISPATCHER_STATE_ACTIVE_MODE;
+}
 
 /**
  * @brief Callback function for when dispatcher state changes.
@@ -32,6 +38,9 @@ void dispatcherCallback() {
   } else if (currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_SPOOF_PING) {
     LOG_INF("State RESPOND_TO_SPOOF_PING");
     respond_to_spoof_ping();
+  } else if (currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_CELL_PING) {
+    LOG_INF("State RESPOND_TO_CELL_PING");
+    respond_to_cell_ping();
   }
 }
 
@@ -40,7 +49,15 @@ void dispatcherCallback() {
  */
 void changeDispatcherState(int newState) {
   currentDispatcherState = newState;
+  if (isBackgroundMode(newState)) {
+    backgroundModeState = newState;
+  }
   dispatcherCallback();
+}
+
+void returnToBackgroundMode(void) {
+  currentDispatcherState = backgroundModeState;
+  LOG_INF("Back to background state %d", backgroundModeState);
 }
 
 /**
@@ -62,6 +79,8 @@ int dispatchCommand(const char *command, size_t len) {
     changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
   } else if (is_command(command, len, "ping-gps")) {
     changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_GPS_PING);
+  } else if (is_command(command, len, "ping-cell")) {
+    changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_CELL_PING);
   } else if (is_command(command, len, "lost")) {
     changeDispatcherState(DISPATCHER_STATE_LOST_MODE);
   } else if (is_command(command, len, "active")) {

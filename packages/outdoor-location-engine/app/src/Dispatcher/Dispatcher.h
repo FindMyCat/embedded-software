@@ -10,10 +10,15 @@ enum dispatcherState {
   DISPATCHER_STATE_LOST_MODE,
   DISPATCHER_STATE_RESPOND_TO_SPOOF_PING,
   DISPATCHER_STATE_RESPOND_TO_GPS_PING,
+  DISPATCHER_STATE_RESPOND_TO_CELL_PING,
 };
 
 void changeDispatcherState(int newState);
 int getDispatcherState();
+
+/* Ends a ping by going back to IDLE, LOST_MODE or ACTIVE_MODE, whichever was
+ * running before it, without restarting that mode. */
+void returnToBackgroundMode(void);
 
 /* Runs a text command from UDP or SMS on the calling thread. -EINVAL if
  * unknown. */

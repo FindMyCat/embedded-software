@@ -1,6 +1,7 @@
 #ifndef TRANSPORT_H
 #define TRANSPORT_H
 
+#include "../CellScan/cell_scan.h"
 #include "../WiFi/wifi_scan.h"
 
 struct position_report {
@@ -29,5 +30,9 @@ int transport_publish_position_via(const struct position_report *report,
 /* Sends a ping's WiFi scan over the current link: LoRa to the home station,
  * or MQTT-SN to the server when LTE is the link. Same frame either way. */
 int transport_publish_wifi_scan(const struct wifi_scan_frame *scan);
+
+/* Sends a cell scan to the server over MQTT-SN; LTE is the only link that
+ * makes one, so there is no LoRa path. */
+int transport_publish_cell_scan(const struct cell_scan_frame *scan);
 
 #endif /* TRANSPORT_H */

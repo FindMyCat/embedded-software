@@ -239,46 +239,22 @@ void location_default_get(void) {
   location_event_wait();
 }
 
-/**
- * @brief Retrieve location with GNSS normal accuracy.
- */
-void location_gnss_normal_accuracy_get(void) {
-  int err;
+static void request_gnss_location_and_wait(enum location_accuracy accuracy) {
   struct location_config config;
   enum location_method methods[] = {LOCATION_METHOD_GNSS};
 
-  location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
-  config.methods[0].gnss.accuracy = LOCATION_ACCURACY_NORMAL;
-
-  LOG_INF("Requesting normal accuracy GNSS location...");
-
-  err = location_request(&config);
-  if (err) {
-    LOG_ERR("Requesting location failed, error: %d", err);
+  if (location_ensure_init() != 0) {
+    record_result_for_status("rejected", LOCATION_METHOD_GNSS, 0, 0);
     return;
   }
 
-  location_event_wait();
-}
-
-/**
- * @brief Retrieve location with GNSS high accuracy.
- */
-void location_gnss_high_accuracy_get(void) {
-  int err;
-  struct location_config config;
-  enum location_method methods[] = {LOCATION_METHOD_GNSS};
-
   location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
+  config.methods[0].gnss.accuracy = accuracy;
 
-  // // TODO: (sahas) high accuracy may not get a fix all the time, this may
-  // need to be configurable build time or even run time. Device accepts config
-  // over ble already, perhaps set it there?
-  config.methods[0].gnss.accuracy = LOCATION_ACCURACY_HIGH;
+  k_sem_reset(&location_event);
 
-  LOG_INF("Requesting high accuracy GNSS location...");
+  int err = location_request(&config);
 
-  err = location_request(&config);
   if (err) {
     record_result_for_status("rejected", LOCATION_METHOD_GNSS, 0, 0);
     LOG_ERR("Requesting location failed, error: %d", err);
@@ -286,6 +262,33 @@ void location_gnss_high_accuracy_get(void) {
   }
 
   location_event_wait();
+}
+
+void location_cancel_and_wake_waiter(void) {
+  if (location_ensure_init() != 0) {
+    return;
+  }
+
+  location_request_cancel();
+  record_result_for_status("cancelled", LOCATION_METHOD_GNSS, 0, 0);
+  k_sem_give(&location_event);
+}
+
+void location_gnss_low_accuracy_get(void) {
+  LOG_INF("Requesting low accuracy GNSS location...");
+  request_gnss_location_and_wait(LOCATION_ACCURACY_LOW);
+}
+
+void location_gnss_normal_accuracy_get(void) {
+  LOG_INF("Requesting normal accuracy GNSS location...");
+  request_gnss_location_and_wait(LOCATION_ACCURACY_NORMAL);
+}
+
+/* TODO: (sahas) high accuracy may not get a fix all the time, this may need to
+ * be configurable build time or even run time. */
+void location_gnss_high_accuracy_get(void) {
+  LOG_INF("Requesting high accuracy GNSS location...");
+  request_gnss_location_and_wait(LOCATION_ACCURACY_HIGH);
 }
 
 /**
@@ -297,6 +300,12 @@ void location_gnss_periodic_get(int period) {
   struct location_config config;
   enum location_method methods[] = {LOCATION_METHOD_GNSS,
                                     LOCATION_METHOD_CELLULAR};
+
+  /* Boot leaves the library uninitialized; only pings initialized it before. */
+  if (location_ensure_init() != 0) {
+    LOG_ERR("Error: location library not initialized");
+    return;
+  }
 
   location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
   config.interval = period;

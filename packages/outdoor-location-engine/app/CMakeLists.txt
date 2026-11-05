@@ -62,6 +62,9 @@ target_sources(app PRIVATE src/WiFi/wifi_location.h)
 target_sources(app PRIVATE src/WiFi/wifi_scan.c)
 target_sources(app PRIVATE src/WiFi/wifi_scan.h)
 
+target_sources(app PRIVATE src/CellScan/cell_scan.c)
+target_sources(app PRIVATE src/CellScan/cell_scan.h)
+
 target_sources(app PRIVATE src/FuelGauge/fuel_gauge.c)
 target_sources(app PRIVATE src/FuelGauge/fuel_gauge.h)
 

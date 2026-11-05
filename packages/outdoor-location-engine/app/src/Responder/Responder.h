@@ -8,6 +8,8 @@ void turn_on_lost_mode();
 void respond_to_ping();
 void respond_to_gps_ping();
 void respond_to_spoof_ping();
+void respond_to_cell_ping();
+void stop_lost_mode(void);
 void stop_responding();
 
 

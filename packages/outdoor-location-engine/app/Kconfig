@@ -80,6 +80,10 @@ config MQTT_SN_WIFI_SCAN_TOPIC
 	string "MQTT Topic raw WiFi scans are published to over LTE, for the server to resolve"
 	default "/wifi-scan"
 
+config MQTT_SN_CELL_SCAN_TOPIC
+	string "MQTT Topic raw LTE cell scans are published to, for the server to resolve"
+	default "/cell-scan"
+
 config MQTT_SN_REFRESH_PERIOD_SECONDS
 	int "MQTT-SN refresh period in seconds"
 	default 60

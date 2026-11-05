@@ -93,15 +93,34 @@ int transport_publish_position(const struct position_report *report) {
  * TODO: evaluate sending it binary; hex doubles the frame (~49 bytes a ping).
  * Needs a length-taking publish in mqttsn.c and bin2hexstr(payload) in the
  * EMQX rule. */
-static int publish_wifi_scan_over_cellular(const struct wifi_scan_frame *scan) {
-  char hex[2 * sizeof(scan->bytes) + 1];
+#define LARGEST_SCAN_FRAME_LENGTH_BYTES                                        \
+  MAX(sizeof(((struct wifi_scan_frame *)0)->bytes),                            \
+      sizeof(((struct cell_scan_frame *)0)->bytes))
 
-  for (size_t i = 0; i < scan->len; i++) {
-    snprintk(&hex[2 * i], 3, "%02X", scan->bytes[i]);
+static int publish_frame_as_hex(const char *topic, const uint8_t *frame_bytes,
+                                size_t frame_length_bytes) {
+  char hex[2 * LARGEST_SCAN_FRAME_LENGTH_BYTES + 1];
+
+  if (frame_length_bytes > LARGEST_SCAN_FRAME_LENGTH_BYTES) {
+    return -EINVAL;
   }
-  hex[2 * scan->len] = '\0';
 
-  return mqttsn_publish_with_session(CONFIG_MQTT_SN_WIFI_SCAN_TOPIC, hex);
+  for (size_t i = 0; i < frame_length_bytes; i++) {
+    snprintk(&hex[2 * i], 3, "%02X", frame_bytes[i]);
+  }
+  hex[2 * frame_length_bytes] = '\0';
+
+  return mqttsn_publish_with_session(topic, hex);
+}
+
+static int publish_wifi_scan_over_cellular(const struct wifi_scan_frame *scan) {
+  return publish_frame_as_hex(CONFIG_MQTT_SN_WIFI_SCAN_TOPIC, scan->bytes,
+                              scan->len);
+}
+
+int transport_publish_cell_scan(const struct cell_scan_frame *scan) {
+  return publish_frame_as_hex(CONFIG_MQTT_SN_CELL_SCAN_TOPIC, scan->bytes,
+                              scan->length_bytes);
 }
 
 int transport_publish_wifi_scan(const struct wifi_scan_frame *scan) {
