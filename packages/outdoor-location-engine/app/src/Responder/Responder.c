@@ -71,7 +71,52 @@ void turn_on_active_mode(void) {
       CONFIG_ACTIVE_MODE_LOCATION_REFRESH_PERIOD_SECONDS);
 }
 
+static const char *locate_by_wifi_then_gnss_then_cell(bool use_low_accuracy_gnss) {
+  struct wifi_scan_frame wifi_scan;
+  int access_point_count = scan_wifi_access_points(&wifi_scan);
+
+  if (access_point_count >= MINIMUM_ACCESS_POINTS_FOR_WIFI_LOCATION &&
+      transport_publish_wifi_scan(&wifi_scan) == 0) {
+    return NULL;
+  }
+
+  if (use_low_accuracy_gnss) {
+    location_gnss_low_accuracy_get();
+  } else {
+    location_gnss_normal_accuracy_get();
+  }
+
+  const struct location_result *gnss_result = location_last_result();
+
+  if (gnss_result->has_fix) {
+    return NULL;
+  }
+
+  /* Cell scans resolve on the server over LTE only. */
+  struct cell_scan_frame cell_scan;
+
+  if (presence_link_get() == PRESENCE_LINK_LTE &&
+      cell_scan_measure_nearby_cells(&cell_scan, fuel_gauge_battery_percent()) == 0 &&
+      transport_publish_cell_scan(&cell_scan) == 0) {
+    return NULL;
+  }
+
+  return gnss_result->reason;
+}
+
 void respond_to_ping(void) {
+  k_mutex_lock(&location_radios_mutex, K_FOREVER);
+  const char *failure_reason = locate_by_wifi_then_gnss_then_cell(false);
+  k_mutex_unlock(&location_radios_mutex);
+
+  if (failure_reason != NULL) {
+    report_ping_failure("ping", failure_reason);
+  }
+
+  returnToBackgroundMode();
+}
+
+void respond_to_wifi_ping(void) {
   struct wifi_scan_frame scan;
 
   k_mutex_lock(&location_radios_mutex, K_FOREVER);
@@ -132,24 +177,6 @@ void respond_to_spoof_ping(void) {
   returnToBackgroundMode();
 }
 
-/* WiFi first; low accuracy GNSS only when WiFi does not get MINIMUM_ACCESS_POINTS_FOR_WIFI_LOCATION.
- * Returns NULL once a location went out, else the failure_reason. */
-static const char *locate_once_for_lost_mode(void) {
-  struct wifi_scan_frame scan;
-  int access_point_count = scan_wifi_access_points(&scan);
-
-  if (access_point_count >= MINIMUM_ACCESS_POINTS_FOR_WIFI_LOCATION &&
-      transport_publish_wifi_scan(&scan) == 0) {
-    return NULL;
-  }
-
-  location_gnss_low_accuracy_get();
-
-  const struct location_result *result = location_last_result();
-
-  return result->has_fix ? NULL : result->reason;
-}
-
 static void report_lost_mode_outcome(const char *failure_reason) {
   if (failure_reason == NULL) {
     last_reported_lost_mode_failure[0] = '\0';
@@ -168,7 +195,7 @@ static void report_lost_mode_outcome(const char *failure_reason) {
 
 static void run_lost_mode_location_attempt(struct k_work *work) {
   k_mutex_lock(&location_radios_mutex, K_FOREVER);
-  const char *failure_reason = locate_once_for_lost_mode();
+  const char *failure_reason = locate_by_wifi_then_gnss_then_cell(true);
   k_mutex_unlock(&location_radios_mutex);
 
   /* Stopped mid-attempt: the failure is our own cancel, not worth reporting. */

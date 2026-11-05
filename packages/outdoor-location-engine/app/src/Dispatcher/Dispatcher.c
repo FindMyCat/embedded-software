@@ -41,6 +41,9 @@ void dispatcherCallback() {
   } else if (currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_CELL_PING) {
     LOG_INF("State RESPOND_TO_CELL_PING");
     respond_to_cell_ping();
+  } else if (currentDispatcherState == DISPATCHER_STATE_RESPOND_TO_WIFI_PING) {
+    LOG_INF("State RESPOND_TO_WIFI_PING");
+    respond_to_wifi_ping();
   }
 }
 
@@ -75,8 +78,10 @@ static bool is_command(const char *command, size_t len, const char *name) {
 int dispatchCommand(const char *command, size_t len) {
   if (is_command(command, len, "spoof-ping")) {
     changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_SPOOF_PING);
-  } else if (is_command(command, len, "ping") || is_command(command, len, "ping-wifi")) {
+  } else if (is_command(command, len, "ping")) {
     changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);
+  } else if (is_command(command, len, "ping-wifi")) {
+    changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_WIFI_PING);
   } else if (is_command(command, len, "ping-gps")) {
     changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_GPS_PING);
   } else if (is_command(command, len, "ping-cell")) {
