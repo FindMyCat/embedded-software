@@ -5,6 +5,7 @@
 #include "nrf_gpio.h"
 #include "nrf_log.h"
 #include "task.h"
+#include <stdbool.h>
 
 // Constants
 #define COMMAND_NRF91_PIN NRF_GPIO_PIN_MAP(0, 16)
@@ -16,6 +17,7 @@ int TWO_MINUTES = 120;
 
 // Holder variables
 static long home_station_last_seen_timestamp_s = 0;
+static bool has_home_station_been_seen = false;
 static TaskHandle_t m_nrf91_power_manager_thread; /**< Definition of nrf91 Power
                                                      Manager thread. */
 uint32_t system_uptime = 0;
@@ -44,8 +46,8 @@ void init_gpio_command_pins() {
 
   nrf_gpio_cfg_output(COMMAND_NRF91_PIN);
 
-  // explicity command the nrf91 to PSM upon startup
-  command_nrf91_to_psm();
+  // The home station has not been seen yet after a reboot.
+  command_nrf91_to_edrx();
 }
 
 /* Function to set the last time the home station was seen */
@@ -58,7 +60,10 @@ long get_home_station_last_seen_timestamp() {
   return home_station_last_seen_timestamp_s;
 }
 
-void home_station_seen() { home_station_last_seen_timestamp_s = system_uptime; }
+void home_station_seen() {
+  home_station_last_seen_timestamp_s = system_uptime;
+  has_home_station_been_seen = true;
+}
 
 /* nrf91 power manager thread */
 static void nrf91_power_manager_thread(void *arg) {
@@ -78,8 +83,9 @@ static void nrf91_power_manager_thread(void *arg) {
     // then we should switch to EDRX mode
     if (ble_is_connected()) {
       command_nrf91_to_psm();
-    } else if (system_uptime - home_station_last_seen_timestamp_s >
-               TWO_MINUTES) {
+    } else if (!has_home_station_been_seen ||
+               system_uptime - home_station_last_seen_timestamp_s >
+                   TWO_MINUTES) {
       command_nrf91_to_edrx();
     } else {
       command_nrf91_to_psm();

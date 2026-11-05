@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <modem/lte_lc.h>
 #include <modem/modem_info.h>
+#include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/byteorder.h>
@@ -13,7 +14,15 @@ LOG_MODULE_REGISTER(cell_scan,
 /* A surrounding-cell search can take tens of seconds on a quiet network. */
 #define CELL_MEASUREMENT_TIMEOUT K_SECONDS(60)
 
+/* The network releases the connection after its inactivity timer, usually
+ * 10-20 s after the ping that started this scan. */
+#define RRC_IDLE_WAIT_TIMEOUT K_SECONDS(30)
+
 static K_SEM_DEFINE(cell_measurement_finished, 0, 1);
+static K_SEM_DEFINE(rrc_became_idle, 0, 1);
+
+/* Unknown until the first RRC event; treated as connected to be safe. */
+static atomic_t is_rrc_connected = ATOMIC_INIT(1);
 
 static struct lte_lc_cell measured_cells[CELL_SCAN_MAX_CELL_COUNT];
 static size_t measured_cell_count;
@@ -37,7 +46,17 @@ static void keep_measured_cell(const struct lte_lc_cell *cell) {
   measured_cells[measured_cell_count++] = *cell;
 }
 
-static void handle_cell_measurement_event(const struct lte_lc_evt *const event) {
+static void handle_lte_event(const struct lte_lc_evt *const event) {
+  if (event->type == LTE_LC_EVT_RRC_UPDATE) {
+    bool is_connected = event->rrc_mode == LTE_LC_RRC_MODE_CONNECTED;
+
+    atomic_set(&is_rrc_connected, is_connected);
+    if (!is_connected) {
+      k_sem_give(&rrc_became_idle);
+    }
+    return;
+  }
+
   if (event->type != LTE_LC_EVT_NEIGHBOR_CELL_MEAS) {
     return;
   }
@@ -49,10 +68,38 @@ static void handle_cell_measurement_event(const struct lte_lc_evt *const event) 
     keep_measured_cell(&cells->gci_cells[i]);
   }
 
-  LOG_INF("Cell measurement finished with %u cell(s)",
+  LOG_INF("Cell measurement: serving cell %s, %u GCI cell(s), %u neighbour(s) "
+          "without cell ID; kept %u",
+          cells->current_cell.id == LTE_LC_CELL_EUTRAN_ID_INVALID ? "missing"
+                                                                   : "present",
+          cells->gci_cells_count, cells->ncells_count,
           (unsigned)measured_cell_count);
   k_sem_give(&cell_measurement_finished);
 }
+
+/* Only an idle-state search reports other cells with their cell IDs; in a
+ * connected state the modem gives just the serving cell (nRF91 %NCELLMEAS). */
+static void wait_for_rrc_idle(void) {
+  k_sem_reset(&rrc_became_idle);
+
+  if (!atomic_get(&is_rrc_connected)) {
+    return;
+  }
+
+  LOG_INF("Waiting for the LTE connection to go idle before measuring");
+  if (k_sem_take(&rrc_became_idle, RRC_IDLE_WAIT_TIMEOUT) != 0) {
+    LOG_WRN("Still connected; measuring anyway, expect only the serving cell");
+  }
+}
+
+/* At boot, so the RRC state is known before the first scan. */
+static int register_lte_event_handler(void) {
+  lte_lc_register_handler(handle_lte_event);
+  return 0;
+}
+
+SYS_INIT(register_lte_event_handler, APPLICATION,
+         CONFIG_APPLICATION_INIT_PRIORITY);
 
 static int16_t rsrp_index_to_dbm(int16_t rsrp_index) {
   if (rsrp_index == LTE_LC_CELL_RSRP_INVALID) {
@@ -85,17 +132,13 @@ static void pack_measured_cells(struct cell_scan_frame *frame,
 
 int cell_scan_measure_nearby_cells(struct cell_scan_frame *frame,
                                    uint8_t battery_percent) {
-  static bool is_event_handler_registered;
   struct lte_lc_ncellmeas_params measurement_params = {
-      .search_type = LTE_LC_NEIGHBOR_SEARCH_TYPE_GCI_DEFAULT,
+      .search_type = LTE_LC_NEIGHBOR_SEARCH_TYPE_GCI_EXTENDED_LIGHT,
       /* The serving cell is reported on top of these. */
       .gci_count = CELL_SCAN_MAX_CELL_COUNT - 1,
   };
 
-  if (!is_event_handler_registered) {
-    lte_lc_register_handler(handle_cell_measurement_event);
-    is_event_handler_registered = true;
-  }
+  wait_for_rrc_idle();
 
   measured_cell_count = 0;
   k_sem_reset(&cell_measurement_finished);
