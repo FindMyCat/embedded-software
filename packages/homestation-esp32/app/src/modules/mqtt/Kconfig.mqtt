@@ -38,7 +38,9 @@ config MQTT_PUBLISHER_SEC_TAG
 config MQTT_PUBLISHER_LOCATION_TOPIC
 	string "Topic to publish positions to"
 	help
-	  Must match the topic the location rule reads.
+	  Must match the home station topic the EMQX rule forwards to Traccar
+	  (FMC_HOMESTATION_TOPIC in cloud/.env). Keep it apart from the collar's
+	  own location topic, where every position counts as a GNSS ping answer.
 
 config MQTT_PUBLISHER_HOME_LATITUDE
 	string "Station latitude, in decimal degrees"
