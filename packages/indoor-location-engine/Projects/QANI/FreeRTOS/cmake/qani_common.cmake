@@ -441,11 +441,14 @@ math(EXPR APP_VERSION "${V_MAJOR} * 10000 + ${V_MINOR} * 100 + ${CMAKE_MATCH_1}"
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${VERSION_FILE})
 file(WRITE ${CMAKE_BINARY_DIR}/app_version ${APP_VERSION})
 
+# With the backup page too: an app-only `make flash` otherwise leaves the
+# previous DFU's settings in the backup, and the next BLE DFU fails to start
+# the app (only `make flash_full`, which erases everything, recovered it).
 add_custom_target(bl_settings
     DEPENDS ${ELF_TARGET}
     COMMAND nrfutil nrf5sdk-tools settings generate --family NRF52 --application ${APP_HEX}
             --application-version ${APP_VERSION} --bootloader-version 1 --bl-settings-version 2
-            --no-backup ${SETTINGS_HEX}
+            ${SETTINGS_HEX}
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
