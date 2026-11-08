@@ -29,6 +29,7 @@ set(QANI_BLE "${SRC_ROOT}/Comm/Src/BLE")
 set(QANI_BUZ "${SRC_ROOT}/Comm/Src/Buzzer")
 set(QANI_I2C "${SRC_ROOT}/Comm/Src/I2C")
 set(QANI_CFG "${SRC_ROOT}/Comm/Src/Config")
+set(QANI_SETTINGS "${SRC_ROOT}/Comm/Src/DeviceSettings")
 set(QANI_HAL "${SRC_ROOT}/HAL/Src/nrfx")
 set(QANI_BRD "${SRC_ROOT}/Boards/Src")
 
@@ -199,6 +200,7 @@ list(APPEND SRC_FILES
     ${QANI_BUZ}/buzzer.c
     ${QANI_I2C}/i2c_nrf9151.c
     ${QANI_CFG}/persistent_config.c
+    ${QANI_SETTINGS}/device_settings.c
 
     ${SRC_ROOT}/Helpers/crc16.c
     ${SRC_ROOT}/Helpers/cJSON.c
@@ -244,6 +246,7 @@ set(INC_FOLDERS
     ${QANI_BUZ}
     ${QANI_I2C}
     ${QANI_CFG}
+    ${QANI_SETTINGS}
     ${SRC_ROOT}/UWB
     ${SRC_ROOT}/UWB/FreeRTOS
     ${SRC_ROOT}/UWBUtils

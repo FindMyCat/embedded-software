@@ -3,6 +3,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+#include "../DeviceSettings/device_settings.h"
 #include "../FOTA/fota.h"
 #include "../LTE/lte.h"
 #include "../LoRa/lora_link.h"
@@ -44,6 +45,7 @@ static void bring_lte_up(void) {
   lte_up = true;
 
   fota_report_running_version();
+  device_settings_report_current_values();
   (void)sms_listener_start();
 
   err = create_udp_listener();
@@ -92,9 +94,10 @@ static void orchestrate(void *unused1, void *unused2, void *unused3) {
 
 #if defined(CONFIG_LORA_LINK)
     /* LoRa keeps listening under LTE to hear the home station return, unless
-     * LTE is forced and nothing would act on hearing it. */
+     * LTE is forced or LoRa is off, and nothing would act on hearing it. */
     lora_link_set_enabled(link != PRESENCE_LINK_BLE &&
-                          !IS_ENABLED(CONFIG_FINDMYCAT_FORCE_LTE_LINK));
+                          !IS_ENABLED(CONFIG_FINDMYCAT_FORCE_LTE_LINK) &&
+                          device_settings_get(DEVICE_SETTING_LORA_ENABLED));
 #endif
 
     bool want_lte = link == PRESENCE_LINK_LTE;

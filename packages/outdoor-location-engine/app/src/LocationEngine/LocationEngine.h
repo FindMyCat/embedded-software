@@ -27,7 +27,7 @@ int location_publish(double latitude, double longitude, int satellites,
 int location_publish_spoofed(enum transport_path path);
 void location_default_get(void);
 void location_cancel_and_wake_waiter(void);
-void location_gnss_low_accuracy_get(void);
+void location_gnss_get(enum location_accuracy accuracy);
 void location_gnss_normal_accuracy_get(void);
 void location_gnss_high_accuracy_get(void);
 void location_gnss_periodic_get(int period);

@@ -71,6 +71,23 @@ static void encode_firmware(const struct device_status *status, char *payload,
            status->firmware);
 }
 
+/* Positional, in enum device_setting order, to fit the payload; the server
+ * holds the matching key list. */
+static void encode_settings(const struct device_status *status, char *payload,
+                            size_t size) {
+  int written = snprintk(payload, size, "{\"kind\":\"settings\",\"values\":[");
+
+  for (int setting = 0;
+       setting < DEVICE_SETTING_COUNT && written < (int)size; setting++) {
+    written += snprintk(payload + written, size - written, "%s%d",
+                        setting == 0 ? "" : ",", status->settings[setting]);
+  }
+
+  if (written < (int)size) {
+    snprintk(payload + written, size - written, "]}");
+  }
+}
+
 static void report_loop(void *unused1, void *unused2, void *unused3) {
   ARG_UNUSED(unused1);
   ARG_UNUSED(unused2);
@@ -91,6 +108,9 @@ static void report_loop(void *unused1, void *unused2, void *unused3) {
       break;
     case DEVICE_STATUS_FIRMWARE:
       encode_firmware(&status, payload, sizeof(payload));
+      break;
+    case DEVICE_STATUS_SETTINGS:
+      encode_settings(&status, payload, sizeof(payload));
       break;
     }
 

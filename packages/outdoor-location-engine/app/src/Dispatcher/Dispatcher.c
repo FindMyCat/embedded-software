@@ -1,5 +1,9 @@
 #include "Dispatcher.h"
+#include "../DeviceSettings/device_settings.h"
 #include "../FOTA/fota.h"
+#include "../LTE/lte.h"
+#include "../LoRa/lora_link.h"
+#include "../Presence/presence.h"
 #include "../Responder/Responder.h"
 #include <errno.h>
 #include <stdbool.h>
@@ -75,8 +79,63 @@ static bool is_command(const char *command, size_t len, const char *name) {
 
 // Commands are kept short so each one costs as little data as possible.
 // The dispatcher logs the state it moves to, so no need to log it here.
+/* "update-settings key=value,key=value" */
+#define UPDATE_SETTINGS_PREFIX "update-settings "
+
+static bool is_update_settings_command(const char *command, size_t len) {
+  size_t prefix_length = strlen(UPDATE_SETTINGS_PREFIX);
+
+  return len > prefix_length &&
+         memcmp(command, UPDATE_SETTINGS_PREFIX, prefix_length) == 0;
+}
+
+static int run_update_settings_command(const char *command, size_t len) {
+  size_t prefix_length = strlen(UPDATE_SETTINGS_PREFIX);
+  int32_t old_values[DEVICE_SETTING_COUNT];
+
+  for (int setting = 0; setting < DEVICE_SETTING_COUNT; setting++) {
+    old_values[setting] = device_settings_get(setting);
+  }
+
+  int err = device_settings_update_from_pairs(command + prefix_length,
+                                              len - prefix_length);
+
+  if (err != 0) {
+    return err;
+  }
+
+#define CHANGED(setting) (device_settings_get(setting) != old_values[setting])
+
+  /* Only these change something live; the rest are read where they're used.
+   * Only on a change: each costs a network update or a CAD restart. BLE
+   * settings are applied by the nRF52 when it stores the block. */
+  if (CHANGED(DEVICE_SETTING_EDRX_CYCLE_CODE) ||
+      CHANGED(DEVICE_SETTING_EDRX_PAGING_WINDOW_CODE)) {
+    lte_request_edrx_from_settings();
+  }
+
+  if (CHANGED(DEVICE_SETTING_LORA_ENABLED)) {
+    presence_reevaluate();
+  }
+
+#if defined(CONFIG_LORA_LINK)
+  if (CHANGED(DEVICE_SETTING_LORA_ABSENCE_TIMEOUT_S) ||
+      CHANGED(DEVICE_SETTING_LORA_BURST_MS) ||
+      CHANGED(DEVICE_SETTING_LORA_BURST_PERIOD_S) ||
+      CHANGED(DEVICE_SETTING_LORA_HEARTBEAT_S)) {
+    lora_link_restart_sniffing();
+  }
+#endif
+
+#undef CHANGED
+
+  return 0;
+}
+
 int dispatchCommand(const char *command, size_t len) {
-  if (is_command(command, len, "spoof-ping")) {
+  if (is_update_settings_command(command, len)) {
+    return run_update_settings_command(command, len);
+  } else if (is_command(command, len, "spoof-ping")) {
     changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_SPOOF_PING);
   } else if (is_command(command, len, "ping")) {
     changeDispatcherState(DISPATCHER_STATE_RESPOND_TO_PING);

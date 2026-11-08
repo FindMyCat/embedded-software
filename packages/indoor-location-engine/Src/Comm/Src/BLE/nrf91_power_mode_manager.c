@@ -2,6 +2,7 @@
 #include "FreeRTOS.h"
 #include "app_ble.h"
 #include "app_timer.h"
+#include "device_settings.h"
 #include "nrf_gpio.h"
 #include "nrf_log.h"
 #include "task.h"
@@ -13,7 +14,6 @@
 #define POWER_COMMAND_EDRX 0
 
 APP_TIMER_DEF(timer);
-int TWO_MINUTES = 120;
 
 // Holder variables
 static long home_station_last_seen_timestamp_s = 0;
@@ -80,12 +80,13 @@ static void nrf91_power_manager_thread(void *arg) {
     // check if we have seen the home station recently
     // Scan duration is every 30 seconds,
     // so if we haven't seen the home station in 2 minutes,
-    // then we should switch to EDRX mode
-    if (ble_is_connected()) {
-      command_nrf91_to_psm();
-    } else if (!has_home_station_been_seen ||
+    // then we should switch to EDRX mode.
+    // A BLE connection doesn't count: only phones connect, and a phone
+    // nearby doesn't mean the home station is, so LTE must stay reachable.
+    if (!has_home_station_been_seen ||
                system_uptime - home_station_last_seen_timestamp_s >
-                   TWO_MINUTES) {
+                   device_settings_get(
+                       DEVICE_SETTING_BLE_HOME_STATION_TIMEOUT_S)) {
       command_nrf91_to_edrx();
     } else {
       command_nrf91_to_psm();

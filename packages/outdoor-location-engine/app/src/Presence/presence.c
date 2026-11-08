@@ -2,6 +2,7 @@
 
 #include <zephyr/kernel.h>
 
+#include "../DeviceSettings/device_settings.h"
 #include "../Link/link_orchestrator.h"
 
 /* Set from the power-mode work and the LoRa thread. */
@@ -19,7 +20,9 @@ static void update_link(void) {
     link = PRESENCE_LINK_LTE;
   } else if (ble_in_range) {
     link = PRESENCE_LINK_BLE;
-  } else if (IS_ENABLED(CONFIG_LORA_LINK) && lora_in_range) {
+  } else if (IS_ENABLED(CONFIG_LORA_LINK) &&
+             device_settings_get(DEVICE_SETTING_LORA_ENABLED) &&
+             lora_in_range) {
     link = PRESENCE_LINK_LORA;
   } else {
     link = PRESENCE_LINK_LTE;
@@ -46,6 +49,12 @@ void presence_set_ble(bool in_range) {
 void presence_set_lora(bool in_range) {
   k_mutex_lock(&presence_lock, K_FOREVER);
   lora_in_range = in_range;
+  update_link();
+  k_mutex_unlock(&presence_lock);
+}
+
+void presence_reevaluate(void) {
+  k_mutex_lock(&presence_lock, K_FOREVER);
   update_link();
   k_mutex_unlock(&presence_lock);
 }

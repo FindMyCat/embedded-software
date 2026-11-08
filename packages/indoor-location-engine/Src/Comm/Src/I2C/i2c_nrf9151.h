@@ -14,12 +14,20 @@
 #define I2C_NRF9151_REG_LIGHT           0x22 /* app light mask, 91 clears on read */
 #define I2C_NRF9151_REG_CONFIG          0x40 /* fmc_config blob, 52 -> 91 */
 
+/* Device settings the 91 writes; the 52 reads its BLE ones, see device_settings.h. */
+#define FMC_SETTINGS_BYTES              64
+
 /* Layout MUST match struct fmc_config in the 91's comm/nrf52_link.h. */
 struct __attribute__((packed)) fmc_config {
     char     host[64];
     uint16_t port;
     char     device_id[37];
+    uint8_t  settings[FMC_SETTINGS_BYTES];
 };
+
+/* The 91 writes settings here; the 52 persists the whole config. */
+#define I2C_NRF9151_REG_CONFIG_SETTINGS \
+    (I2C_NRF9151_REG_CONFIG + offsetof(struct fmc_config, settings))
 
 void i2c_nrf9151_init(void);
 

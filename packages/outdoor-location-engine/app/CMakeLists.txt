@@ -24,6 +24,9 @@ target_sources(app PRIVATE src/Dispatcher/Dispatcher.h)
 target_sources(app PRIVATE src/Responder/Responder.c)
 target_sources(app PRIVATE src/Responder/Responder.h)
 
+target_sources(app PRIVATE src/DeviceSettings/device_settings.c)
+target_sources(app PRIVATE src/DeviceSettings/device_settings.h)
+
 target_sources(app PRIVATE src/DeviceStatus/device_status_reporting.c)
 target_sources(app PRIVATE src/DeviceStatus/device_status_reporting.h)
 

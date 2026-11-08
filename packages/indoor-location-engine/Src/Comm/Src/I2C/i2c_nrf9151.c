@@ -10,6 +10,9 @@
 #include "app_util_platform.h"
 
 #include "buzzer.h"
+#include "persistent_config.h"
+#include "app_ble.h"
+#include "device_settings.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "timers.h"
@@ -103,6 +106,18 @@ static void window_timer_cb(TimerHandle_t t) {
     }
 }
 
+/* FDS work belongs in task context, not the TWIS ISR. */
+static void config_save_deferred(void *unused1, uint32_t unused2) {
+    (void)unused1;
+    (void)unused2;
+    struct fmc_config cfg;
+    i2c_nrf9151_read(I2C_NRF9151_REG_CONFIG, (uint8_t *)&cfg, sizeof(cfg));
+    persistent_config_save(&cfg);
+    device_settings_load_from_config(cfg.settings, sizeof(cfg.settings));
+    ble_apply_device_settings();
+    buzzer_play(BUZZER_TUNE_BEEP);  /* audible ack that settings landed */
+}
+
 static void twis_event_handler(nrfx_twis_evt_t const *p_event) {
     switch (p_event->type) {
         case NRFX_TWIS_EVT_WRITE_REQ:
@@ -132,6 +147,16 @@ static void twis_event_handler(nrfx_twis_evt_t const *p_event) {
                 if (f.soc >= 0.f && f.soc <= 100.f) {
                     m_soc = (uint8_t)(f.soc + 0.5f); /* round, not truncate */
                 }
+            }
+            /* Whole settings block only, so a torn write is never persisted. */
+            if (m_write_offset == I2C_NRF9151_REG_CONFIG_SETTINGS &&
+                (rx_len - 1) == FMC_SETTINGS_BYTES) {
+                BaseType_t woken = pdFALSE;
+                if (xTimerPendFunctionCallFromISR(config_save_deferred, NULL, 0,
+                                                  &woken) != pdPASS) {
+                    NRF_LOG_ERROR("Error: config save not queued");
+                }
+                portYIELD_FROM_ISR(woken);
             }
             if (m_write_offset == I2C_NRF9151_REG_CONFIG_APPLIED &&
                 m_buf[I2C_NRF9151_REG_CONFIG_APPLIED] ==

@@ -6,6 +6,7 @@
 #include <zephyr/sys/atomic.h>
 
 #include "../CellScan/cell_scan.h"
+#include "../DeviceSettings/device_settings.h"
 #include "../DeviceStatus/device_status_reporting.h"
 #include "../Dispatcher/Dispatcher.h"
 #include "../FuelGauge/fuel_gauge.h"
@@ -20,7 +21,6 @@ LOG_MODULE_REGISTER(responder,
 #define PING_ACCESS_POINTS 6
 
 /* needs at least two access points to place a WiFi scan. */
-#define MINIMUM_ACCESS_POINTS_FOR_WIFI_LOCATION 2
 
 #define LOST_MODE_THREAD_STACK_SIZE_BYTES 4096
 #define LOST_MODE_THREAD_PRIORITY 7
@@ -68,28 +68,50 @@ static int scan_wifi_access_points(struct wifi_scan_frame *scan) {
 void turn_on_active_mode(void) {
   stop_lost_mode();
   location_gnss_periodic_get(
-      CONFIG_ACTIVE_MODE_LOCATION_REFRESH_PERIOD_SECONDS);
+      device_settings_get(DEVICE_SETTING_ACTIVE_MODE_REPORT_INTERVAL_S));
 }
 
-static const char *locate_by_wifi_then_gnss_then_cell(bool use_low_accuracy_gnss) {
+/* True once a WiFi scan with enough access points went out. */
+static bool locate_by_wifi(void) {
   struct wifi_scan_frame wifi_scan;
   int access_point_count = scan_wifi_access_points(&wifi_scan);
 
-  if (access_point_count >= MINIMUM_ACCESS_POINTS_FOR_WIFI_LOCATION &&
-      transport_publish_wifi_scan(&wifi_scan) == 0) {
-    return NULL;
+  if (access_point_count <
+      device_settings_get(DEVICE_SETTING_WIFI_MINIMUM_ACCESS_POINTS)) {
+    return false;
   }
 
-  if (use_low_accuracy_gnss) {
-    location_gnss_low_accuracy_get();
+  return transport_publish_wifi_scan(&wifi_scan) == 0;
+}
+
+/* True on a fix; the fix publishes itself from the location event handler. */
+static bool locate_by_gnss(void) {
+  /* Range-checked to 0-2, which is enum location_accuracy. */
+  location_gnss_get(
+      (enum location_accuracy)device_settings_get(DEVICE_SETTING_GNSS_ACCURACY));
+
+  return location_last_result()->has_fix;
+}
+
+/* Returns NULL once a position went out, else the GNSS failure reason. */
+static const char *locate_by_wifi_and_gnss_then_cell(void) {
+  bool gnss_before_wifi =
+      device_settings_get(DEVICE_SETTING_GNSS_BEFORE_WIFI) != 0;
+
+  if (gnss_before_wifi) {
+    if (locate_by_gnss()) {
+      return NULL;
+    }
+    if (locate_by_wifi()) {
+      return NULL;
+    }
   } else {
-    location_gnss_normal_accuracy_get();
-  }
-
-  const struct location_result *gnss_result = location_last_result();
-
-  if (gnss_result->has_fix) {
-    return NULL;
+    if (locate_by_wifi()) {
+      return NULL;
+    }
+    if (locate_by_gnss()) {
+      return NULL;
+    }
   }
 
   /* Cell scans resolve on the server over LTE only. */
@@ -101,12 +123,12 @@ static const char *locate_by_wifi_then_gnss_then_cell(bool use_low_accuracy_gnss
     return NULL;
   }
 
-  return gnss_result->reason;
+  return location_last_result()->reason;
 }
 
 void respond_to_ping(void) {
   k_mutex_lock(&location_radios_mutex, K_FOREVER);
-  const char *failure_reason = locate_by_wifi_then_gnss_then_cell(false);
+  const char *failure_reason = locate_by_wifi_and_gnss_then_cell();
   k_mutex_unlock(&location_radios_mutex);
 
   if (failure_reason != NULL) {
@@ -195,7 +217,7 @@ static void report_lost_mode_outcome(const char *failure_reason) {
 
 static void run_lost_mode_location_attempt(struct k_work *work) {
   k_mutex_lock(&location_radios_mutex, K_FOREVER);
-  const char *failure_reason = locate_by_wifi_then_gnss_then_cell(true);
+  const char *failure_reason = locate_by_wifi_and_gnss_then_cell();
   k_mutex_unlock(&location_radios_mutex);
 
   /* Stopped mid-attempt: the failure is our own cancel, not worth reporting. */
@@ -209,7 +231,8 @@ static void run_lost_mode_location_attempt(struct k_work *work) {
    * next one out rather than stacking attempts. */
   k_work_reschedule_for_queue(
       &lost_mode_work_queue, &lost_mode_location_attempt_work,
-      K_SECONDS(CONFIG_LOST_MODE_LOCATION_REFRESH_PERIOD_SECONDS));
+      K_SECONDS(
+          device_settings_get(DEVICE_SETTING_LOST_MODE_REPORT_INTERVAL_S)));
 }
 
 static void start_lost_mode_work_queue_once(void) {

@@ -77,6 +77,9 @@ void ble_light(uint8_t mask);
 
 bool ble_is_connected(void);
 
+/* Moves scanning and advertising to the current device settings. */
+void ble_apply_device_settings(void);
+
 /* Restore the Config characteristic value so iOS read-back survives a reboot. */
 void app_ble_restore_persisted_config(const uint8_t *data, uint16_t len);
 

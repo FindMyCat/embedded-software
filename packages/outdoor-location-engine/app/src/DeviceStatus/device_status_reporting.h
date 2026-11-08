@@ -3,10 +3,13 @@
 
 #include <modem/lte_lc.h>
 
+#include "../DeviceSettings/device_settings.h"
+
 enum device_status_kind {
   DEVICE_STATUS_COMMAND,
   DEVICE_STATUS_NETWORK,
   DEVICE_STATUS_FIRMWARE,
+  DEVICE_STATUS_SETTINGS,
 };
 
 /* One report for the device status topic. The JSON on the wire stays flat,
@@ -22,6 +25,8 @@ struct device_status {
     struct lte_lc_edrx_cfg network;
     /* Version of the running image, e.g. "3.0.1". */
     char firmware[16];
+    /* Current values, indexed by enum device_setting. */
+    int32_t settings[DEVICE_SETTING_COUNT];
   };
 };
 

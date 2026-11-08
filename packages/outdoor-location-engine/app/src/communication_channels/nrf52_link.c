@@ -192,22 +192,28 @@ int nrf52_take_light_request(uint8_t *mask)
     return i2c_reg_write_byte(i2c, NRF52_I2C_ADDR, NRF52_REG_LIGHT, 0);
 }
 
-int nrf52_write_batt(const struct fmc_batt_frame *frame)
+/* One transfer, so the 52 sees the block whole. */
+static int write_register(uint8_t reg, const void *data, size_t len)
 {
     if (!device_is_ready(i2c)) {
         LOG_ERR("Error: I2C bus not ready");
         return -ENODEV;
     }
 
-    uint8_t buf[1 + sizeof(*frame)];
-    buf[0] = NRF52_REG_BATT;
-    memcpy(&buf[1], frame, sizeof(*frame));
+    uint8_t buf[1 + FMC_SETTINGS_BYTES];
+
+    if (len > sizeof(buf) - 1) {
+        return -EINVAL;
+    }
+
+    buf[0] = reg;
+    memcpy(&buf[1], data, len);
 
     bool raised = nrf52_session_begin();
 
     int ret = -EIO;
     for (int attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
-        ret = i2c_write(i2c, buf, sizeof(buf), NRF52_I2C_ADDR);
+        ret = i2c_write(i2c, buf, 1 + len, NRF52_I2C_ADDR);
         if (ret == 0) {
             break;
         }
@@ -217,7 +223,19 @@ int nrf52_write_batt(const struct fmc_batt_frame *frame)
     nrf52_session_end(raised);
 
     if (ret < 0) {
-        LOG_ERR("Error: batt frame write to 0x%02x failed (%d)", NRF52_I2C_ADDR, ret);
+        LOG_ERR("Error: write to 0x%02x reg 0x%02x failed (%d)", NRF52_I2C_ADDR,
+                reg, ret);
     }
     return ret;
+}
+
+int nrf52_write_batt(const struct fmc_batt_frame *frame)
+{
+    return write_register(NRF52_REG_BATT, frame, sizeof(*frame));
+}
+
+int nrf52_write_settings(const uint8_t settings[FMC_SETTINGS_BYTES])
+{
+    return write_register(NRF52_REG_CONFIG_SETTINGS, settings,
+                          FMC_SETTINGS_BYTES);
 }

@@ -6,6 +6,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+#include "../DeviceSettings/device_settings.h"
 #include "../DeviceStatus/device_status_reporting.h"
 
 LOG_MODULE_REGISTER(lte, CONFIG_FINDMYCAT_LTE_LOG_LEVEL);
@@ -65,6 +66,34 @@ static void lte_event_handler(const struct lte_lc_evt *const evt) {
   }
 }
 
+/* 4-bit code as the "0101" string lte_lc takes. */
+static void format_four_bit_code(int32_t code, char out[5]) {
+  for (int bit = 0; bit < 4; bit++) {
+    out[bit] = (code >> (3 - bit)) & 1 ? '1' : '0';
+  }
+  out[4] = '\0';
+}
+
+void lte_request_edrx_from_settings(void) {
+  char cycle_code[5];
+  char paging_window_code[5];
+
+  format_four_bit_code(device_settings_get(DEVICE_SETTING_EDRX_CYCLE_CODE),
+                       cycle_code);
+  format_four_bit_code(
+      device_settings_get(DEVICE_SETTING_EDRX_PAGING_WINDOW_CODE),
+      paging_window_code);
+
+  (void)lte_lc_edrx_param_set(LTE_LC_LTE_MODE_LTEM, cycle_code);
+  (void)lte_lc_ptw_set(LTE_LC_LTE_MODE_LTEM, paging_window_code);
+
+  /* The network answers with what it grants, reported as NET status. */
+  int err = lte_lc_edrx_req(true);
+
+  LOG_INF("eDRX requested: cycle %s, paging window %s (%d)", cycle_code,
+          paging_window_code, err);
+}
+
 int lte_start(void) {
   /* A registration from an earlier attach would satisfy the next wait. */
   k_sem_reset(&lte_connected);
@@ -73,12 +102,9 @@ int lte_start(void) {
 
   /* Request eDRX before attaching; some networks reject timer changes after. */
   lte_lc_psm_req(false);
+  lte_request_edrx_from_settings();
 
-  int err = lte_lc_edrx_req(true);
-
-  if (err) {
-    LOG_INF("lte_lc_edrx_req, error: %d", err);
-  }
+  int err;
 
   if (sizeof(CONFIG_FINDMYCAT_LTE_OPERATOR) > 1) {
     err = nrf_modem_at_printf("AT+COPS=1,2,\"%s\"", CONFIG_FINDMYCAT_LTE_OPERATOR);

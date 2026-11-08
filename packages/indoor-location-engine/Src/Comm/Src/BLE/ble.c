@@ -129,6 +129,7 @@
 #include "app_ble.h"
 #include "boards.h"
 #include "nrf91_power_mode_manager.h"
+#include "device_settings.h"
 #include "app_timer.h"
 
 #include "nrf_drv_saadc.h"
@@ -340,6 +341,9 @@ static void application_timers_start(void)
 
 
 
+/* Before this, settings only change the parameters adv_scan_start uses. */
+static volatile bool m_radio_started;
+
 /**@brief Function for initializing the scanning.
  */
 static void scan_start(void)
@@ -374,6 +378,8 @@ static void adv_scan_start(void * p_context)
         // Start advertising.
         err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_SLOW);
         APP_ERROR_CHECK(err_code);
+
+        m_radio_started = true;
     }
 }
 
@@ -440,8 +446,11 @@ static void qnis_data_handler(ble_qnis_evt_t * p_evt)
 
         if (len >= 3 && len >= 3 + d[2])
         {
+            /* Start from the current config so the 91's settings survive. */
             struct fmc_config cfg;
-            memset(&cfg, 0, sizeof(cfg));
+            i2c_nrf9151_read(I2C_NRF9151_REG_CONFIG, (uint8_t *)&cfg, sizeof(cfg));
+            memset(cfg.host, 0, sizeof(cfg.host));
+            memset(cfg.device_id, 0, sizeof(cfg.device_id));
             cfg.port = (uint16_t)(d[0] | (d[1] << 8));
 
             uint16_t host_len = d[2];
@@ -1063,6 +1072,79 @@ static void scan_init(void)
                                            NRF_BLE_SCAN_ALL_FILTER, 
                                            false);
     APP_ERROR_CHECK(err_code);
+}
+
+/* Values the SoftDevice rejects are skipped: APP_ERROR_CHECK on the next
+ * start would reset-loop the collar. */
+static void apply_scan_timing(void)
+{
+    uint32_t interval_ms = device_settings_get(DEVICE_SETTING_BLE_SCAN_INTERVAL_MS);
+    uint32_t window_ms = device_settings_get(DEVICE_SETTING_BLE_SCAN_WINDOW_MS);
+    uint32_t interval = MSEC_TO_UNITS(interval_ms, UNIT_0_625_MS);
+    uint32_t window = MSEC_TO_UNITS(window_ms, UNIT_0_625_MS);
+
+    if (interval < BLE_GAP_SCAN_INTERVAL_MIN || interval > BLE_GAP_SCAN_INTERVAL_MAX ||
+        window < BLE_GAP_SCAN_WINDOW_MIN || window > interval)
+    {
+        NRF_LOG_WARNING("Scan window %u ms every %u ms not applied", window_ms, interval_ms);
+        return;
+    }
+
+    if (interval == m_scan_param.interval && window == m_scan_param.window)
+    {
+        return;
+    }
+
+    m_scan_param.interval = (uint16_t)interval;
+    m_scan_param.window = (uint16_t)window;
+    (void)nrf_ble_scan_params_set(&m_scan, &m_scan_param);
+
+    /* While connected, the disconnect handler restarts it. */
+    if (m_radio_started && !ble_is_connected())
+    {
+        scan_start();
+    }
+
+    NRF_LOG_INFO("Scan window %u ms every %u ms", window_ms, interval_ms);
+}
+
+static void apply_advert_interval(void)
+{
+    uint32_t interval_ms = device_settings_get(DEVICE_SETTING_BLE_ADVERT_INTERVAL_MS);
+    uint32_t interval = MSEC_TO_UNITS(interval_ms, UNIT_0_625_MS);
+
+    if (interval < BLE_GAP_ADV_INTERVAL_MIN || interval > BLE_GAP_ADV_INTERVAL_MAX)
+    {
+        NRF_LOG_WARNING("Advert interval %u ms not applied", interval_ms);
+        return;
+    }
+
+    if (interval == m_advertising.adv_modes_config.ble_adv_slow_interval)
+    {
+        return;
+    }
+
+    m_advertising.adv_modes_config.ble_adv_slow_interval = interval;
+
+    /* While connected, advertising resumes on disconnect with the new one. */
+    if (m_radio_started && !ble_is_connected())
+    {
+        (void)sd_ble_gap_adv_stop(m_advertising.adv_handle);
+
+        ret_code_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_SLOW);
+        if (err_code != NRF_SUCCESS)
+        {
+            NRF_LOG_ERROR("Error: advertising restart 0x%x", err_code);
+        }
+    }
+
+    NRF_LOG_INFO("Advertising every %u ms", interval_ms);
+}
+
+void ble_apply_device_settings(void)
+{
+    apply_scan_timing();
+    apply_advert_interval();
 }
 
 void ble_play_sound() {

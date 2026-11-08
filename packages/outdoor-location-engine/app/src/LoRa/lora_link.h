@@ -15,6 +15,9 @@ bool lora_link_homestation_in_range(void);
 
 void lora_link_set_enabled(bool enabled);
 
+/* Restarts sniffing if running, so changed CAD settings take effect. */
+void lora_link_restart_sniffing(void);
+
 /* Logs the module's sniffs:detects:packets counters. */
 void lora_link_log_stats(void);
 

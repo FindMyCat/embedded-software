@@ -5,6 +5,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/random/random.h>
 
+#include "../DeviceSettings/device_settings.h"
 #include "../communication_channels/transport.h"
 #if defined(CONFIG_FINDMYCAT_GNSS_ASSISTANCE_SUPL)
 #include "supl_assistance.h"
@@ -267,6 +268,8 @@ static void request_gnss_location_and_wait(enum location_accuracy accuracy) {
 
   location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
   config.methods[0].gnss.accuracy = accuracy;
+  config.methods[0].gnss.timeout =
+      device_settings_get(DEVICE_SETTING_GNSS_TIMEOUT_S) * MSEC_PER_SEC;
 
   k_sem_reset(&location_event);
 
@@ -291,9 +294,9 @@ void location_cancel_and_wake_waiter(void) {
   k_sem_give(&location_event);
 }
 
-void location_gnss_low_accuracy_get(void) {
-  LOG_INF("Requesting low accuracy GNSS location...");
-  request_gnss_location_and_wait(LOCATION_ACCURACY_LOW);
+void location_gnss_get(enum location_accuracy accuracy) {
+  LOG_INF("Requesting GNSS location, accuracy %d...", accuracy);
+  request_gnss_location_and_wait(accuracy);
 }
 
 void location_gnss_normal_accuracy_get(void) {
@@ -326,6 +329,8 @@ void location_gnss_periodic_get(int period) {
 
   location_config_defaults_set(&config, ARRAY_SIZE(methods), methods);
   config.interval = period;
+  config.methods[0].gnss.timeout =
+      device_settings_get(DEVICE_SETTING_GNSS_TIMEOUT_S) * MSEC_PER_SEC;
 
   LOG_INF("Requesting %d s periodic GNSS location with cellular fallback...",
           period);

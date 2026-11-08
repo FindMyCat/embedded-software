@@ -3,8 +3,11 @@
 #include <string.h>
 
 #include "fds.h"
+#include "nordic_common.h"
 #include "nrf_log.h"
 
+#include "app_ble.h"
+#include "device_settings.h"
 #include "i2c_nrf9151.h"
 
 /* in ble.c */
@@ -70,11 +73,18 @@ static void persistent_config_load(void) {
     if (fds_record_open(&desc, &flash_rec) != NRF_SUCCESS) {
         return;
     }
+    /* Records saved before settings existed are shorter; the rest stays zero,
+     * which the 91 reads as "no settings". */
     struct fmc_config cfg;
-    memcpy(&cfg, flash_rec.p_data, sizeof(cfg));
+    memset(&cfg, 0, sizeof(cfg));
+    size_t stored_bytes = flash_rec.p_header->length_words * sizeof(uint32_t);
+    memcpy(&cfg, flash_rec.p_data, MIN(stored_bytes, sizeof(cfg)));
     fds_record_close(&desc);
 
     i2c_nrf9151_publish_config(&cfg);
+
+    device_settings_load_from_config(cfg.settings, sizeof(cfg.settings));
+    ble_apply_device_settings();
 
     /* BLE read-back value: [port_lo][port_hi][host_len][host][device_id] */
     uint8_t wire[3 + sizeof(cfg.host) + sizeof(cfg.device_id)];

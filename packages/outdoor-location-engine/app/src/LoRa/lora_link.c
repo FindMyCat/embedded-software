@@ -8,6 +8,7 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/util.h>
 
+#include "../DeviceSettings/device_settings.h"
 #include "../Dispatcher/Dispatcher.h"
 #include "../Presence/presence.h"
 #include "../WiFi/wifi_scan.h"
@@ -64,10 +65,15 @@ static atomic_t link_enabled = ATOMIC_INIT(1);
  * rewinds the module's absence timer. Neither is the station; see receive_loop. */
 static atomic_t transmitting;
 static atomic_t absence_hold_until_ms;
+static atomic_t cad_start_grace_until_ms;
 
-/* The module runs the burst schedule off its own timer; the nRF stays asleep. */
-#define CAD_BURST_MS CONFIG_LORA_LINK_BURST_MS
-#define CAD_BURST_PERIOD_MS (CONFIG_LORA_LINK_BURST_PERIOD_S * MSEC_PER_SEC)
+static uint32_t absence_timeout_ms(void) {
+  return (uint32_t)device_settings_get(DEVICE_SETTING_LORA_ABSENCE_TIMEOUT_S) *
+         MSEC_PER_SEC;
+}
+
+/* Set when a CAD setting changes; the receive thread restarts sniffing. */
+static atomic_t restart_requested;
 
 static bool absence_line_asserted(void) {
   if (gpio_pin_get_dt(&lora_wake_line) <= 0) {
@@ -102,8 +108,14 @@ static int start_cad_sniffing(void) {
       rak3172_cad_rx_set_pin(CONFIG_LORA_LINK_CAD_PIN) != 0 ||
       rak3172_cad_rx_set_filter(PING_FILTER_HEX) != 0 ||
       rak3172_cad_rx_set_presence(PRESENCE_FILTER_HEX) != 0 ||
-      rak3172_cad_rx_set_absence(CONFIG_LORA_LINK_ABSENCE_S) != 0 ||
-      rak3172_cad_rx_set_duty(CAD_BURST_MS, CAD_BURST_PERIOD_MS) != 0 ||
+      rak3172_cad_rx_set_absence(device_settings_get(
+          DEVICE_SETTING_LORA_ABSENCE_TIMEOUT_S)) != 0 ||
+      /* The module runs the burst schedule off its own timer; the nRF stays
+       * asleep. */
+      rak3172_cad_rx_set_duty(
+          device_settings_get(DEVICE_SETTING_LORA_BURST_MS),
+          device_settings_get(DEVICE_SETTING_LORA_BURST_PERIOD_S) *
+              MSEC_PER_SEC) != 0 ||
       rak3172_cad_rx_start() != 0) {
     err = -EIO;
   }
@@ -111,7 +123,8 @@ static int start_cad_sniffing(void) {
   /* Best effort: older module firmware lacks AT+HBEAT, and CAD works without
    * it. The module sends it on its own, so the nRF stays asleep. */
   if (err == 0) {
-    (void)rak3172_set_heartbeat(CONFIG_LORA_LINK_HEARTBEAT_S, HEARTBEAT_HEX);
+    (void)rak3172_set_heartbeat(
+        device_settings_get(DEVICE_SETTING_LORA_HEARTBEAT_S), HEARTBEAT_HEX);
   }
 
   rak3172_low_power(true);
@@ -195,6 +208,20 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
   while (true) {
     bool woken = k_sem_take(&wake_line_signal, K_MSEC(WAKE_POLL_MS)) == 0;
 
+    /* Stopping here lets the start below pick up the new settings. */
+    bool restarted_while_absent = false;
+
+    if (atomic_cas(&restart_requested, 1, 0) && sniffing) {
+      LOG_INF("LoRa settings changed, restarting CAD sniffing");
+
+      rak3172_uart_claim();
+      rak3172_cad_rx_stop();
+      sniffing = false;
+      rak3172_uart_release();
+
+      restarted_while_absent = homestation_absent;
+    }
+
     if (atomic_get(&link_enabled) == 0) {
       if (sniffing) {
         LOG_INF("LORA Link disabled, stopping CAD sniffing");
@@ -222,7 +249,21 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
         continue;
       }
 
-      homestation_absent = true;
+      /* Already absent: the module's starting flag is true, and a grace
+       * window would drop LTE for a whole absence timeout. */
+      if (restarted_while_absent) {
+        k_sem_reset(&wake_line_signal);
+        continue;
+      }
+
+      /* The module starts out flagging absence before it has heard anything.
+       * Trust it only after a full absence timeout, as presence_set_ble()
+       * assumes, and drop the edge that start raised. */
+      atomic_set(&cad_start_grace_until_ms,
+                 (atomic_val_t)(k_uptime_get_32() +
+                                absence_timeout_ms()));
+      k_sem_reset(&wake_line_signal);
+      homestation_absent = false;
       continue;
     }
 
@@ -237,6 +278,14 @@ static void receive_loop(void *unused1, void *unused2, void *unused3) {
     }
 
     bool lora_module_homestation_absence_flag = absence_line_asserted();
+
+    bool in_cad_start_grace =
+        (int32_t)(k_uptime_get_32() -
+                  (uint32_t)atomic_get(&cad_start_grace_until_ms)) < 0;
+
+    if (lora_module_homestation_absence_flag && in_cad_start_grace) {
+      lora_module_homestation_absence_flag = false;
+    }
 
     /* Right after our transmit a quiet line is the rewound timer, not the
      * station: only a real wake brings it back inside that window. */
@@ -344,6 +393,11 @@ void lora_link_set_enabled(bool enabled) {
   k_sem_give(&wake_line_signal);
 }
 
+void lora_link_restart_sniffing(void) {
+  atomic_set(&restart_requested, 1);
+  k_sem_give(&wake_line_signal);
+}
+
 /* CAD sniffing owns the radio: stop it to transmit, restart it after or the
  * collar goes deaf. Only restart if it was running; the link may be disabled. */
 static int send_payload_around_cad(const uint8_t *payload, size_t len) {
@@ -370,8 +424,7 @@ static int send_payload_around_cad(const uint8_t *payload, size_t len) {
   /* Drop the edge the stop caused, and distrust a quiet line for one absence
    * window: the module only re-flags absence after that much fresh silence. */
   atomic_set(&absence_hold_until_ms,
-             (atomic_val_t)(k_uptime_get_32() +
-                            CONFIG_LORA_LINK_ABSENCE_S * MSEC_PER_SEC));
+             (atomic_val_t)(k_uptime_get_32() + absence_timeout_ms()));
   k_sem_reset(&wake_line_signal);
   atomic_set(&transmitting, 0);
 

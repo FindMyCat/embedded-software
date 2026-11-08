@@ -17,6 +17,7 @@
 #include <zephyr/sys/atomic.h>
 
 // Application specific imports
+#include "DeviceSettings/device_settings.h"
 #include "Diagnostics/diagnostics.h"
 #include "Dispatcher/Dispatcher.h"
 #include "FOTA/fota.h"
@@ -145,8 +146,13 @@ static void nrf52_config_work_handler(struct k_work *work) {
 
   config_retries = 0;
 
+  device_settings_load_from_config(fmc_config_nrf52.settings,
+                                   sizeof(fmc_config_nrf52.settings));
+  /* Links may already run on defaults; move them to the stored values. */
+  presence_reevaluate();
   initialize_mqttsn_config(fmc_config_nrf52.device_id, fmc_config_nrf52.host);
 #if defined(CONFIG_LORA_LINK)
+  lora_link_restart_sniffing();
   lora_link_set_device_id(fmc_config_nrf52.device_id);
 #endif
 }
@@ -170,6 +176,9 @@ int main(void) {
 
   int err;
   int retry_count = 0;
+
+  /* Stored values arrive later with the nRF52's config. */
+  device_settings_init_defaults();
 
   err = nrf_modem_lib_init();
   if (err) {

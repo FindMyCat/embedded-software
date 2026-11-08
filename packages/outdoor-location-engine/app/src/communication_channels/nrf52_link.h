@@ -2,6 +2,7 @@
 #define NRF52_LINK_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <zephyr/devicetree.h>
 
@@ -14,11 +15,19 @@
 #define NRF52_REG_LIGHT          0x22 /* app light request, 52 -> 91, 91 clears */
 #define NRF52_REG_CONFIG         0x40 /* fmc_config blob, 52 -> 91 */
 
+/* Device settings; the 52 stores them and applies its BLE ones. */
+#define FMC_SETTINGS_BYTES 64
+
 struct __attribute__((packed)) fmc_config {
     char     host[64];
     uint16_t port;
     char     device_id[37];
+    uint8_t  settings[FMC_SETTINGS_BYTES];
 };
+
+/* Writing the whole settings block here makes the 52 persist the config. */
+#define NRF52_REG_CONFIG_SETTINGS \
+    (NRF52_REG_CONFIG + offsetof(struct fmc_config, settings))
 
 /* Wire layout at NRF52_REG_BATT; must match struct batt_frame on the 52. */
 struct __attribute__((packed)) fmc_batt_frame {
@@ -85,5 +94,13 @@ int nrf52_take_light_request(uint8_t *mask);
  * @return 0 on success, negative errno otherwise.
  */
 int nrf52_write_batt(const struct fmc_batt_frame *frame);
+
+/**
+ * Store the settings block in the 52's config, which it saves to flash.
+ * Blocks for a few ms.
+ *
+ * @return 0 on success, negative errno otherwise.
+ */
+int nrf52_write_settings(const uint8_t settings[FMC_SETTINGS_BYTES]);
 
 #endif /* NRF52_LINK_H */

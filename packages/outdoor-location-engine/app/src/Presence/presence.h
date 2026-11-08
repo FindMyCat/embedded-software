@@ -14,6 +14,9 @@ enum presence_link {
 void presence_set_ble(bool in_range);
 void presence_set_lora(bool in_range);
 
+/* Picks the link again after a setting it depends on changed. */
+void presence_reevaluate(void);
+
 enum presence_link presence_link_get(void);
 const char *presence_link_name(enum presence_link link);
 
