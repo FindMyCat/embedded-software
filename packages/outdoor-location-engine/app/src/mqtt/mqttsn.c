@@ -1,6 +1,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <zephyr/kernel.h>
 
@@ -119,6 +120,13 @@ int mqttsn_initialize()
     }
 
     char *ip_str = getIpAddressFromHostname(fmc_mqtt_config.hostname);
+
+    /* NULL when DNS fails; inet_pton would read address 0, a SecureFault. */
+    if (!ip_str) {
+	LOG_ERR("Error: could not resolve %s", fmc_mqtt_config.hostname);
+	return -EHOSTUNREACH;
+    }
+
     gateway.sin_family = AF_INET;
     gateway.sin_port = htons(fmc_mqtt_config.port);
     err = zsock_inet_pton(AF_INET, ip_str, &gateway.sin_addr);
@@ -128,8 +136,17 @@ int mqttsn_initialize()
     LOG_INF("Connecting to MQTT-SN gateway %s:%d as client %s, topic %s", ip_str,
 	    CONFIG_MQTT_SN_GATEWAY_PORT, fmc_mqtt_config.client_id.data,
 	    CONFIG_MQTT_SN_LOCATION_TOPIC);
+    free(ip_str);
 
-    err = mqtt_sn_transport_udp_init(&transport, (struct sockaddr *)&gateway, sizeof((gateway)));
+    /* The transport binds its socket to this address's port. Port 0 gives
+     * each session a fresh local port: on a fixed one, EMQX hands our CONNECT
+     * to a session that died without DISCONNECT, which ignores it. Packets
+     * still go to the gateway added below. */
+    struct sockaddr_in local_bind = gateway;
+
+    local_bind.sin_port = 0;
+
+    err = mqtt_sn_transport_udp_init(&transport, (struct sockaddr *)&local_bind, sizeof(local_bind));
     if (err) {
 	LOG_ERR("Error: mqtt_sn_transport_udp_init() failed: %d", err);
 	return err;
