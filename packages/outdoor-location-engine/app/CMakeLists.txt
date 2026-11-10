@@ -39,6 +39,9 @@ target_sources(app PRIVATE src/utils/network.h)
 target_sources(app PRIVATE src/LTE/lte.c)
 target_sources(app PRIVATE src/LTE/lte.h)
 
+target_sources(app PRIVATE src/SelfRecovery/self_recovery.c)
+target_sources(app PRIVATE src/SelfRecovery/self_recovery.h)
+
 target_sources(app PRIVATE src/FOTA/fota.c)
 target_sources(app PRIVATE src/FOTA/fota.h)
 

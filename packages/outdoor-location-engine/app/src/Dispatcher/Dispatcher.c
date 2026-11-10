@@ -1,10 +1,12 @@
 #include "Dispatcher.h"
 #include "../DeviceSettings/device_settings.h"
+#include "../DeviceStatus/device_status_reporting.h"
 #include "../FOTA/fota.h"
 #include "../LTE/lte.h"
 #include "../LoRa/lora_link.h"
 #include "../Presence/presence.h"
 #include "../Responder/Responder.h"
+#include "../SelfRecovery/self_recovery.h"
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
@@ -132,6 +134,17 @@ static int run_update_settings_command(const char *command, size_t len) {
   return 0;
 }
 
+/* Long enough for the status thread to publish the ack first. */
+#define REBOOT_DELAY K_SECONDS(5)
+
+static void reboot_work_handler(struct k_work *work) {
+  ARG_UNUSED(work);
+  /* Cold, so the peripherals reset too, a stuck I2C controller included. */
+  self_recovery_reboot("command");
+}
+
+static K_WORK_DELAYABLE_DEFINE(reboot_work, reboot_work_handler);
+
 int dispatchCommand(const char *command, size_t len) {
   if (is_update_settings_command(command, len)) {
     return run_update_settings_command(command, len);
@@ -154,6 +167,10 @@ int dispatchCommand(const char *command, size_t len) {
     fota_start_update();
   } else if (is_command(command, len, "idle")) {
     changeDispatcherState(DISPATCHER_STATE_IDLE);
+  } else if (is_command(command, len, "reboot")) {
+    LOG_INF("Reboot requested");
+    device_status_report_command("reboot", "ok", "rebooting");
+    k_work_schedule(&reboot_work, REBOOT_DELAY);
   } else {
     LOG_ERR("Error: Unknown command: %s", command);
     return -EINVAL;

@@ -27,6 +27,7 @@
 #include "LoRa/rak3172.h"
 #include "LocationEngine/LocationEngine.h"
 #include "Presence/presence.h"
+#include "SelfRecovery/self_recovery.h"
 #include "UDPListener/UDPListener.h"
 #include "WiFi/wifi_location.h"
 #include "WiFi/wifi_scan.h"
@@ -176,6 +177,8 @@ int main(void) {
 
   int err;
   int retry_count = 0;
+
+  (void)self_recovery_start();
 
   /* Stored values arrive later with the nRF52's config. */
   device_settings_init_defaults();

@@ -68,10 +68,21 @@ recover:
 FW_IMAGE := build/app/zephyr/zephyr.signed.bin
 FW_DIR   ?= /opt/cloud/firmware
 
+# The matching ELF turns a crash PC from the status report into a source line.
+# Kept outside FW_DIR so it is never served. Named by the version the collar
+# reports, read from the build itself.
+FW_ELF         := build/app/zephyr/zephyr.elf
+FW_VERSION_H   := build/app/zephyr/include/generated/zephyr/app_version.h
+FW_SYMBOLS_DIR ?= /opt/cloud/firmware-symbols
+
 fw-upload:
 	@test -n "$(FW_SERVER)" || { echo "set FW_SERVER in .env (see .env.example)"; exit 1; }
 	@test -f $(FW_IMAGE) || { echo "no $(FW_IMAGE), build first"; exit 1; }
-	ssh $(FW_SERVER) "mkdir -p $(FW_DIR)"
+	@test -f $(FW_ELF) || { echo "no $(FW_ELF), build first"; exit 1; }
+	ssh $(FW_SERVER) "mkdir -p $(FW_DIR) $(FW_SYMBOLS_DIR)"
+	version=$$(sed -n 's/^#define APP_VERSION_STRING *"\(.*\)"/\1/p' $(FW_VERSION_H)); \
+		test -n "$$version" || { echo "no version in $(FW_VERSION_H)"; exit 1; }; \
+		scp $(FW_ELF) $(FW_SERVER):$(FW_SYMBOLS_DIR)/zephyr-$$version.elf
 	scp $(FW_IMAGE) $(FW_SERVER):$(FW_DIR)/app_update.bin.tmp
 	ssh $(FW_SERVER) "mv $(FW_DIR)/app_update.bin.tmp $(FW_DIR)/app_update.bin && ls -l $(FW_DIR)/app_update.bin"
 
@@ -85,4 +96,3 @@ modem-fw-flash:
 	nrfutil device program --firmware $(MODEM_FW) --traits jlink
 clean:
 	rm -rf build
-

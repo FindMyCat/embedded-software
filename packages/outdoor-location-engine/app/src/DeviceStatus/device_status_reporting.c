@@ -5,6 +5,7 @@
 #include <zephyr/logging/log.h>
 
 #include "../LocationEngine/LocationEngine.h"
+#include "../SelfRecovery/self_recovery.h"
 #include "../mqtt/mqttsn.h"
 
 LOG_MODULE_REGISTER(device_status,
@@ -67,8 +68,9 @@ static void encode_network(const struct device_status *status, char *payload,
 
 static void encode_firmware(const struct device_status *status, char *payload,
                             size_t size) {
-  snprintk(payload, size, "{\"kind\":\"firmware\",\"version\":\"%s\"}",
-           status->firmware);
+  snprintk(payload, size,
+           "{\"kind\":\"firmware\",\"version\":\"%s\",\"reset\":\"%s\"}",
+           status->firmware, self_recovery_last_reset_cause());
 }
 
 /* Positional, in enum device_setting order, to fit the payload; the server

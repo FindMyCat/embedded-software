@@ -1,16 +1,15 @@
 #include "fota.h"
 
 #include <app_version.h>
-#include <modem/lte_lc.h>
 #include <modem/modem_key_mgmt.h>
 #include <net/fota_download.h>
 #include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/sys/reboot.h>
 
 #include "../DeviceStatus/device_status_reporting.h"
 #include "../Presence/presence.h"
+#include "../SelfRecovery/self_recovery.h"
 
 LOG_MODULE_REGISTER(fota, CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
@@ -40,9 +39,7 @@ int fota_provision_ca(void) {
 /* fota_download has already marked the new image for a trial boot. */
 static void reboot_work_handler(struct k_work *work) {
   ARG_UNUSED(work);
-
-  lte_lc_power_off();
-  sys_reboot(SYS_REBOOT_WARM);
+  self_recovery_reboot("update");
 }
 
 static K_WORK_DELAYABLE_DEFINE(reboot_work, reboot_work_handler);
