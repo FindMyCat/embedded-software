@@ -11,6 +11,9 @@
 LOG_MODULE_REGISTER(wifi_scan,
                     CONFIG_FINDMYCAT_OUTDOOR_LOCATION_ENGINE_LOG_LEVEL);
 
+/* A 2.4 GHz active sweep takes a few seconds. */
+#define WIFI_SCAN_TIMEOUT K_SECONDS(30)
+
 static K_SEM_DEFINE(scan_done, 0, 1);
 static struct net_mgmt_event_callback wifi_cb;
 
@@ -179,6 +182,8 @@ int wifi_scan_start(void) {
   LOG_INF("Starting WiFi scan...");
 
   access_points_seen_count = 0;
+  /* Drops a late done from a timed out scan. */
+  k_sem_reset(&scan_done);
 
   err = net_mgmt(NET_REQUEST_WIFI_SCAN, iface, &params, sizeof(params));
   if (err) {
@@ -186,7 +191,11 @@ int wifi_scan_start(void) {
     return err;
   }
 
-  k_sem_take(&scan_done, K_FOREVER);
+  /* A stalled nRF7002 must not hold the location radios forever. */
+  if (k_sem_take(&scan_done, WIFI_SCAN_TIMEOUT) != 0) {
+    LOG_ERR("Error: WiFi scan never finished");
+    return -ETIMEDOUT;
+  }
   return 0;
 }
 
