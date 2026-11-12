@@ -5,15 +5,12 @@ project(homestation_esp32)
 
 zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(src/common)
 add_subdirectory(src/modules/ble)
 add_subdirectory(src/modules/diagnostics)
-# Not built: TRIGGER_CHAN is declared ZBUS_OBSERVERS_EMPTY, so this thread
-# publishes to nothing. Restore it along with whatever subscribes.
-# add_subdirectory(src/modules/trigger)
 add_subdirectory(src/modules/led)
 add_subdirectory(src/modules/lora)
 add_subdirectory(src/modules/mqtt)
+add_subdirectory(src/modules/provisioning)
 add_subdirectory(src/modules/wifi)
 add_subdirectory(src/modules/error)
 

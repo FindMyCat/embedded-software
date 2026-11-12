@@ -8,6 +8,7 @@
 #include "ble_scanner.h"
 #endif
 #include "lora.h"
+#include "provisioning.h"
 
 LOG_MODULE_REGISTER(status_led, LOG_LEVEL_INF);
 
@@ -143,6 +144,13 @@ static void poll(struct k_work *work) {
     return;
   }
   atomic_set(&dance_steps, 0);
+
+  if (provisioning_window_is_open()) {
+    show_steady((struct led_rgb){.r = BRIGHTNESS, .g = BRIGHTNESS / 3});
+    shown = -1;
+    k_work_reschedule(k_work_delayable_from_work(work), K_MSEC(STEADY_STEP_MS));
+    return;
+  }
 
   /* Cycling red, green, blue until the collar acks. The ack counts as hearing
    * it over LoRa, so success lands on purple below. */

@@ -42,6 +42,14 @@ config MQTT_PUBLISHER_LOCATION_TOPIC
 	  (FMC_HOMESTATION_TOPIC in cloud/.env). Keep it apart from the collar's
 	  own location topic, where every position counts as a GNSS ping answer.
 
+config MQTT_PUBLISHER_WIFI_SCAN_TOPIC
+	string "Topic to forward the collar's WiFi scans to"
+	default "/wifi-scan"
+	help
+	  Must match the WiFi scan topic the EMQX rule forwards to FindMyCat-Web
+	  (FMC_WIFI_SCAN_TOPIC in cloud/.env). Scans heard over LoRa go here
+	  and the server turns them into positions.
+
 config MQTT_PUBLISHER_HOME_LATITUDE
 	string "Station latitude, in decimal degrees"
 	help

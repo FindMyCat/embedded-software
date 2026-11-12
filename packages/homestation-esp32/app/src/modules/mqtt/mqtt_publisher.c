@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -8,11 +9,11 @@
 
 #include "ble_scanner.h"
 #include "mqtt_publisher.h"
+#include "provisioning.h"
+#include "wifi_scan_frame.h"
 #include "wifi_station.h"
 #if defined(CONFIG_MQTT_PUBLISHER_TLS)
 #include <zephyr/net/tls_credentials.h>
-
-#include "ca_certificate.h"
 
 static const sec_tag_t sec_tag_list[] = {CONFIG_MQTT_PUBLISHER_SEC_TAG};
 #endif
@@ -52,7 +53,7 @@ static void mqtt_event_handler(struct mqtt_client *c,
 
 		connected = true;
 		LOG_INF("Connected to the broker as %s",
-			CONFIG_DEVICE_ID);
+			provisioning_get(PROVISIONING_DEVICE_ID));
 		break;
 	case MQTT_EVT_DISCONNECT:
 		connected = false;
@@ -71,14 +72,14 @@ static void client_init(void)
 	struct sockaddr_in *address = (struct sockaddr_in *)&broker;
 
 	address->sin_family = AF_INET;
-	address->sin_port = htons(CONFIG_MQTT_PUBLISHER_BROKER_PORT);
+	address->sin_port = htons((uint16_t)atoi(provisioning_get(PROVISIONING_BROKER_PORT)));
 
 	mqtt_client_init(&client);
 
 	client.broker = &broker;
 	client.evt_cb = mqtt_event_handler;
-	client.client_id.utf8 = (uint8_t *)CONFIG_DEVICE_ID;
-	client.client_id.size = strlen(CONFIG_DEVICE_ID);
+	client.client_id.utf8 = (uint8_t *)provisioning_get(PROVISIONING_DEVICE_ID);
+	client.client_id.size = strlen(provisioning_get(PROVISIONING_DEVICE_ID));
 	client.password = NULL;
 	client.user_name = NULL;
 	client.protocol_version = MQTT_VERSION_3_1_1;
@@ -92,7 +93,7 @@ static void client_init(void)
 	tls->cipher_list = NULL;
 	tls->sec_tag_list = sec_tag_list;
 	tls->sec_tag_count = ARRAY_SIZE(sec_tag_list);
-	tls->hostname = CONFIG_MQTT_PUBLISHER_BROKER_HOST;
+	tls->hostname = provisioning_get(PROVISIONING_BROKER_HOST);
 #else
 	client.transport.type = MQTT_TRANSPORT_NON_SECURE;
 #endif
@@ -108,7 +109,7 @@ static int resolve_broker(void)
 
 	/* A dotted quad needs no resolver, and this is the one form that works
 	 * whether or not DNS came up. */
-	if (zsock_inet_pton(AF_INET, CONFIG_MQTT_PUBLISHER_BROKER_HOST,
+	if (zsock_inet_pton(AF_INET, provisioning_get(PROVISIONING_BROKER_HOST),
 			    &address->sin_addr) == 1) {
 		return 0;
 	}
@@ -118,12 +119,12 @@ static int resolve_broker(void)
 		.ai_socktype = SOCK_STREAM,
 	};
 	struct zsock_addrinfo *result;
-	int err = zsock_getaddrinfo(CONFIG_MQTT_PUBLISHER_BROKER_HOST, NULL,
+	int err = zsock_getaddrinfo(provisioning_get(PROVISIONING_BROKER_HOST), NULL,
 				    &hints, &result);
 
 	if (err != 0) {
 		LOG_ERR("Error: could not resolve %s (%d)",
-			CONFIG_MQTT_PUBLISHER_BROKER_HOST, err);
+			provisioning_get(PROVISIONING_BROKER_HOST), err);
 		return -EIO;
 	}
 
@@ -135,7 +136,7 @@ static int resolve_broker(void)
 
 	zsock_inet_ntop(AF_INET, &address->sin_addr, resolved,
 			sizeof(resolved));
-	LOG_INF("Broker %s resolved to %s", CONFIG_MQTT_PUBLISHER_BROKER_HOST,
+	LOG_INF("Broker %s resolved to %s", provisioning_get(PROVISIONING_BROKER_HOST),
 		resolved);
 
 	return 0;
@@ -233,24 +234,24 @@ static int publish_location(const char *latitude, const char *longitude,
 	struct mqtt_publish_param param = {
 		.message.topic.qos = MQTT_QOS_1_AT_LEAST_ONCE,
 		.message.topic.topic.utf8 =
-			(uint8_t *)CONFIG_MQTT_PUBLISHER_LOCATION_TOPIC,
+			(uint8_t *)provisioning_get(PROVISIONING_HOMESTATION_TOPIC),
 		.message.topic.topic.size =
-			strlen(CONFIG_MQTT_PUBLISHER_LOCATION_TOPIC),
+			strlen(provisioning_get(PROVISIONING_HOMESTATION_TOPIC)),
 		.message.payload.data = payload,
 		.message.payload.len = (uint32_t)len,
 		.message_id = (uint16_t)k_uptime_get_32(),
 	};
 
 	LOG_INF("Publishing %s to %s", payload,
-		CONFIG_MQTT_PUBLISHER_LOCATION_TOPIC);
+		provisioning_get(PROVISIONING_HOMESTATION_TOPIC));
 
 	return mqtt_publish(&client, &param);
 }
 
 static int publish_position(void)
 {
-	return publish_location(CONFIG_MQTT_PUBLISHER_HOME_LATITUDE,
-				CONFIG_MQTT_PUBLISHER_HOME_LONGITUDE,
+	return publish_location(provisioning_get(PROVISIONING_HOME_LATITUDE),
+				provisioning_get(PROVISIONING_HOME_LONGITUDE),
 				CONFIG_MQTT_PUBLISHER_HOME_ACCURACY_M,
 				ble_scanner_tag_battery_percent());
 }
@@ -282,18 +283,87 @@ static int publish_reported_positions(void)
 	return 0;
 }
 
+#define WIFI_SCAN_MAX_FRAME_BYTES                                              \
+	(WIFI_SCAN_HEADER_BYTES +                                              \
+	 WIFI_SCAN_MAX_ACCESS_POINTS * WIFI_SCAN_BYTES_PER_ACCESS_POINT +      \
+	 WIFI_SCAN_TRAILER_BYTES)
+
+struct reported_wifi_scan {
+	uint8_t len;
+	uint8_t bytes[WIFI_SCAN_MAX_FRAME_BYTES];
+};
+
+K_MSGQ_DEFINE(reported_wifi_scans, sizeof(struct reported_wifi_scan), 2, 4);
+
+void mqtt_publisher_report_wifi_scan(const uint8_t *frame, size_t len)
+{
+	struct reported_wifi_scan scan = {.len = (uint8_t)len};
+
+	if (len == 0 || len > sizeof(scan.bytes)) {
+		LOG_ERR("Error: WiFi scan of %u bytes cannot be forwarded",
+			(unsigned)len);
+		return;
+	}
+
+	memcpy(scan.bytes, frame, len);
+
+	/* Same as positions: the newest scan is the useful one. */
+	while (k_msgq_put(&reported_wifi_scans, &scan, K_NO_WAIT) != 0) {
+		struct reported_wifi_scan stale;
+
+		(void)k_msgq_get(&reported_wifi_scans, &stale, K_NO_WAIT);
+	}
+}
+
+/* The server takes the frame as hex, as the collar publishes it over LTE.
+ * Returns non-zero on a publish failure, leaving the rest queued. */
+static int publish_reported_wifi_scans(void)
+{
+	struct reported_wifi_scan scan;
+
+	while (k_msgq_peek(&reported_wifi_scans, &scan) == 0) {
+		char hex[2 * WIFI_SCAN_MAX_FRAME_BYTES + 1];
+		size_t hex_len = bin2hex(scan.bytes, scan.len, hex, sizeof(hex));
+
+		struct mqtt_publish_param param = {
+			.message.topic.qos = MQTT_QOS_1_AT_LEAST_ONCE,
+			.message.topic.topic.utf8 =
+				(uint8_t *)provisioning_get(PROVISIONING_WIFI_SCAN_TOPIC),
+			.message.topic.topic.size =
+				strlen(provisioning_get(PROVISIONING_WIFI_SCAN_TOPIC)),
+			.message.payload.data = hex,
+			.message.payload.len = (uint32_t)hex_len,
+			.message_id = (uint16_t)k_uptime_get_32(),
+		};
+
+		LOG_INF("Publishing a %u byte WiFi scan to %s",
+			(unsigned)scan.len, provisioning_get(PROVISIONING_WIFI_SCAN_TOPIC));
+
+		int err = mqtt_publish(&client, &param);
+
+		if (err != 0) {
+			return err;
+		}
+
+		(void)k_msgq_get(&reported_wifi_scans, &scan, K_NO_WAIT);
+	}
+
+	return 0;
+}
+
 #if defined(CONFIG_MQTT_PUBLISHER_TLS)
 static int provision_ca_certificate(void)
 {
-	if (sizeof(ca_certificate) <= 1) {
-		LOG_ERR("Error: no CA certificate built in, so the broker "
-			"cannot be verified; fill in ca_certificate.h");
+	const char *certificate = provisioning_get(PROVISIONING_BROKER_CA_CERTIFICATE);
+
+	if (certificate[0] == '\0') {
+		LOG_ERR("Error: no broker CA certificate provisioned");
 		return -ENOENT;
 	}
 
 	int err = tls_credential_add(CONFIG_MQTT_PUBLISHER_SEC_TAG,
 				     TLS_CREDENTIAL_CA_CERTIFICATE,
-				     ca_certificate, sizeof(ca_certificate));
+				     certificate, strlen(certificate) + 1);
 
 	if (err == -EEXIST) {
 		return 0;
@@ -373,6 +443,14 @@ static void mqtt_task(void)
 
 		if (publish_reported_positions() != 0) {
 			LOG_ERR("Error: publishing a LoRa position failed, "
+				"dropping the connection to start over");
+			mqtt_abort(&client);
+			connected = false;
+			continue;
+		}
+
+		if (publish_reported_wifi_scans() != 0) {
+			LOG_ERR("Error: publishing a LoRa WiFi scan failed, "
 				"dropping the connection to start over");
 			mqtt_abort(&client);
 			connected = false;

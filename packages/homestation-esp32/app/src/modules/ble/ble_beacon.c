@@ -6,6 +6,7 @@
 #include <zephyr/sys/byteorder.h>
 
 #include "ble_beacon.h"
+#include "provisioning.h"
 
 LOG_MODULE_REGISTER(ble_beacon, CONFIG_BLE_BEACON_LOG_LEVEL);
 
@@ -27,6 +28,10 @@ static const struct bt_data advertisement[] = {
 
 BUILD_ASSERT(sizeof(CONFIG_BT_DEVICE_NAME) - 1 <= 29,
 	     "bluetooth name leaves no room for its own header in a 31 byte payload");
+
+static const struct bt_data scan_response[] = {
+	BT_DATA_BYTES(BT_DATA_UUID128_ALL, PROVISIONING_SERVICE_UUID_VALUE),
+};
 
 /* Zephyr's vendor command; the ESP32 HCI driver maps it to esp_ble_tx_power_set. */
 static void set_adv_tx_power(int8_t dbm)
@@ -60,8 +65,8 @@ static void set_adv_tx_power(int8_t dbm)
 
 static int start_advertising(void)
 {
-	int err = bt_le_adv_start(&adv_param, advertisement,
-				  ARRAY_SIZE(advertisement), NULL, 0);
+	int err = bt_le_adv_start(&adv_param, advertisement, ARRAY_SIZE(advertisement),
+				  scan_response, ARRAY_SIZE(scan_response));
 
 	if (err) {
 		LOG_ERR("Error: bt_le_adv_start failed (%d)", err);
@@ -71,10 +76,10 @@ static int start_advertising(void)
 }
 
 /* A connection stops advertising and the collar would lose the station, so
- * drop every one; nothing here serves a GATT database anyway. */
+ * only the phone provisioning it may stay connected. */
 static void connected(struct bt_conn *conn, uint8_t err)
 {
-	if (!err) {
+	if (!err && !provisioning_window_is_open()) {
 		(void)bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
 	}
 }

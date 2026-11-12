@@ -5,7 +5,6 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 #include "../led/diagnostics.h"
-#include "../wifi/diagnostics.h"
 
 LOG_MODULE_REGISTER(diagnostics, LOG_LEVEL_INF);
 
@@ -14,12 +13,10 @@ static const struct {
   int (*run)(void);
 } checks[] = {
     {"led", status_led_diagnostics},
-    {"geolocation", wifi_geolocation_diagnostics},
 };
 
 static const char *const only[] = {
     "led",
-    "geolocation",
 };
 
 static bool selected(const char *name) {

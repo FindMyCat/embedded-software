@@ -4,26 +4,27 @@ config LORA_THREAD_STACK_SIZE
 	int "Thread stack size"
 	default 8192
 
-config LORA_MESSAGE_QUEUE_SIZE
-	int "Message queue size"
-	default 4
-
 config LORA_ABSENCE_S
 	int "Seconds without a frame from the collar before it counts as gone"
 	default 900
-
 
 config LORA_LOCATE_WINDOW_S
 	int "Seconds to keep pinging after the locate button is pressed"
 	default 180
 
 config LORA_BEACON_INTERVAL_S
-	int "Seconds between LORA beacons"
-	default 30
+	int "Seconds between LoRa beacons"
+	default 1
+	help
+	  Only used with LORA_REPLY_TO_HEARTBEAT off.
 
 config LORA_PING_PREAMBLE
 	int "Ping preamble length in symbols"
-	default 512
+	default 384
+	help
+	  Spans two of the collar's 185 ms sniffs whatever the phase; 192
+	  cleared one by only ~12 ms. Must match the collar's
+	  CONFIG_LORA_LINK_PEER_PREAMBLE.
 
 config LORA_REPLY_TO_HEARTBEAT
 	bool "Transmit only in reply to the collar's heartbeat"
@@ -36,14 +37,17 @@ config LORA_REPLY_TO_HEARTBEAT
 
 config LORA_PAUSE_FOR_BLE
 	bool "Stop LoRa receive while the tag is in BLE range"
-	default y
 	help
-	  Off keeps the receiver on regardless, for testing the LoRa link with
-	  the collar nearby.
+	  Off keeps the receiver on regardless, so the collar's heartbeats are
+	  still answered when it is in BLE range.
 
 config LORA_TX_POWER_DBM
 	int "P2P transmit power in dBm (5-22)"
-	default 5
+	range 5 22
+	default 22
+	help
+	  Max: the collar hears us by CAD, which needs more margin than our
+	  full receive.
 
 module = LORA
 module-str = LoRa

@@ -157,10 +157,6 @@ int rak3172_init(void) {
   return 0;
 }
 
-int rak3172_send_message(const char *msg) {
-  return rak3172_send_payload((const uint8_t *)msg, strlen(msg));
-}
-
 int rak3172_send_payload(const uint8_t *payload, size_t len) {
   char cmd[272] = "AT+PSEND=";
   char *hex = cmd + strlen("AT+PSEND=");
@@ -250,15 +246,6 @@ int rak3172_send_payload(const uint8_t *payload, size_t len) {
   }
 
   return 0;
-}
-
-void rak3172_suspend(void) { uart_irq_rx_disable(uart_dev); }
-
-void rak3172_resume(void) { uart_irq_rx_enable(uart_dev); }
-
-void rak3172_print_version_info(void) {
-  rak3172_send_at("AT+VER=?");
-  rak3172_read_response(3000);
 }
 
 void rak3172_set_preamble(uint16_t symbols) {

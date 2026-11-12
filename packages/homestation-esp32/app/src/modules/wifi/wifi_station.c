@@ -1,4 +1,5 @@
 #include "wifi_station.h"
+#include "provisioning.h"
 
 #include <errno.h>
 #include <string.h>
@@ -23,7 +24,7 @@ static void wifi_event_handler(struct net_mgmt_event_callback *cb,
     if (status->status) {
       LOG_ERR("Error: association failed (%d)", status->status);
     } else {
-      LOG_INF("Associated with %s", CONFIG_WIFI_STATION_SSID);
+      LOG_INF("Associated with %s", provisioning_get(PROVISIONING_WIFI_SSID));
       /* A reconnect can keep the lease it had, in which case no address
        * event follows; the station is usable as soon as one is bound. */
       if (net_if_ipv4_get_global_addr(iface, NET_ADDR_PREFERRED) != NULL) {
@@ -31,7 +32,7 @@ static void wifi_event_handler(struct net_mgmt_event_callback *cb,
       }
     }
   } else if (event == NET_EVENT_WIFI_DISCONNECT_RESULT) {
-    LOG_WRN("Disconnected from %s", CONFIG_WIFI_STATION_SSID);
+    LOG_WRN("Disconnected from %s", provisioning_get(PROVISIONING_WIFI_SSID));
     ready = false;
   }
 }
@@ -57,8 +58,8 @@ int wifi_station_connect(void) {
     return -ENODEV;
   }
 
-  if (strlen(CONFIG_WIFI_STATION_SSID) == 0) {
-    LOG_ERR("Error: CONFIG_WIFI_STATION_SSID is empty, set it in local.conf");
+  if (strlen(provisioning_get(PROVISIONING_WIFI_SSID)) == 0) {
+    LOG_ERR("Error: no WiFi network provisioned");
     return -EINVAL;
   }
 
@@ -79,18 +80,18 @@ int wifi_station_connect(void) {
   net_mgmt_add_event_callback(&ipv4_cb);
 
   struct wifi_connect_req_params params = {
-      .ssid = (const uint8_t *)CONFIG_WIFI_STATION_SSID,
-      .ssid_length = strlen(CONFIG_WIFI_STATION_SSID),
-      .psk = (const uint8_t *)CONFIG_WIFI_STATION_PSK,
-      .psk_length = strlen(CONFIG_WIFI_STATION_PSK),
-      .security = strlen(CONFIG_WIFI_STATION_PSK) ? WIFI_SECURITY_TYPE_PSK
+      .ssid = (const uint8_t *)provisioning_get(PROVISIONING_WIFI_SSID),
+      .ssid_length = strlen(provisioning_get(PROVISIONING_WIFI_SSID)),
+      .psk = (const uint8_t *)provisioning_get(PROVISIONING_WIFI_PASSWORD),
+      .psk_length = strlen(provisioning_get(PROVISIONING_WIFI_PASSWORD)),
+      .security = strlen(provisioning_get(PROVISIONING_WIFI_PASSWORD)) ? WIFI_SECURITY_TYPE_PSK
                                                   : WIFI_SECURITY_TYPE_NONE,
       .channel = WIFI_CHANNEL_ANY,
       .band = WIFI_FREQ_BAND_UNKNOWN,
       .mfp = WIFI_MFP_OPTIONAL,
   };
 
-  LOG_INF("Connecting to %s", CONFIG_WIFI_STATION_SSID);
+  LOG_INF("Connecting to %s", provisioning_get(PROVISIONING_WIFI_SSID));
 
   err = net_mgmt(NET_REQUEST_WIFI_CONNECT, iface, &params, sizeof(params));
 

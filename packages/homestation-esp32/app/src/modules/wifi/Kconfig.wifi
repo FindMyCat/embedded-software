@@ -15,19 +15,6 @@ config WIFI_STATION_CONNECT_TIMEOUT_S
 	int "Seconds to wait for an IPv4 address"
 	default 60
 
-
-config WIFI_GEOLOCATION_API_KEY
-	string "Google Geolocation API key"
-	default ""
-
-config WIFI_GEOLOCATION_HOST
-	string "Geolocation API host"
-	default "www.googleapis.com"
-
-config WIFI_GEOLOCATION_TIMEOUT_S
-	int "Request timeout in seconds"
-	default 20
-
 module = WIFI
 module-str = WiFi
 source "subsys/logging/Kconfig.template.log_config"

@@ -1,29 +1,24 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/util.h>
-#include <zephyr/zbus/zbus.h>
 
 #include "ble_scanner.h"
+#include "error.h"
 #include "lora.h"
 #include "lora_frame.h"
-#include "message_channel.h"
 #if defined(CONFIG_MQTT_PUBLISHER)
 #include "mqtt_publisher.h"
 #endif
+#include "provisioning.h"
 #include "rak3172.h"
 #include "status_led.h"
-#include "wifi_geolocation.h"
 #include "wifi_scan_frame.h"
-#include "wifi_station.h"
 
 LOG_MODULE_REGISTER(lora, CONFIG_LORA_LOG_LEVEL);
-
-ZBUS_SUBSCRIBER_DEFINE(lora, CONFIG_LORA_MESSAGE_QUEUE_SIZE);
 
 #define EVT_RXP2P_PREFIX "+EVT:RXP2P:"
 
@@ -79,31 +74,6 @@ static int unpack_rxp2p(char *body, uint8_t *payload, size_t payload_len) {
   return (int)len;
 }
 
-/* Blocks for as long as the request takes, so the receiver must already be
- * re-armed before this is called. */
-static void resolve_position(const struct wifi_scan_report *report) {
-  struct wifi_location location;
-
-  if (!wifi_station_is_ready()) {
-    LOG_WRN("WiFi station not ready, skipping geolocation lookup");
-    return;
-  }
-
-  if (wifi_geolocation_resolve(report, &location) == 0) {
-    LOG_INF("Position: %.6f, %.6f (accuracy %.0f m)", location.latitude,
-            location.longitude, location.accuracy_m);
-#if defined(CONFIG_MQTT_PUBLISHER)
-    /* Older collars send no battery; fall back to the last BLE advert. */
-    uint8_t battery = report->battery_percent != UINT8_MAX
-                          ? report->battery_percent
-                          : ble_scanner_tag_battery_percent();
-
-    mqtt_publisher_report_position(location.latitude, location.longitude,
-                                   location.accuracy_m, battery);
-#endif
-  }
-}
-
 static uint32_t ping_counter;
 
 /* TODO (sahas): one transmit is not enough. The collar duty-cycles its receiver
@@ -111,7 +81,8 @@ static uint32_t ping_counter;
  * the position comes back, or send inside a known sniff window. */
 static void send_ping(void) {
   uint8_t frame[LORA_FRAME_MAX_BYTES];
-  int len = lora_frame_encode_ping(frame, sizeof(frame), CONFIG_DEVICE_ID,
+  const char *device_id = provisioning_get(PROVISIONING_DEVICE_ID);
+  int len = lora_frame_encode_ping(frame, sizeof(frame), device_id,
                                    ping_counter);
 
   if (len < 0) {
@@ -119,7 +90,7 @@ static void send_ping(void) {
     return;
   }
 
-  LOG_INF("Pinging %s, counter %u", CONFIG_DEVICE_ID, ping_counter);
+  LOG_INF("Pinging %s, counter %u", device_id, ping_counter);
 
   if (rak3172_send_payload(frame, (size_t)len) == 0) {
     ping_counter++;
@@ -134,7 +105,8 @@ static uint32_t beacon_counter;
 
 static void send_beacon(void) {
   uint8_t frame[LORA_FRAME_MAX_BYTES];
-  int len = lora_frame_encode_beacon(frame, sizeof(frame), CONFIG_DEVICE_ID,
+  int len = lora_frame_encode_beacon(frame, sizeof(frame),
+                                     provisioning_get(PROVISIONING_DEVICE_ID),
                                      beacon_counter);
 
   if (len < 0) {
@@ -151,9 +123,6 @@ static void send_beacon(void) {
   rak3172_start_rx();
 }
 
-static const struct gpio_dt_spec locate_button =
-    GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw0), gpios, {0});
-static struct gpio_callback locate_button_cb;
 static atomic_t locate_requested;
 static int64_t locate_until;
 
@@ -209,34 +178,7 @@ static void reply_to_heartbeat(void) {
   }
 }
 
-static void locate_button_isr(const struct device *port,
-                              struct gpio_callback *cb, gpio_port_pins_t pins) {
-  ARG_UNUSED(port);
-  ARG_UNUSED(cb);
-  ARG_UNUSED(pins);
-
-  atomic_set(&locate_requested, 1);
-}
-
-static void locate_button_init(void) {
-  if (!gpio_is_ready_dt(&locate_button)) {
-    LOG_WRN("No locate button wired; pings can only be triggered in code");
-    return;
-  }
-
-  if (gpio_pin_configure_dt(&locate_button, GPIO_INPUT) != 0 ||
-      gpio_pin_interrupt_configure_dt(&locate_button,
-                                      GPIO_INT_EDGE_TO_ACTIVE) != 0) {
-    LOG_ERR("Error: configuring the locate button failed");
-    return;
-  }
-
-  gpio_init_callback(&locate_button_cb, locate_button_isr,
-                     BIT(locate_button.pin));
-  gpio_add_callback(locate_button.port, &locate_button_cb);
-
-  LOG_INF("Locate button ready");
-}
+void lora_request_locate(void) { atomic_set(&locate_requested, 1); }
 
 static void locate_tick(void) {
   if (atomic_cas(&locate_requested, 1, 0)) {
@@ -362,14 +304,18 @@ static void handle_payload(const uint8_t *payload, size_t len) {
 
   /* The scan is the collar's answer to a ping, so it closes the locate even
    * if the ack was lost; otherwise we would keep pinging for an answer we
-   * already hold. Closed before the lookup, which blocks. */
+   * already hold. */
   if (locate_state != LOCATE_IDLE) {
     LOG_INF("WiFi scan received, locate window closed");
     mark_located();
     locate_state = LOCATE_IDLE;
   }
 
-  resolve_position(&report);
+#if defined(CONFIG_MQTT_PUBLISHER)
+  /* Forwarded as received; the server resolves it to a position, the same as
+   * a scan the collar sends over LTE. */
+  mqtt_publisher_report_wifi_scan(payload, len);
+#endif
 }
 
 static void lora_task(void) {
@@ -377,13 +323,11 @@ static void lora_task(void) {
 
   if (err) {
     LOG_ERR("Error: rak3172_init failed (%d)", err);
-    SEND_FATAL_ERROR();
+    fatal_error();
     return;
   }
 
   rak3172_set_preamble(CONFIG_LORA_PING_PREAMBLE);
-
-  locate_button_init();
 
   int64_t next_beacon = k_uptime_get();
 

@@ -5,6 +5,10 @@
 
 void lora_start(void);
 
+/* Pings the collar over LoRa until it answers with a position. Nothing calls
+ * this yet; it is the hook for a locate command from the server. */
+void lora_request_locate(void);
+
 /* True while the collar has been heard within CONFIG_LORA_ABSENCE_S. */
 bool lora_collar_in_range(void);
 

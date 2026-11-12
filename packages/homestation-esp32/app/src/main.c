@@ -2,6 +2,7 @@
 #include <zephyr/logging/log.h>
 
 #include "lora.h"
+#include "provisioning.h"
 #include "status_led.h"
 #include "wifi_station.h"
 #include "modules/diagnostics/diagnostics.h"
@@ -24,11 +25,13 @@ int main(void)
 {
 	LOG_INF("FindMyCat HomeStation ESP32 starting");
 
+	provisioning_init();
+	provisioning_button_start();
+
 	int err = wifi_station_connect();
 
 	if (err) {
-		LOG_ERR("Error: WiFi station connect failed (%d), geolocation "
-			"lookups will be skipped", err);
+		LOG_ERR("Error: WiFi station connect failed (%d)", err);
 	}
 
 	diagnostics_run();
