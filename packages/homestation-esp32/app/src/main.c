@@ -2,10 +2,10 @@
 #include <zephyr/logging/log.h>
 
 #include "lora.h"
+#include "modules/diagnostics/diagnostics.h"
 #include "provisioning.h"
 #include "status_led.h"
 #include "wifi_station.h"
-#include "modules/diagnostics/diagnostics.h"
 #if defined(CONFIG_BLE_SCANNER)
 #include "ble_scanner.h"
 #endif
@@ -21,44 +21,44 @@
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
-int main(void)
-{
-	LOG_INF("FindMyCat HomeStation ESP32 starting");
+int main(void) {
+  LOG_INF("FindMyCat HomeStation ESP32 starting");
 
-	provisioning_init();
-	provisioning_button_start();
+  provisioning_init();
+  provisioning_button_start();
 
-	int err = wifi_station_connect();
+  int err = wifi_station_connect();
 
-	if (err) {
-		LOG_ERR("Error: WiFi station connect failed (%d)", err);
-	}
+  if (err) {
+    LOG_ERR("Error: WiFi station connect failed (%d)", err);
+  }
 
-	diagnostics_run();
+  diagnostics_run();
 
 #if defined(CONFIG_ESP32_SW_COEXIST_ENABLE)
-	// Prefering BT for COEX as the collar only advertises so often and packets are being missed due to wifi taking up more Radio time.
-	coex_preference_set(COEX_PREFER_BT);
-	LOG_INF("Radio arbitration set to prefer Bluetooth");
+  // Prefering BT for COEX as the collar only advertises so often and packets
+  // are being missed due to wifi taking up more Radio time.
+  coex_preference_set(COEX_PREFER_BT);
+  LOG_INF("Radio arbitration set to prefer Bluetooth");
 #endif
 
 #if defined(CONFIG_BLE_SCANNER_RUN)
-	ble_scanner_start();
+  ble_scanner_start();
 #endif
-	/* After the scanner, which is what calls bt_enable(). */
+  /* After the scanner, which is what calls bt_enable(). */
 #if defined(CONFIG_BLE_BEACON)
-	ble_beacon_start();
+  ble_beacon_start();
 #endif
 
 #if defined(CONFIG_MQTT_PUBLISHER)
-	mqtt_publisher_start();
+  mqtt_publisher_start();
 #endif
 
-	status_led_start();
+  status_led_start();
 
-	lora_start();
+  lora_start();
 
-	LOG_INF("All modules started");
+  LOG_INF("All modules started");
 
-	return 0;
+  return 0;
 }
