@@ -31,7 +31,6 @@ endif
 build:
 	$(WEST) build -b $(BOARD) app $(BUILD_ARGS)
 
-# 921600 loses sync on this USB-serial chip
 flash:
 	$(WEST) flash --esp-baud-rate 115200
 
